@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "finance-agent-backend"
+version = "0.1.0"
+description = "Python backend for finance-agent"
+authors = ["Python C <dev@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+nanobot = "^0.1.5.post2"
+pymupdf = "^1.24.0"
+openpyxl = "^3.1.0"
+rapidfuzz = "^3.9.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-cov = "^4.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
