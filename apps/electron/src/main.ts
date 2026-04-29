@@ -1,20 +1,17 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 
+// 在Electron CommonJS环境中，使用全局的__dirname
+declare const __dirname: string;
+
 let mainWindow: BrowserWindow | null = null;
 
-function getDirname(): string {
-  // 使用 __dirname 的兼容写法（tsconfig 使用 CommonJS 时）
-  return path.dirname(require.main?.filename || '');
-}
-
 function createWindow() {
-  const __dirname = getDirname();
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.resolve(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -24,7 +21,10 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/dist/index.html'));
+    // __dirname = apps/electron/dist/ (编译后的目录)
+    // 路径: dist/ -> .. -> electron/ -> .. -> 项目根目录 -> renderer/dist/
+    // 即: ../../renderer/dist/
+    mainWindow.loadFile(path.resolve(__dirname, '../../renderer/dist/index.html'));
   }
 }
 

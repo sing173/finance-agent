@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npx electron *)",
+      "WebSearch",
+      "WebFetch(domain:www.electronjs.org)"
+    ]
+  }
+}

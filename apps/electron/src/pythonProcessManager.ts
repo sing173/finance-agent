@@ -1,22 +1,29 @@
-import { spawn, ChildProcess } from 'child_process';
+import { spawn } from 'child_process';
 import * as path from 'path';
-import * as fs from 'fs';
 
-const PYTHON_SCRIPT = path.join(__dirname, '..', 'python', 'src', 'bridge.py');
+// Path to Python bridge: from apps/electron/dist/ -> ../../python/src/...
+const PYTHON_SCRIPT = path.join(__dirname, '..', '..', 'python', 'src', 'finance_agent_backend', 'bridge.py');
 
-class PythonProcessManager {
-  private process: ChildProcess | null = null;
+// Use absolute path with forward slashes for Windows
+const PYTHON_CMD = process.platform === 'win32'
+  ? 'D:/Python312/python.exe'
+  : 'python3';
+
+export class PythonProcessManager {
+  private process: ReturnType<typeof spawn> | null = null;
   private pendingRequests: Map<number, { resolve: Function; reject: Function }> = new Map();
   private nextId = 1;
 
   start() {
     if (this.process) return;
 
-    this.process = spawn('python3', [PYTHON_SCRIPT], {
-      cwd: path.join(__dirname, '..', 'python'),
+    console.log(`[Python] Starting with command: ${PYTHON_CMD} ${PYTHON_SCRIPT}`);
+
+    this.process = spawn(PYTHON_CMD, [PYTHON_SCRIPT], {
+      cwd: path.join(__dirname, '..', '..', 'python'),
     });
 
-    this.process.stdout?.on('data', (data) => {
+    this.process.stdout?.on('data', (data: Buffer) => {
       const lines = data.toString().split('\n').filter(Boolean);
       for (const line of lines) {
         try {
@@ -36,13 +43,17 @@ class PythonProcessManager {
       }
     });
 
-    this.process.stderr?.on('data', (data) => {
-      console.error(`[Python stderr] ${data}`);
+    this.process.stderr?.on('data', (data: Buffer) => {
+      console.error(`[Python stderr] ${data.toString().trim()}`);
     });
 
-    this.process.on('exit', (code) => {
+    this.process.on('exit', (code: number | null) => {
       console.log(`[Python] exited with code ${code}`);
       this.process = null;
+    });
+
+    this.process.on('error', (err: Error) => {
+      console.error(`[Python] spawn error:`, err.message);
     });
   }
 

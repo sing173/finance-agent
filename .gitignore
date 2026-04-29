@@ -42,6 +42,18 @@ Thumbs.db
 .coverage
 htmlcov/
 .tox/
+coverage/
+.nyc_output/
+
+# Electron test artifacts
+apps/electron/tests/output/
+apps/electron/tests/.tmp/
+*.test.log
+
+# Test fixtures (sensitive/generated data)
+apps/electron/tests/fixtures/**/*.pdf
+apps/electron/tests/fixtures/**/*.xlsx
+!apps/electron/tests/fixtures/README.md
 
 # PyInstaller
 *.manifest

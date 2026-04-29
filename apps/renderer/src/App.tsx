@@ -19,16 +19,19 @@ declare global {
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>('检查中...');
   const [loading, setLoading] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
 
   const testConnection = async () => {
     setLoading(true);
     try {
       const result = await window.electronAPI.health();
       setBackendStatus(`正常 (v${result.version})`);
+      setTestResult(result);
       message.success('后端连接成功！');
     } catch (error: any) {
       setBackendStatus(`离线: ${error.message}`);
       message.error('后端连接失败');
+      setTestResult(null);
     } finally {
       setLoading(false);
     }
@@ -51,6 +54,13 @@ function App() {
             <Button type="primary" loading={loading} onClick={testConnection}>
               测试连接
             </Button>
+            {testResult && (
+              <div style={{ marginTop: 16, padding: 12, background: '#f5f5f5', borderRadius: 4 }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  返回数据：{JSON.stringify(testResult, null, 2)}
+                </Text>
+              </div>
+            )}
           </Card>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
