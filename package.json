@@ -1,0 +1,6 @@
+{
+  "name": "finance-agent",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {}
+}
