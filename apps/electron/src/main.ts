@@ -28,13 +28,11 @@ function createWindow() {
   }
 }
 
-// 启动 Python 后端
-pythonProcess.start();
-
 // Electron 就绪后初始化
 app.whenReady().then(() => {
-  setupIpcHandlers();  // 注册 IPC 处理器
-  createWindow();      // 创建窗口
+  pythonProcess.start();  // 启动 Python 后端
+  setupIpcHandlers();    // 注册 IPC 处理器
+  createWindow();        // 创建窗口
 });
 
 app.on('window-all-closed', () => {
