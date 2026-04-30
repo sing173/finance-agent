@@ -1,10 +1,13 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
-import * as path from 'path';
+const electron = require('electron');
+const path = require('path');
 
-// 在Electron CommonJS环境中，使用全局的__dirname
-declare const __dirname: string;
+console.log('[Main] electron type:', typeof electron);
+console.log('[Main] electron isArray:', Array.isArray(electron));
+console.log('[Main] electron value:', typeof electron === 'object' ? Object.keys(electron) : electron);
 
-let mainWindow: BrowserWindow | null = null;
+const { app, BrowserWindow } = electron;
+
+let mainWindow = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -17,24 +20,26 @@ function createWindow() {
     },
   });
 
-  if (process.env.NODE_ENV === 'development') {
+  // 开发模式判断：优先使用 defaultApp（Electron 开发标志），其次检查 NODE_ENV
+  const isDev = (process as any).defaultApp || process.env.NODE_ENV === 'development';
+  if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    // __dirname = apps/electron/dist/ (编译后的目录)
-    // 路径: dist/ -> .. -> electron/ -> .. -> 项目根目录 -> renderer/dist/
-    // 即: ../../renderer/dist/
-    mainWindow.loadFile(path.resolve(__dirname, '../../renderer/dist/index.html'));
+    // 打包模式：resources/renderer/dist/index.html
+    const rendererPath = path.join(process.resourcesPath || __dirname, 'renderer', 'dist', 'index.html');
+    mainWindow.loadFile(rendererPath);
   }
 }
 
-import { registerHandlers } from './ipc';
-import { pythonProcess } from './pythonProcessManager';
-
-registerHandlers();
+// 启动 Python 后端
 pythonProcess.start();
 
-app.whenReady().then(createWindow);
+// Electron 就绪后初始化
+app.whenReady().then(() => {
+  setupIpcHandlers();  // 注册 IPC 处理器
+  createWindow();      // 创建窗口
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

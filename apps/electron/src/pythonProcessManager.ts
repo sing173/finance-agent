@@ -1,13 +1,8 @@
 import { spawn } from 'child_process';
-import * as path from 'path';
+import { getPythonSpawnConfig } from './pathUtils';
 
-// Path to Python bridge: from apps/electron/dist/ -> ../../python/src/...
-const PYTHON_SCRIPT = path.join(__dirname, '..', '..', 'python', 'src', 'finance_agent_backend', 'bridge.py');
-
-// Use absolute path with forward slashes for Windows
-const PYTHON_CMD = process.platform === 'win32'
-  ? 'D:/Python312/python.exe'
-  : 'python3';
+// 获取Python启动配置
+const pythonConfig = getPythonSpawnConfig();
 
 export class PythonProcessManager {
   private process: ReturnType<typeof spawn> | null = null;
@@ -17,10 +12,10 @@ export class PythonProcessManager {
   start() {
     if (this.process) return;
 
-    console.log(`[Python] Starting with command: ${PYTHON_CMD} ${PYTHON_SCRIPT}`);
+    console.log(`[Python] Starting: ${pythonConfig.cmd} ${pythonConfig.args.join(' ')}`);
 
-    this.process = spawn(PYTHON_CMD, [PYTHON_SCRIPT], {
-      cwd: path.join(__dirname, '..', '..', 'python'),
+    this.process = spawn(pythonConfig.cmd, pythonConfig.args, {
+      cwd: pythonConfig.cwd,
     });
 
     this.process.stdout?.on('data', (data: Buffer) => {
