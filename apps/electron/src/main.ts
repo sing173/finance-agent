@@ -16,8 +16,8 @@ function createWindow() {
     },
   });
 
-  // 开发模式判断：优先使用 defaultApp（Electron 开发标志），其次检查 NODE_ENV
-  const isDev = (process as any).defaultApp || process.env.NODE_ENV === 'development';
+  // 开发模式：Electron 启动时 process.defaultApp 为 true
+  const isDev = (process as any).defaultApp;
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
