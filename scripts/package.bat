@@ -1,5 +1,5 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 
 REM Finance Assistant Package Script (Windows)
 REM Usage: package.bat [win|mac|linux]
@@ -102,7 +102,7 @@ call npm run build
 
 REM Package by platform
 if "%PLATFORM%"=="win" (
-  echo Packaging for Windows (NSIS)...
+  echo Packaging for Windows ^(NSIS^)...
   call npm run package -- --win
 ) else if "%PLATFORM%"=="mac" (
   echo Packaging for macOS...
@@ -122,6 +122,6 @@ echo ==========================================
 echo   [DONE] Packaging completed!
 echo ==========================================
 echo Output files:
-dir /b release\ 2>nul || echo  release\ directory not found
+if exist release\ dir /b release\ 2>nul || echo  release\ directory not found
 
 endlocal
