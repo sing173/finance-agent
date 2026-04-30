@@ -24,7 +24,6 @@
       "output": "../../release"
     },
     "asar": false,
-    "sign": false,
     "files": [
       "dist/**/*.js",
       "node_modules/**/*",
@@ -48,8 +47,7 @@
             "x64"
           ]
         }
-      ],
-      "sign": false
+      ]
     },
     "nsis": {
       "oneClick": false,
