@@ -1,9 +1,6 @@
 import { spawn } from 'child_process';
 import { getPythonSpawnConfig } from './pathUtils';
 
-// 获取Python启动配置
-const pythonConfig = getPythonSpawnConfig();
-
 export class PythonProcessManager {
   private process: ReturnType<typeof spawn> | null = null;
   private pendingRequests: Map<number, { resolve: Function; reject: Function }> = new Map();
@@ -12,6 +9,7 @@ export class PythonProcessManager {
   start() {
     if (this.process) return;
 
+    const pythonConfig = getPythonSpawnConfig();
     console.log(`[Python] Starting: ${pythonConfig.cmd} ${pythonConfig.args.join(' ')}`);
 
     this.process = spawn(pythonConfig.cmd, pythonConfig.args, {

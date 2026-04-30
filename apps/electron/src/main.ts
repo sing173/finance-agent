@@ -1,11 +1,7 @@
-const electron = require('electron');
-const path = require('path');
-
-console.log('[Main] electron type:', typeof electron);
-console.log('[Main] electron isArray:', Array.isArray(electron));
-console.log('[Main] electron value:', typeof electron === 'object' ? Object.keys(electron) : electron);
-
-const { app, BrowserWindow } = electron;
+import { app, BrowserWindow } from 'electron';
+import * as path from 'path';
+import { pythonProcess } from './pythonProcessManager';
+import { setupIpcHandlers } from './ipc';
 
 let mainWindow = null;
 

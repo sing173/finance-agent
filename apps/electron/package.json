@@ -33,8 +33,8 @@
     ],
     "extraResources": [
       {
-        "from": "../../apps/python/dist/bridge.exe",
-        "to": "python/bridge.exe"
+        "from": "../../apps/python/dist",
+        "to": "python"
       },
       {
         "from": "../../apps/renderer/dist",
