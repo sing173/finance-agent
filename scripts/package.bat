@@ -98,7 +98,7 @@ echo [5/5] Packaging Electron application...
 cd apps\electron
 
 REM Compile TypeScript
-call npm run build
+npm run build
 
 REM Package by platform
 if "%PLATFORM%"=="win" (
@@ -122,6 +122,10 @@ echo ==========================================
 echo   [DONE] Packaging completed!
 echo ==========================================
 echo Output files:
-if exist release\ dir /b release\ 2>nul || echo  release\ directory not found
+if exist release\ (
+  dir /b release\
+) else (
+  echo release\ directory not found
+)
 
 endlocal

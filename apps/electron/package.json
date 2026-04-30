@@ -31,11 +31,11 @@
     ],
     "extraResources": [
       {
-        "from": "../../apps/python/dist",
+        "from": "apps/python/dist",
         "to": "python"
       },
       {
-        "from": "../../apps/renderer/dist",
+        "from": "apps/renderer/dist",
         "to": "renderer"
       }
     ],
