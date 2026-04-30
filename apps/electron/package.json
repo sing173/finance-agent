@@ -4,9 +4,9 @@
   "description": "财务智能助手 - 智能银行对账桌面应用",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
+    "dev": "cross-env NODE_ENV=development npm run build && electron .",
     "dev:renderer": "cross-env NODE_ENV=development cd ../renderer && npm run dev",
-    "dev:electron": "cross-env NODE_ENV=development tsc && electron .",
+    "dev:electron": "cross-env NODE_ENV=development npm run build && electron .",
     "build": "tsc",
     "package": "electron-builder",
     "package:python": "cd ../python && pyinstaller bridge.spec --onefile --clean",
