@@ -1,11 +1,16 @@
 {
   "name": "finance-agent",
   "private": true,
-  "workspaces": ["apps/*"],
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "dev": "concurrently \"npm run dev -w apps/renderer\" \"npm run dev -w apps/electron\"",
     "build": "npm run build -w apps/renderer && npm run build -w apps/electron",
     "package:python": "cd apps/python && pyinstaller bridge.spec --clean",
     "package": "npm run package:python && npm run package -w apps/electron"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
