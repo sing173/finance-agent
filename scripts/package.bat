@@ -1,79 +1,79 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM Finance Assistant 一键打包脚本 (Windows)
-REM 用法: package.bat [win|mac|linux]
+REM Finance Assistant Package Script (Windows)
+REM Usage: package.bat [win|mac|linux]
 
 set PLATFORM=%1
 if "%PLATFORM%"=="" set PLATFORM=win
 
 echo ==========================================
-echo   Finance Assistant 打包脚本 (Windows)
+echo   Finance Assistant Package Script (Windows)
 echo ==========================================
-echo 目标平台: %PLATFORM%
+echo Target platform: %PLATFORM%
 echo.
 
-REM 进入项目根目录
+REM Change to project root
 cd /d "%~dp0\.."
 
-REM 检查依赖
-echo [1/5] 检查依赖...
+REM Check dependencies
+echo [1/5] Checking dependencies...
 where node >nul 2>&1
 if errorlevel 1 (
-  echo ❌ Node.js 未安装，请先安装 Node.js ^>= 18
+  echo [X] Node.js not found, please install Node.js ^>= 18
   exit /b 1
 )
 
 where python >nul 2>&1
 if errorlevel 1 (
-  echo ❌ Python3 未安装，请先安装 Python ^>= 3.11
+  echo [X] Python not found, please install Python ^>= 3.11
   exit /b 1
 )
 
-echo ✅ Node.js:
+echo [OK] Node.js:
 node --version
-echo ✅ Python:
+echo [OK] Python:
 python --version
 echo.
 
-REM 安装 npm 依赖
-echo [2/5] 安装 npm 依赖...
+REM Install npm dependencies
+echo [2/5] Installing npm dependencies...
 call npm install
 if errorlevel 1 (
-  echo ❌ npm 依赖安装失败
+  echo [X] npm install failed
   exit /b 1
 )
-echo ✅ npm 依赖安装完成
+echo [OK] npm dependencies installed
 echo.
 
-REM 打包 Python 后端
-echo [3/5] 打包 Python 后端...
+REM Package Python backend
+echo [3/5] Packaging Python backend...
 cd apps\python
 
 if not exist ".venv\" (
-  echo 创建 Python 虚拟环境...
+  echo Creating Python virtual environment...
   python -m venv .venv
 )
 
-REM 激活虚拟环境
+REM Activate virtual environment
 call .venv\Scripts\activate.bat
 
-REM 安装 Python 依赖
+REM Install Python dependencies
 pip install -e ".[dev]" -q
 pip install pyinstaller -q
 
-REM 清理旧构建
+REM Clean old builds
 if exist "build" rmdir /s /q build
 if exist "dist" rmdir /s /q dist
 
-REM 执行打包
-echo 执行 PyInstaller 打包...
+REM Run PyInstaller
+echo Running PyInstaller...
 pyinstaller bridge.spec --clean --noconfirm
 
 if exist "dist\bridge.exe" (
-  echo ✅ Python 后端打包完成
+  echo [OK] Python backend packaged
 ) else (
-  echo ❌ Python 打包失败
+  echo [X] Python packaging failed
   exit /b 1
 )
 
@@ -81,37 +81,37 @@ cd ..\..
 
 echo.
 
-REM 构建 Renderer
-echo [4/5] 构建 Renderer...
+REM Build Renderer
+echo [4/5] Building Renderer...
 cd apps\renderer
 call npm run build
 if errorlevel 1 (
-  echo ❌ Renderer 构建失败
+  echo [X] Renderer build failed
   exit /b 1
 )
 cd ..\..
-echo ✅ Renderer 构建完成
+echo [OK] Renderer built
 echo.
 
-REM 打包 Electron
-echo [5/5] 打包 Electron 应用...
+REM Package Electron
+echo [5/5] Packaging Electron application...
 cd apps\electron
 
-REM 编译 TypeScript
+REM Compile TypeScript
 call npm run build
 
-REM 根据平台打包
+REM Package by platform
 if "%PLATFORM%"=="win" (
-  echo 打包 Windows exe...
+  echo Packaging for Windows (NSIS)...
   call npm run package -- --win
 ) else if "%PLATFORM%"=="mac" (
-  echo 打包 macOS dmg...
+  echo Packaging for macOS...
   call npm run package -- --mac
 ) else if "%PLATFORM%"=="linux" (
-  echo 打包 Linux...
+  echo Packaging for Linux...
   call npm run package -- --linux
 ) else (
-  echo 未知平台: %PLATFORM%，执行默认打包...
+  echo Unknown platform: %PLATFORM%, using default...
   call npm run package
 )
 
@@ -119,9 +119,9 @@ cd ..\..
 
 echo.
 echo ==========================================
-echo   🎉 打包完成！
+echo   [DONE] Packaging completed!
 echo ==========================================
-echo 输出文件:
-dir /b release\ 2>nul || echo  release\ 目录不存在
+echo Output files:
+dir /b release\ 2>nul || echo  release\ directory not found
 
 endlocal
