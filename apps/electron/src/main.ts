@@ -22,8 +22,8 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    // 打包模式：resources/renderer/dist/index.html
-    const rendererPath = path.join(process.resourcesPath || __dirname, 'renderer', 'dist', 'index.html');
+    // 打包模式：resources/renderer/index.html (extraResources 已拷贝 dist/ 内容)
+    const rendererPath = path.join(process.resourcesPath || __dirname, 'renderer', 'index.html');
     mainWindow.loadFile(rendererPath);
   }
 }
