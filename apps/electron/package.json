@@ -24,6 +24,7 @@
       "output": "../../release"
     },
     "asar": false,
+    "sign": false,
     "files": [
       "dist/**/*.js",
       "node_modules/**/*",
@@ -31,11 +32,11 @@
     ],
     "extraResources": [
       {
-        "from": "apps/python/dist",
+        "from": "../python/dist",
         "to": "python"
       },
       {
-        "from": "apps/renderer/dist",
+        "from": "../renderer/dist",
         "to": "renderer"
       }
     ],

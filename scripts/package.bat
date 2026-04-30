@@ -95,27 +95,26 @@ echo.
 
 REM Package Electron
 echo [5/5] Packaging Electron application...
+
+REM Compile TypeScript (must run from apps/electron)
 cd apps\electron
+call npm run build
+cd ..\..
 
-REM Compile TypeScript
-npm run build
-
-REM Package by platform
+REM Package from project root so extraResources paths resolve correctly
 if "%PLATFORM%"=="win" (
   echo Packaging for Windows ^(NSIS^)...
-  call npm run package -- --win
+  call npm run package -w apps\electron -- --win
 ) else if "%PLATFORM%"=="mac" (
   echo Packaging for macOS...
-  call npm run package -- --mac
+  call npm run package -w apps\electron -- --mac
 ) else if "%PLATFORM%"=="linux" (
   echo Packaging for Linux...
-  call npm run package -- --linux
+  call npm run package -w apps\electron -- --linux
 ) else (
   echo Unknown platform: %PLATFORM%, using default...
-  call npm run package
+  call npm run package -w apps\electron
 )
-
-cd ..\..
 
 echo.
 echo ==========================================
