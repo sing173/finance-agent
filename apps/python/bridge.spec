@@ -1,7 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-block_cipher = None
-
 a = Analysis(
     ['src/finance_agent_backend/bridge.py'],
     pathex=[],
@@ -15,7 +13,7 @@ a = Analysis(
     noarchive=False,
 )
 
-pyz = PYZ(a.tundra)
+pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,
@@ -30,7 +28,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,  # 保留控制台用于 stdio JSON-RPC 通信
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
