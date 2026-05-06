@@ -102,10 +102,10 @@ REM Ensure test certificate exists (for Windows code signing)
 echo Checking code signing certificate...
 if not exist "cert\finance-assistant-test.pfx" (
   echo Test certificate not found, generating...
-  powershell -ExecutionPolicy Bypass -File "..\..\scripts\generate-test-cert.ps1"
+  powershell -ExecutionPolicy Bypass -File "scripts\generate-test-cert.ps1"
   if errorlevel 1 (
     echo [X] Certificate generation failed, please run manually:
-    echo     powershell -ExecutionPolicy Bypass -File scripts\generate-test-cert.ps1
+    echo     powershell -ExecutionPolicy Bypass -File apps\electron\scripts\generate-test-cert.ps1
     exit /b 1
   )
   echo [OK] Test certificate generated
@@ -119,12 +119,9 @@ REM Get absolute certificate path for signing
 for /f "delims=" %%I in ('powershell -Command "(Resolve-Path 'cert\finance-assistant-test.pfx').Path"') do set CERT_ABS=%%I
 echo Certificate absolute path: %CERT_ABS%
 
-REM Package Windows NSIS from electron directory
+REM Package Windows NSIS (already in apps\electron directory)
 echo Packaging for Windows ^(NSIS^)...
-pushd ..\..
-cd apps\electron
 npx electron-builder --win --config.win.certificateFile="%CERT_ABS%"
-popd
 
 echo.
 echo ==========================================

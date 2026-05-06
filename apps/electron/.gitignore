@@ -8,6 +8,9 @@ out/
 # Release packages (relative to apps/electron/)
 ../../release/
 
+# Code signing certificates (contains private key - DO NOT COMMIT)
+cert/
+
 # Logs
 *.log
 npm-debug.log*

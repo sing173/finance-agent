@@ -129,9 +129,9 @@ package_electron() {
     CERT_PFX="$CERT_DIR/finance-assistant-test.pfx"
     if [ ! -f "$CERT_PFX" ]; then
       echo "未找到测试证书，正在生成..."
-      powershell -ExecutionPolicy Bypass -File "$PROJECT_ROOT/scripts/generate-test-cert.ps1"
+      powershell -ExecutionPolicy Bypass -File "$PROJECT_ROOT/apps/electron/scripts/generate-test-cert.ps1"
       if [ $? -ne 0 ]; then
-        echo "❌ 证书生成失败，请手动运行: powershell -ExecutionPolicy Bypass -File scripts/generate-test-cert.ps1"
+        echo "❌ 证书生成失败，请手动运行: powershell -ExecutionPolicy Bypass -File apps/electron/scripts/generate-test-cert.ps1"
         exit 1
       fi
       echo "✅ 测试证书已生成"
