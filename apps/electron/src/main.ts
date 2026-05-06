@@ -1,9 +1,9 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import { pythonProcess } from './pythonProcessManager';
 import { setupIpcHandlers } from './ipc';
 
-let mainWindow = null;
+let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -23,7 +23,7 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   } else {
     // 打包模式：resources/renderer/index.html (extraResources 已拷贝 dist/ 内容)
-    const rendererPath = path.join(process.resourcesPath || __dirname, 'renderer', 'index.html');
+    const rendererPath = path.join((process as any).resourcesPath || __dirname, 'renderer', 'index.html');
     mainWindow.loadFile(rendererPath);
   }
 }
@@ -31,14 +31,13 @@ function createWindow() {
 // Electron 就绪后初始化
 app.whenReady().then(() => {
   pythonProcess.start();  // 启动 Python 后端
+  setupIpcHandlers();    // 注册 IPC 处理器
+  createWindow();        // 创建窗口
 
-  // 转发 Python 状态事件到渲染进程
+  // 转发 Python 状态事件到渲染进程（窗口已创建后才注册，避免丢失事件）
   pythonProcess.on('status', (status: string) => {
     mainWindow?.webContents.send('python-status', status);
   });
-
-  setupIpcHandlers();    // 注册 IPC 处理器
-  createWindow();        // 创建窗口
 });
 
 app.on('window-all-closed', () => {

@@ -11,4 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onPythonStatus: (callback: (status: string) => void) => {
     ipcRenderer.on('python-status', (event, status) => callback(status));
   },
+
+  // 主动查询 Python 进程状态
+  getPythonStatus: () => ipcRenderer.invoke('get-python-status'),
 });

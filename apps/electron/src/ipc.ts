@@ -10,6 +10,10 @@ export function setupIpcHandlers() {
     return pythonProcess.call('health', {});
   });
 
+  ipcMain.handle('get-python-status', async () => {
+    return pythonProcess.isAlive() ? 'online' : 'offline';
+  });
+
   // 应用退出时清理
   app.on('before-quit', () => {
     // 可扩展：清理 IPC 处理器

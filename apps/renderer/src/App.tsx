@@ -1,5 +1,5 @@
 import { Layout, Typography, Button, Card, message } from 'antd';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
@@ -13,6 +13,7 @@ declare global {
       parsePDF: (path: string) => Promise<any>;
       chat: (msg: string, sessionKey?: string) => Promise<any>;
       onPythonStatus: (callback: (status: string) => void) => void;
+      getPythonStatus: () => Promise<string>;
     };
   }
 }
@@ -22,8 +23,18 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
 
-  // 监听 Python 进程状态变化
-  useState(() => {
+  // 监听 Python 进程状态变化 + 初始查询
+  useEffect(() => {
+    // 主动查询当前状态
+    window.electronAPI.getPythonStatus?.().then((status: string) => {
+      if (status === 'online') {
+        setBackendStatus('正常');
+      } else {
+        setBackendStatus('离线');
+      }
+    }).catch(() => setBackendStatus('离线'));
+
+    // 监听状态变化
     window.electronAPI.onPythonStatus?.((status: string) => {
       if (status === 'offline') {
         setBackendStatus('离线');
@@ -34,7 +45,7 @@ function App() {
         setBackendStatus('错误');
       }
     });
-  });
+  }, []);
 
   const testConnection = async () => {
     setLoading(true);

@@ -102,6 +102,10 @@ export class PythonProcessManager extends EventEmitter {
     this.process = null;
     this.emit('status', 'offline');
   }
+
+  isAlive(): boolean {
+    return this.process !== null && !this.process.killed;
+  }
 }
 
 export const pythonProcess = new PythonProcessManager();
