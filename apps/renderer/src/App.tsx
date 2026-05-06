@@ -1,4 +1,4 @@
-import { Layout, Typography, Button, Card, message, Progress } from 'antd';
+import { Layout, Typography, Button, Card, message } from 'antd';
 import { useState, useEffect } from 'react';
 import { FileDropZone } from './components/FileDropZone';
 
@@ -25,7 +25,6 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
   const [parseResult, setParseResult] = useState<any>(null);
-  const [parseLoading, setParseLoading] = useState(false);
 
   // 监听 Python 进程状态变化 + 初始查询
   useEffect(() => {
@@ -70,11 +69,8 @@ function App() {
   const handleFilesSelected = async (files: File[]) => {
     if (files.length === 0) return;
 
-    const file = files[0]; // 取第一个文件
-    setParseLoading(true);
+    const file = files[0];
     try {
-      // 调用 parse_pdf（注意：前端 File 对象需要通过其他方式传递路径）
-      // 这里使用 mock 数据模拟
       message.info(`已选择文件：${file.name}，准备解析...`);
       setParseResult({
         success: true,
@@ -84,8 +80,6 @@ function App() {
       });
     } catch (error: any) {
       message.error(`解析失败：${error.message}`);
-    } finally {
-      setParseLoading(false);
     }
   };
 
@@ -126,12 +120,6 @@ function App() {
             <Card title="解析结果" style={{ marginTop: 16 }}>
               <p>银行：{parseResult.bank}</p>
               <p>解析交易数：{matchedCount}</p>
-              {parseResult.confidence && (
-                <div>
-                  <Text type="secondary">置信度：</Text>
-                  <Progress percent={Math.round(parseResult.confidence * 100)} />
-                </div>
-              )}
             </Card>
           )}
 

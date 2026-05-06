@@ -1,8 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Upload, message, Button } from 'antd';
+import { message, Button } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
-
-const { Dragger } = Upload;
 
 interface FileDropZoneProps {
   onFilesSelected: (files: File[]) => void;
