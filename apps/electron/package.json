@@ -1,7 +1,7 @@
 {
   "name": "finance-agent-electron",
   "version": "0.1.0",
-  "description": "财务智能助手 - 智能银行对账桌面应用",
+  "description": "财务智能助手 - 银行对账桌面应用",
   "main": "dist/main.js",
   "scripts": {
     "dev": "npm run build && electron .",
