@@ -33,6 +33,9 @@ dist_electron/
 *.swp
 *.swo
 
+# Claude Code (local agent config)
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db
