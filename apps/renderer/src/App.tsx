@@ -12,6 +12,7 @@ declare global {
       reconcile: (params: any) => Promise<any>;
       parsePDF: (path: string) => Promise<any>;
       chat: (msg: string, sessionKey?: string) => Promise<any>;
+      onPythonStatus: (callback: (status: string) => void) => void;
     };
   }
 }
@@ -20,6 +21,20 @@ function App() {
   const [backendStatus, setBackendStatus] = useState<string>('检查中...');
   const [loading, setLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
+
+  // 监听 Python 进程状态变化
+  useState(() => {
+    window.electronAPI.onPythonStatus?.((status: string) => {
+      if (status === 'offline') {
+        setBackendStatus('离线');
+        setTestResult(null);
+      } else if (status === 'online') {
+        setBackendStatus('正常（已恢复）');
+      } else if (status === 'error') {
+        setBackendStatus('错误');
+      }
+    });
+  });
 
   const testConnection = async () => {
     setLoading(true);

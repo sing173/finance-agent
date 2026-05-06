@@ -31,6 +31,12 @@ function createWindow() {
 // Electron 就绪后初始化
 app.whenReady().then(() => {
   pythonProcess.start();  // 启动 Python 后端
+
+  // 转发 Python 状态事件到渲染进程
+  pythonProcess.on('status', (status: string) => {
+    mainWindow?.webContents.send('python-status', status);
+  });
+
   setupIpcHandlers();    // 注册 IPC 处理器
   createWindow();        // 创建窗口
 });
