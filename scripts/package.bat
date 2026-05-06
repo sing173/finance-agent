@@ -121,8 +121,7 @@ echo Certificate absolute path: %CERT_ABS%
 
 REM Package Windows NSIS (already in apps\electron directory)
 echo Packaging for Windows ^(NSIS^)...
-REM Use npm script to ensure correct cwd, pass certificate path as override
-call npm run package -- --win.certificateFile="%CERT_ABS%"
+call npm run package
 
 echo.
 echo ==========================================

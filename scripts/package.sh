@@ -150,11 +150,7 @@ package_electron() {
   case "$PLATFORM" in
     win)
       echo "打包 Windows exe..."
-      if [ -n "$CERT_FILE" ]; then
-        npm run package -- --win --win.certificateFile="$CERT_FILE"
-      else
-        npm run package -- --win
-      fi
+      npm run package
       ;;
     mac)
       echo "打包 macOS dmg..."
