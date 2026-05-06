@@ -122,6 +122,27 @@ package_electron() {
 
   cd "$PROJECT_ROOT/apps/electron"
 
+  # 确保测试证书存在（Windows 签名需要）
+  if [ "$PLATFORM" = "win" ] || [ "$PLATFORM" = "auto" ] && [ "$(uname -s 2>/dev/null || echo "MINGW")" = "MINGW"* ] || [ "$(uname -s 2>/dev/null)" = "MSYS"* ]; then
+    echo "检查代码签名证书..."
+    CERT_DIR="$PROJECT_ROOT/apps/electron/cert"
+    CERT_PFX="$CERT_DIR/finance-assistant-test.pfx"
+    if [ ! -f "$CERT_PFX" ]; then
+      echo "未找到测试证书，正在生成..."
+      powershell -ExecutionPolicy Bypass -File "$PROJECT_ROOT/scripts/generate-test-cert.ps1"
+      if [ $? -ne 0 ]; then
+        echo "❌ 证书生成失败，请手动运行: powershell -ExecutionPolicy Bypass -File scripts/generate-test-cert.ps1"
+        exit 1
+      fi
+      echo "✅ 测试证书已生成"
+    else
+      echo "✅ 测试证书已存在: $CERT_PFX"
+    fi
+    # 导出绝对路径供 electron-builder 使用
+    export CERT_FILE="$CERT_PFX"
+    echo "证书路径: $CERT_FILE"
+  fi
+
   # 编译 TypeScript
   npm run build
 

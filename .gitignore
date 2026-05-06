@@ -55,6 +55,9 @@ apps/electron/tests/fixtures/**/*.pdf
 apps/electron/tests/fixtures/**/*.xlsx
 !apps/electron/tests/fixtures/README.md
 
+# Code signing certificates (contains private key - DO NOT COMMIT)
+cert/
+
 # PyInstaller
 *.manifest
 *.spec

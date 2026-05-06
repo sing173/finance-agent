@@ -8,7 +8,7 @@
     "dev:renderer": "cd ../renderer && npm run dev",
     "dev:electron": "npm run build && electron .",
     "build": "tsc",
-    "package": "electron-builder",
+    "package": "electron-builder --win",
     "package:python": "cd ../python && pyinstaller bridge.spec --onefile --clean",
     "package:all": "npm run package:python && npm run package"
   },
@@ -47,7 +47,10 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "certificateFile": "cert/finance-assistant-test.pfx",
+      "certificatePassword": "FinanceAssistant123!",
+      "signDlls": true
     },
     "nsis": {
       "oneClick": false,

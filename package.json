@@ -1,5 +1,6 @@
 {
   "name": "finance-agent",
+  "version": "0.1.0",
   "private": true,
   "workspaces": [
     "apps/*"
@@ -11,6 +12,7 @@
     "package": "npm run package:python && npm run package -w apps/electron"
   },
   "devDependencies": {
+    "@electron/windows-sign": "^2.0.3",
     "concurrently": "^9.2.1"
   }
 }

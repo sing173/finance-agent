@@ -55,19 +55,51 @@ cd apps/electron
 npm run dev
 ```
 
-### 构建打包
+## 📦 打包发布
+
+### 一键打包（推荐）
+
+项目提供了自动化的打包脚本，会自动生成测试代码签名证书并完成完整打包：
 
 ```bash
-# 打包 Python 后端
+# Windows
+scripts\package.bat
+
+# Linux / macOS
+./scripts/package.sh
+```
+
+一键打包流程：
+1. ✅ 检查 Node.js / Python 依赖
+2. ✅ 安装 npm 依赖
+3. ✅ 打包 Python 后端（PyInstaller → bridge.exe）
+4. ✅ 构建 Renderer 前端（Vite → dist/）
+5. ✅ 生成测试代码签名证书（如需要）
+6. ✅ 打包 Electron 应用（TypeScript → electron-builder + 代码签名）
+
+输出文件：`release/FinanceAssistant Setup 0.1.0.exe`（Windows）
+
+### 手动打包
+
+```bash
+# 1. 打包 Python 后端
 cd apps/python
 pyinstaller build.spec --onefile
 
-# 打包 Electron 应用
+# 2. 构建 Renderer
+cd ../renderer
+npm run build
+
+# 3. 打包 Electron
 cd ../electron
 npm run package
-
-# 输出：release/FinanceAssistant Setup 1.0.0.exe（或 .dmg/.AppImage）
 ```
+
+### 代码签名
+
+项目使用代码签名证书对 Windows 安装包进行签名。测试环境使用自签名证书，生产环境需购买正式证书。
+
+📖 **[详细代码签名配置指南](docs/signing.md)**
 
 ## 📚 文档
 

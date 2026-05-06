@@ -78,7 +78,6 @@ if exist "dist\bridge.exe" (
 )
 
 cd ..\..
-
 echo.
 
 REM Build Renderer
@@ -96,25 +95,36 @@ echo.
 REM Package Electron
 echo [5/5] Packaging Electron application...
 
-REM Compile TypeScript (must run from apps/electron)
+REM Change to electron directory and build
 cd apps\electron
-call npm run build
-cd ..\..
 
-REM Package from project root so extraResources paths resolve correctly
-if "%PLATFORM%"=="win" (
-  echo Packaging for Windows ^(NSIS^)...
-  call npm run package -w apps\electron -- --win
-) else if "%PLATFORM%"=="mac" (
-  echo Packaging for macOS...
-  call npm run package -w apps\electron -- --mac
-) else if "%PLATFORM%"=="linux" (
-  echo Packaging for Linux...
-  call npm run package -w apps\electron -- --linux
-) else (
-  echo Unknown platform: %PLATFORM%, using default...
-  call npm run package -w apps\electron
+REM Ensure test certificate exists (for Windows code signing)
+echo Checking code signing certificate...
+if not exist "cert\finance-assistant-test.pfx" (
+  echo Test certificate not found, generating...
+  powershell -ExecutionPolicy Bypass -File "..\..\scripts\generate-test-cert.ps1"
+  if errorlevel 1 (
+    echo [X] Certificate generation failed, please run manually:
+    echo     powershell -ExecutionPolicy Bypass -File scripts\generate-test-cert.ps1
+    exit /b 1
+  )
+  echo [OK] Test certificate generated
 )
+echo [OK] Test certificate exists: %CD%\cert\finance-assistant-test.pfx
+
+REM Compile TypeScript
+call npm run build
+
+REM Get absolute certificate path for signing
+for /f "delims=" %%I in ('powershell -Command "(Resolve-Path 'cert\finance-assistant-test.pfx').Path"') do set CERT_ABS=%%I
+echo Certificate absolute path: %CERT_ABS%
+
+REM Package Windows NSIS from electron directory
+echo Packaging for Windows ^(NSIS^)...
+pushd ..\..
+cd apps\electron
+npx electron-builder --win --config.win.certificateFile="%CERT_ABS%"
+popd
 
 echo.
 echo ==========================================
