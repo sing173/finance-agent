@@ -14,10 +14,22 @@ export function setupIpcHandlers() {
     return pythonProcess.isAlive() ? 'online' : 'offline';
   });
 
+  ipcMain.handle('parse_pdf', async (event: any, params: any) => {
+    return pythonProcess.call('parse_pdf', params);
+  });
+
+  ipcMain.handle('reconcile', async (event: any, params: any) => {
+    return pythonProcess.call('reconcile', params);
+  });
+
+  ipcMain.handle('generate_excel', async (event: any, params: any) => {
+    return pythonProcess.call('generate_excel', params);
+  });
+
   // 应用退出时清理
   app.on('before-quit', () => {
     // 可扩展：清理 IPC 处理器
   });
 
-  // TODO: 后续添加 parse_pdf, reconcile, chat 等处理器
+  // TODO: 后续添加 chat 等处理器
 }

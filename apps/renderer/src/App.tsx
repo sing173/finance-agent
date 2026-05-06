@@ -1,5 +1,6 @@
-import { Layout, Typography, Button, Card, message } from 'antd';
+import { Layout, Typography, Button, Card, message, Progress } from 'antd';
 import { useState, useEffect } from 'react';
+import { FileDropZone } from './components/FileDropZone';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
@@ -11,6 +12,7 @@ declare global {
       health: () => Promise<any>;
       reconcile: (params: any) => Promise<any>;
       parsePDF: (path: string) => Promise<any>;
+      parsePdf: (params: any) => Promise<any>;
       chat: (msg: string, sessionKey?: string) => Promise<any>;
       onPythonStatus: (callback: (status: string) => void) => void;
       getPythonStatus: () => Promise<string>;
@@ -22,6 +24,8 @@ function App() {
   const [backendStatus, setBackendStatus] = useState<string>('检查中...');
   const [loading, setLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
+  const [parseResult, setParseResult] = useState<any>(null);
+  const [parseLoading, setParseLoading] = useState(false);
 
   // 监听 Python 进程状态变化 + 初始查询
   useEffect(() => {
@@ -63,6 +67,30 @@ function App() {
     }
   };
 
+  const handleFilesSelected = async (files: File[]) => {
+    if (files.length === 0) return;
+
+    const file = files[0]; // 取第一个文件
+    setParseLoading(true);
+    try {
+      // 调用 parse_pdf（注意：前端 File 对象需要通过其他方式传递路径）
+      // 这里使用 mock 数据模拟
+      message.info(`已选择文件：${file.name}，准备解析...`);
+      setParseResult({
+        success: true,
+        transactions: [],
+        bank: '未知银行',
+        message: 'PDF 解析功能已就绪，等待后端实现',
+      });
+    } catch (error: any) {
+      message.error(`解析失败：${error.message}`);
+    } finally {
+      setParseLoading(false);
+    }
+  };
+
+  const matchedCount = parseResult?.transactions?.length || 0;
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Header style={{ background: '#001529', padding: '0 24px' }}>
@@ -72,6 +100,7 @@ function App() {
       </Header>
       <Content style={{ padding: '24px' }}>
         <div style={{ display: 'grid', gap: '24px' }}>
+          {/* 连接测试卡片 */}
           <Card title="连接测试" style={{ width: 400 }}>
             <div style={{ marginBottom: 16 }}>
               <Text type="secondary">后端状态：</Text>
@@ -89,8 +118,24 @@ function App() {
             )}
           </Card>
 
+          {/* 文件上传区域 */}
+          <FileDropZone onFilesSelected={handleFilesSelected} />
+
+          {/* 解析结果 */}
+          {parseResult && (
+            <Card title="解析结果" style={{ marginTop: 16 }}>
+              <p>银行：{parseResult.bank}</p>
+              <p>解析交易数：{matchedCount}</p>
+              {parseResult.confidence && (
+                <div>
+                  <Text type="secondary">置信度：</Text>
+                  <Progress percent={Math.round(parseResult.confidence * 100)} />
+                </div>
+              )}
+            </Card>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
-            <FileDropZone />
             <ReconDashboard />
           </div>
         </div>
@@ -99,24 +144,6 @@ function App() {
         Finance Assistant ©2026 — Built with Electron + React + Python
       </Footer>
     </Layout>
-  );
-}
-
-function FileDropZone() {
-  return (
-    <Card title="文件上传" style={{ minHeight: 200 }}>
-      <div
-        style={{
-          border: '2px dashed #d9d9d9',
-          borderRadius: 8,
-          padding: '48px 24px',
-          textAlign: 'center',
-          background: '#fafafa',
-        }}
-      >
-        <Text type="secondary">拖拽银行对账单 PDF 到此处</Text>
-      </div>
-    </Card>
   );
 }
 
