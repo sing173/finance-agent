@@ -8,11 +8,11 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
-const OUTPUT_BASE = path.resolve(__dirname, 'output');
-const WORKFLOW_DIR = path.join(OUTPUT_BASE, 'full-workflow');
-const TEST_PDF_PATH = path.join(WORKFLOW_DIR, 'test_statement.pdf');
-const TEST_LEDGER_PATH = path.join(WORKFLOW_DIR, 'test_ledger.json');
-const TEST_EXCEL_PATH = path.join(WORKFLOW_DIR, 'reconciliation_result.xlsx');
+const OUTPUT_DIR = path.resolve(__dirname, 'output');
+const TEST_PDF_PATH = path.join(OUTPUT_DIR, 'workflow_test_statement.pdf');
+const TEST_LEDGER_PATH = path.join(OUTPUT_DIR, 'workflow_test_ledger.json');
+const TEST_EXCEL_PATH = path.join(OUTPUT_DIR, 'workflow_reconciliation_result.xlsx');
+const TEMP_SCRIPT_PATH = path.join(OUTPUT_DIR, 'workflow_gen_pdf.py');
 
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
@@ -20,19 +20,23 @@ function ensureDir(dirPath) {
 
 function cleanup() {
   console.log('\n[Cleanup] 清理临时文件...');
-  try {
-    if (fs.existsSync(WORKFLOW_DIR)) {
-      fs.rmSync(WORKFLOW_DIR, { recursive: true, force: true });
-      console.log('  ✓ 输出目录已清空');
+  const files = [TEST_PDF_PATH, TEST_LEDGER_PATH, TEST_EXCEL_PATH, TEMP_SCRIPT_PATH];
+  let cleaned = 0;
+  for (const f of files) {
+    if (fs.existsSync(f)) {
+      fs.unlinkSync(f);
+      console.log('  ✓ 删除:', path.basename(f));
+      cleaned++;
     }
-  } catch (e) {
-    console.error('  ⚠ 清理失败:', e.message);
+  }
+  if (cleaned === 0) {
+    console.log('  ✓ output 目录已清空');
   }
 }
 
 function generateTestPDF() {
   console.log('[Prep] 生成测试 PDF...');
-  ensureDir(WORKFLOW_DIR);
+  ensureDir(OUTPUT_DIR);
 
   const pythonExe = process.env.PYTHON_CMD ||
     path.resolve(__dirname, '../../../python/.venv/Scripts/python.exe');
@@ -59,7 +63,7 @@ print("PDF OK")
 `;
 
   return new Promise((resolve, reject) => {
-    const tempScript = path.join(WORKFLOW_DIR, 'gen_pdf.py');
+    const tempScript = TEMP_SCRIPT_PATH;
     fs.writeFileSync(tempScript, script, 'utf8');
     const proc = spawn(pythonExe, [tempScript], { cwd: __dirname, stdio: 'pipe', shell: true });
     let out = '';
@@ -80,7 +84,7 @@ print("PDF OK")
 
 function generateTestLedger() {
   console.log('[Prep] 生成测试台账...');
-  ensureDir(WORKFLOW_DIR);
+  ensureDir(OUTPUT_DIR);
   const ledger = {
     generated_at: new Date().toISOString(),
     transactions: [
@@ -100,7 +104,7 @@ async function runFullWorkflow() {
 
   try {
     cleanup();
-    ensureDir(WORKFLOW_DIR);
+    ensureDir(OUTPUT_DIR);
 
     console.log('=== 阶段 1: 测试数据 ===\n');
     await generateTestPDF();
@@ -161,10 +165,10 @@ async function runFullWorkflow() {
     console.log('     大小:', stats.size, '字节\n');
 
     console.log('=== 阶段 7: 输出验证 ===\n');
-    const files = fs.readdirSync(WORKFLOW_DIR);
-    console.log('  输出目录:', path.relative(__dirname, WORKFLOW_DIR));
+    const files = fs.readdirSync(OUTPUT_DIR);
+    console.log('  输出目录:', path.relative(__dirname, OUTPUT_DIR));
     files.forEach(f => {
-      const s = fs.statSync(path.join(WORKFLOW_DIR, f));
+      const s = fs.statSync(path.join(OUTPUT_DIR, f));
       console.log('    ├─', f, '(' + s.size + ' 字节)');
     });
     console.log('✅ 所有文件正常\n');
@@ -187,7 +191,7 @@ async function runFullWorkflow() {
   } finally {
     cleanup();
     pythonProcess.stop();
-    console.log('\n📁 工作目录:', WORKFLOW_DIR);
+    console.log('\n📁 工作目录:', OUTPUT_DIR);
     console.log('✨ 完成');
     process.exit(passed ? 0 : 1);
   }
