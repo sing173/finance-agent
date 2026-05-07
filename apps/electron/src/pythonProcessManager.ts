@@ -39,6 +39,7 @@ export class PythonProcessManager extends EventEmitter {
 
     this.process.on('error', (err: Error) => {
       console.error('[Python] Process error:', err.message);
+      this.process = null;
       this.emit('status', 'error', err.message);
     });
 
@@ -98,9 +99,16 @@ export class PythonProcessManager extends EventEmitter {
   }
 
   stop(): void {
-    this.process?.kill();
-    this.process = null;
-    this.emit('status', 'offline');
+    if (this.process && !this.process.killed) {
+      const proc = this.process;
+      this.process = null; // 立即置空，防止重复调用
+      try {
+        proc.kill();
+      } catch (e) {
+        // 忽略已销毁对象的错误
+      }
+      this.emit('status', 'offline');
+    }
   }
 
   isAlive(): boolean {

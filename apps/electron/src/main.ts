@@ -49,5 +49,8 @@ app.on('activate', () => {
 });
 
 app.on('before-quit', () => {
-  pythonProcess.stop();
+  // 只在进程存在时停止，避免重复操作已销毁对象
+  if (pythonProcess.isAlive()) {
+    pythonProcess.stop();
+  }
 });
