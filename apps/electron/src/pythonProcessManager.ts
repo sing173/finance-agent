@@ -31,9 +31,14 @@ export class PythonProcessManager extends EventEmitter {
       console.error('[Python]', chunk.toString().trim());
     });
 
-    this.process.on('exit', (code: number | null, signal: string | null) => {
+    // 用局部变量捕获当前进程，避免 exit 时 this.process 已被置空
+    const proc = this.process;
+    proc.on('exit', (code: number | null, signal: string | null) => {
       console.log(`[Python] Process exited: code=${code}, signal=${signal}`);
-      this.process = null;
+      // 只在进程还存在时清理（防止重复）
+      if (this.process === proc) {
+        this.process = null;
+      }
       this.emit('status', 'offline');
     });
 

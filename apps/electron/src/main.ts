@@ -36,7 +36,10 @@ app.whenReady().then(() => {
 
   // 转发 Python 状态事件到渲染进程（窗口已创建后才注册，避免丢失事件）
   pythonProcess.on('status', (status: string) => {
-    mainWindow?.webContents.send('python-status', status);
+    // 防御：窗口可能已销毁
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('python-status', status);
+    }
   });
 });
 
