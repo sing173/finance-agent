@@ -55,7 +55,10 @@ export function getPythonSpawnConfig(): { cmd: string; args: string[]; cwd: stri
   }
 
   // 3. 开发环境：使用 venv Python + 源码 bridge.py
-  const venvPython = path.resolve(__dirname, '..', '..', 'python', '.venv', 'bin', 'python3');
+  const isWindows = process.platform === 'win32';
+  const venvBinDir = isWindows ? 'Scripts' : 'bin';
+  const pythonExe = isWindows ? 'python.exe' : 'python3';
+  const venvPython = path.resolve(__dirname, '..', '..', 'python', '.venv', venvBinDir, pythonExe);
   const scriptPath = path.resolve(__dirname, '..', '..', 'python', 'src', 'finance_agent_backend', 'bridge.py');
   console.log('[PathUtils] Dev mode, using:', venvPython, scriptPath);
   return { cmd: venvPython, args: [scriptPath], cwd: path.dirname(scriptPath) };

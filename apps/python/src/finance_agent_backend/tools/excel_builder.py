@@ -121,8 +121,9 @@ class ExcelBuilder:
     def _auto_width(self, ws):
         """自动调整列宽"""
         for col in ws.columns:
+            # 使用 column 属性而非 column_letter 避免 MergedCell 问题
+            column_letter = get_column_letter(col[0].column)
             max_length = 0
-            column = col[0].column_letter
             for cell in col:
                 try:
                     if len(str(cell.value)) > max_length:
@@ -130,4 +131,4 @@ class ExcelBuilder:
                 except Exception:
                     pass
             adjusted_width = min(max_length + 2, 50)
-            ws.column_dimensions[column].width = adjusted_width
+            ws.column_dimensions[column_letter].width = adjusted_width
