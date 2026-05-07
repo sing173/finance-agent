@@ -9,7 +9,7 @@
     "dev:electron": "npm run build && electron .",
     "build": "tsc",
     "package": "electron-builder --win",
-    "package:python": "cd ../python && pyinstaller bridge.spec --onefile --clean",
+    "package:python": "cd ../python && python -m pyinstaller bridge.spec --onefile --clean",
     "package:all": "npm run package:python && npm run package"
   },
   "devDependencies": {
@@ -31,8 +31,8 @@
     ],
     "extraResources": [
       {
-        "from": "../python/dist",
-        "to": "python"
+        "from": "../python/dist/bridge.exe",
+        "to": "python/bridge.exe"
       },
       {
         "from": "../renderer/dist",

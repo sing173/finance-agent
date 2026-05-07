@@ -1,12 +1,8 @@
 # Generate test code signing certificate (valid for 1 year)
 # Run: powershell -ExecutionPolicy Bypass -File scripts/generate-test-cert.ps1
 
-$certPath = "$PSScriptRoot/../apps/electron/cert"
-$certPath = Join-Path $PSScriptRoot "../apps/electron/cert"
-$certPath = Resolve-Path $certPath -ErrorAction SilentlyContinue
-if (-not $certPath) {
-    $certPath = Join-Path $PSScriptRoot "../apps/electron/cert"
-}
+# Certificates stored at: apps/electron/cert/
+$certPath = Join-Path $PSScriptRoot "..\apps\electron\cert"
 $certPath = [System.IO.Path]::GetFullPath($certPath)
 $pfxFile = Join-Path $certPath "finance-assistant-test.pfx"
 $cerFile = Join-Path $certPath "finance-assistant-test.cer"

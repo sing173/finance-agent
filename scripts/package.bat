@@ -102,10 +102,14 @@ REM Ensure test certificate exists (for Windows code signing)
 echo Checking code signing certificate...
 if not exist "cert\finance-assistant-test.pfx" (
   echo Test certificate not found, generating...
-  powershell -ExecutionPolicy Bypass -File "scripts\generate-test-cert.ps1"
+  if exist "..\scripts\generate-test-cert.ps1" (
+    powershell -ExecutionPolicy Bypass -File "..\scripts\generate-test-cert.ps1"
+  ) else (
+    echo [X] Certificate generation script not found
+    exit /b 1
+  )
   if errorlevel 1 (
-    echo [X] Certificate generation failed, please run manually:
-    echo     powershell -ExecutionPolicy Bypass -File apps\electron\scripts\generate-test-cert.ps1
+    echo [X] Certificate generation failed
     exit /b 1
   )
   echo [OK] Test certificate generated
