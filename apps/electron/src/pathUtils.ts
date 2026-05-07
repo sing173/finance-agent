@@ -27,7 +27,7 @@ function isElectronPackaged(): boolean {
  * 环境优先级：
  * 1. PYTHON_CMD 环境变量
  * 2. 打包环境（Electron app packaged）：使用 resources/python/bridge(.exe)
- * 3. 开发环境：使用系统 python/python3 + 源码 bridge.py
+ * 3. 开发环境：使用 venv Python + 源码 bridge.py
  */
 export function getPythonSpawnConfig(): { cmd: string; args: string[]; cwd: string } {
   // 1. 环境变量优先
@@ -54,9 +54,9 @@ export function getPythonSpawnConfig(): { cmd: string; args: string[]; cwd: stri
     console.warn('[PathUtils] Packaged mode but resourcesPath unavailable, falling back to dev mode');
   }
 
-  // 3. 开发/测试环境：系统 Python + 源码
-  const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+  // 3. 开发环境：使用 venv Python + 源码 bridge.py
+  const venvPython = path.resolve(__dirname, '..', '..', 'python', '.venv', 'bin', 'python3');
   const scriptPath = path.resolve(__dirname, '..', '..', 'python', 'src', 'finance_agent_backend', 'bridge.py');
-  console.log('[PathUtils] Dev mode, using:', pythonCmd, scriptPath);
-  return { cmd: pythonCmd, args: [scriptPath], cwd: path.dirname(scriptPath) };
+  console.log('[PathUtils] Dev mode, using:', venvPython, scriptPath);
+  return { cmd: venvPython, args: [scriptPath], cwd: path.dirname(scriptPath) };
 }

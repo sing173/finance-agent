@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { message, Button } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 
@@ -8,11 +8,12 @@ interface FileDropZoneProps {
 
 export function FileDropZone({ onFilesSelected }: FileDropZoneProps) {
   const [files, setFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      const droppedFiles = Array.from(e.dataTransfer.files);
+  const processFiles = useCallback(
+    (fileList: FileList | null) => {
+      if (!fileList) return;
+      const droppedFiles = Array.from(fileList);
       const validFiles = droppedFiles.filter(
         (f) =>
           f.name.endsWith('.pdf') ||
@@ -31,10 +32,23 @@ export function FileDropZone({ onFilesSelected }: FileDropZoneProps) {
     [files, onFilesSelected]
   );
 
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      processFiles(e.dataTransfer.files);
+    },
+    [processFiles]
+  );
+
   const handleRemove = (index: number) => {
     const newFiles = files.filter((_, i) => i !== index);
     setFiles(newFiles);
     onFilesSelected(newFiles);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    processFiles(e.target.files);
+    e.target.value = ''; // 重置，允许再次选择同一文件
   };
 
   return (
@@ -61,9 +75,21 @@ export function FileDropZone({ onFilesSelected }: FileDropZoneProps) {
         拖拽文件到此处，或点击上传
       </p>
       <p style={{ color: '#999' }}>支持 PDF、Excel 格式</p>
-      <Button type="primary" style={{ marginTop: 16 }}>
+      <Button
+        type="primary"
+        style={{ marginTop: 16 }}
+        onClick={() => fileInputRef.current?.click()}
+      >
         选择文件
       </Button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.xlsx,.xls"
+        multiple
+        style={{ display: 'none' }}
+        onChange={handleFileInputChange}
+      />
 
       {files.length > 0 && (
         <div style={{ marginTop: 24, textAlign: 'left' }}>

@@ -7,16 +7,20 @@ JSON-RPC 2.0 服务器，通过 stdio 与 Electron 通信
 
 import json
 import sys
-from typing import Dict, Any
+import os
 
-# 导入工具模块
-from .tools import pdf_parser as _pdf_parser
-from .tools import reconciler as _reconciler
-from .tools import excel_builder as _excel_builder
-from .models import Transaction
+# 确保项目根目录在 sys.path 中，支持直接运行和模块运行
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
+from finance_agent_backend.tools import pdf_parser as _pdf_parser
+from finance_agent_backend.tools import reconciler as _reconciler
+from finance_agent_backend.tools import excel_builder as _excel_builder
+from finance_agent_backend.models import Transaction
 
 # 方法注册表
-METHODS: Dict[str, Any] = {}
+METHODS = {}  # type: dict
 
 
 def register_method(name: str):
@@ -127,7 +131,7 @@ def handle_generate_excel(params: dict) -> dict:
 
     try:
         # 从字典重建 ReconcileResult（简化版）
-        from .models import ReconcileResult
+        from finance_agent_backend.models import ReconcileResult
         result = ReconcileResult(
             matched=reconcile_data.get("matched", []),
             bank_unreconciled=[
