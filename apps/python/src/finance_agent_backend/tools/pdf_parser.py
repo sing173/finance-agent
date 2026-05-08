@@ -19,7 +19,11 @@ class BankStatementParser:
 
     def parse(self, file_path: str, bank: Optional[str] = None) -> ParseResult:
         """解析 PDF 银行流水"""
-        doc = fitz.open(file_path)
+        # fitz.open() 底层 mupdf C 库在 Windows 上不处理 Unicode 路径
+        # 先以二进制读入内存，再以字节流方式打开，绕过路径编码问题
+        with open(file_path, 'rb') as f:
+            pdf_bytes = f.read()
+        doc = fitz.open("pdf", pdf_bytes)
         transactions = []
 
         # 自动识别银行（如果未指定）
