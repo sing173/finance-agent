@@ -19,16 +19,16 @@ export class PythonProcessManager extends EventEmitter {
 
     this.process = spawn(pythonConfig.cmd, pythonConfig.args, {
       cwd: pythonConfig.cwd,
-      env: { ...process.env, PYTHONUNBUFFERED: '1' },
+      env: { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     this.process.stdout?.on('data', (chunk: Buffer) => {
-      this.handleStdout(chunk.toString());
+      this.handleStdout(chunk.toString('utf-8'));
     });
 
     this.process.stderr?.on('data', (chunk: Buffer) => {
-      console.error('[Python]', chunk.toString().trim());
+      console.error('[Python]', chunk.toString('utf-8').trim());
     });
 
     // 用局部变量捕获当前进程，避免 exit 时 this.process 已被置空
@@ -63,7 +63,7 @@ export class PythonProcessManager extends EventEmitter {
       this.pendingRequests.set(id, { resolve, reject });
     });
 
-    this.process.stdin!.write(JSON.stringify(request) + '\n');
+    this.process.stdin!.write(JSON.stringify(request) + '\n', 'utf-8');
 
     return Promise.race([
       promise,
