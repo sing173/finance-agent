@@ -48,13 +48,13 @@ sys.path.insert(0, r"${srcPath.replace(/\\/g, '\\\\')}")
 import fitz
 doc = fitz.open()
 page = doc.new_page()
-text = """银行流水明细
+text = """Bank Statement
 =====================================
-交易日期    交易说明            金额       对方户名
-2025-05-01  工资收入            +15000.00  XX科技有限公司
-2025-05-02  超市购物            -328.50   沃尔玛超市
-2025-05-03  转账给张三          -2000.00  张三
-2025-05-05  利息收入            +12.50    中国银行
+Date       Description                Amount    Counterparty
+2025-05-01  Salary Income from Tech     +15000.00  Tech Company
+2025-05-02  Supermarket Shopping       -328.50   Walmart
+2025-05-03  Transfer to Zhang San      -2000.00  Zhang San
+2025-05-05  Interest Income from Bank  +12.50    Bank of China
 """
 page.insert_text((50, 50), text, fontsize=12)
 doc.save(r"${pdfPath.replace(/\\/g, '\\\\')}")
@@ -88,10 +88,10 @@ function generateTestLedger() {
   const ledger = {
     generated_at: new Date().toISOString(),
     transactions: [
-      { date: '2025-05-01', description: '工资收入', amount: 15000.00, counterparty: 'XX科技有限公司' },
-      { date: '2025-05-02', description: '超市消费', amount: -328.50, counterparty: '沃尔玛' },
-      { date: '2025-05-03', description: '借款给张三', amount: -2000.00, counterparty: '张三' },
-      { date: '2025-05-06', description: '现金支出', amount: -500.00, counterparty: '备用金' },
+      { date: '2025-05-01', description: 'Salary Income from Tech', amount: 15000.00, counterparty: 'Tech Company' },
+      { date: '2025-05-02', description: 'Supermarket Shopping', amount: -328.50, counterparty: 'Walmart' },
+      { date: '2025-05-03', description: 'Transfer to Zhang San', amount: -2000.00, counterparty: 'Zhang San' },
+      { date: '2025-05-05', description: 'Interest Income from Bank', amount: 12.50, counterparty: 'Bank of China' },
     ],
   };
   fs.writeFileSync(TEST_LEDGER_PATH, JSON.stringify(ledger, null, 2));

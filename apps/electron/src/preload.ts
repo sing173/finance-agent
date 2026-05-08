@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   generateExcel: (params: any) => ipcRenderer.invoke('generate_excel', params),
   chat: (msg: string, sessionKey?: string) =>
     ipcRenderer.invoke('chat', { message: msg, session_key: sessionKey }),
+  selectFile: (filter: string) => ipcRenderer.invoke('select_file', { filter }),
 
   // 监听 Python 进程状态变化
   onPythonStatus: (callback: (status: string) => void) => {

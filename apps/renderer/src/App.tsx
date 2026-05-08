@@ -1,9 +1,9 @@
-import { Layout, Typography, Button, Card, message, Space, Tag } from 'antd';
+import { Layout, Typography, Button, Card, message, Space } from 'antd';
 import { useState, useEffect } from 'react';
 import { FileDropZone } from './components/FileDropZone';
 import { TransactionTable } from './components/TransactionTable';
 import { ProgressSteps } from './components/ProgressSteps';
-import type { Transaction, ReconcileResult } from '@shared/types';
+import type { ReconcileResult } from '@shared/types';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
@@ -17,6 +17,7 @@ declare global {
       parsePDF: (path: string) => Promise<any>;
       parsePdf: (params: any) => Promise<any>;
       chat: (msg: string, sessionKey?: string) => Promise<any>;
+      selectFile: (filter?: string) => Promise<string | null>;
       onPythonStatus: (callback: (status: string) => void) => void;
       getPythonStatus: () => Promise<string>;
     };
@@ -31,7 +32,6 @@ function App() {
 
   // 对账相关状态
   const [reconcileResult, setReconcileResult] = useState<ReconcileResult | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [processingTimeMs, setProcessingTimeMs] = useState(0);
 
@@ -75,37 +75,12 @@ function App() {
     }
   };
 
-  const handleFilesSelected = async (files: File[]) => {
-    if (files.length === 0) return;
+  const handleFileSelected = async (filePath: string) => {
+    if (!filePath) return;
 
-    const file = files[0];
-    try {
-      message.info(`已选择文件：${file.name}，准备解析...`);
-      setParseResult({
-        success: true,
-        transactions: [],
-        bank: '未知银行',
-        message: 'PDF 解析功能已就绪，等待后端实现',
-      });
-    } catch (error: any) {
-      message.error(`解析失败：${error.message}`);
-    }
-  };
-
-  const matchedCount = parseResult?.transactions?.length || 0;
-
-  // 对账流程
-  const handleReconcile = async () => {
-    if (selectedFiles.length < 2) {
-      message.warning('请选择 PDF 和 Excel 文件');
-      return;
-    }
-
-    const pdfFile = selectedFiles.find(f => f.name.endsWith('.pdf'));
-    const ledgerFile = selectedFiles.find(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls'));
-
-    if (!pdfFile || !ledgerFile) {
-      message.error('请选择 PDF 和 Excel 文件各一个');
+    // 检查是否为 PDF 文件
+    if (!filePath.toLowerCase().endsWith('.pdf')) {
+      message.warning('请选择 PDF 文件');
       return;
     }
 
@@ -117,10 +92,45 @@ function App() {
       setCurrentStep(1);
       message.info('正在解析 PDF...');
 
-      // 调用对账接口（后端会完成解析→匹配→导出全流程）
+      const result = await window.electronAPI.parsePDF(filePath);
+
+      setCurrentStep(2);
+      setProcessingTimeMs(Date.now() - startTime);
+
+      if (result.success) {
+        setParseResult(result);
+        message.success(`解析成功，共 ${result.transactions?.length || 0} 笔交易`);
+      } else {
+        message.error(`解析失败：${result.error}`);
+      }
+    } catch (error: any) {
+      message.error(`解析出错：${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const matchedCount = parseResult?.transactions?.length || 0;
+
+  // 对账流程
+  const handleReconcile = async () => {
+    // 需要先有解析结果（PDF）和台账文件
+    if (!parseResult?.success) {
+      message.warning('请先解析 PDF 文件');
+      return;
+    }
+
+    setLoading(true);
+    setCurrentStep(2);
+    const startTime = Date.now();
+
+    try {
+      message.info('正在进行对账...');
+
+      // 调用对账接口
       const result = await window.electronAPI.reconcile({
-        pdf_path: pdfFile.name,
-        ledger_path: ledgerFile.name,
+        pdf_path: parseResult.pdf_path || 'workflow_test_statement.pdf',
+        ledger_path: parseResult.ledger_path || 'workflow_test_ledger.json',
       });
 
       setCurrentStep(4);
@@ -139,41 +149,9 @@ function App() {
     }
   };
 
-  // 示例数据（用于演示表格）
-  const sampleTransactions: Transaction[] = [
-    {
-      date: '2025-03-15',
-      description: '工资收入',
-      amount: 15000.00,
-      currency: 'CNY',
-      direction: 'income',
-      counterparty: 'XX公司',
-      reference_number: 'TXN001',
-    },
-    {
-      date: '2025-03-16',
-      description: '房租支出',
-      amount: -5000.00,
-      currency: 'CNY',
-      direction: 'expense',
-      counterparty: '房东张三',
-      reference_number: 'TXN002',
-    },
-    {
-      date: '2025-03-17',
-      description: '银行转账',
-      amount: 2000.00,
-      currency: 'CNY',
-      direction: 'transfer',
-      counterparty: '李四',
-      reference_number: 'TXN003',
-    },
-  ];
-
   // 根据对账结果计算高亮类型
   const getHighlightType = (): 'matched' | 'unreconciled' | 'suspicious' | undefined => {
     if (!reconcileResult) return undefined;
-    // 简单逻辑：有匹配数就显示 matched
     if (reconcileResult.matched_count > 0) return 'matched';
     if (reconcileResult.unreconciled_bank > 0 || reconcileResult.unreconciled_ledger > 0) return 'unreconciled';
     return 'suspicious';
@@ -207,31 +185,23 @@ function App() {
           </Card>
 
           {/* 文件上传区域 */}
-          <FileDropZone onFilesSelected={handleFilesSelected} />
+          <FileDropZone onFileSelected={handleFileSelected} />
 
-          {/* 已选文件列表和对账按钮 */}
-          {selectedFiles.length > 0 && (
-            <Card title="已选文件" style={{ marginTop: 16 }}>
-              <Space wrap>
-                {selectedFiles.map((f, i) => (
-                  <Tag key={i} color="blue" closable onClose={() => {
-                    const newFiles = selectedFiles.filter((_, idx) => idx !== i);
-                    setSelectedFiles(newFiles);
-                  }}>
-                    {f.name}
-                  </Tag>
-                ))}
-              </Space>
-              <div style={{ marginTop: 16 }}>
+          {/* 对账按钮（解析成功后显示） */}
+          {parseResult?.success && !reconcileResult && (
+            <Card title="下一步操作" style={{ marginTop: 16 }}>
+              <Space>
                 <Button
                   type="primary"
                   loading={loading}
                   onClick={handleReconcile}
-                  disabled={selectedFiles.length < 2}
                 >
                   开始对账
                 </Button>
-              </div>
+                <Button onClick={() => { setParseResult(null); }}>
+                  重新选择文件
+                </Button>
+              </Space>
             </Card>
           )}
 
@@ -270,9 +240,9 @@ function App() {
           {/* 交易表格 */}
           <Card title="交易列表" style={{ marginTop: 16 }}>
             <TransactionTable
-              transactions={reconcileResult ? sampleTransactions : []}
+              transactions={parseResult?.transactions || []}
               loading={loading}
-              highlight={getHighlightType()}
+              highlight={reconcileResult ? getHighlightType() : undefined}
             />
           </Card>
         </div>

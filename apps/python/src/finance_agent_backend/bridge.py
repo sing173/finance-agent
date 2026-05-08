@@ -94,8 +94,20 @@ def handle_reconcile(params: dict) -> dict:
         parser = _pdf_parser.BankStatementParser()
         parse_result = parser.parse(pdf_path)
 
-        # TODO: 从 ledger_path 读取台账交易（暂时为空列表）
+        # 从 ledger_path 读取台账交易
         ledger_transactions: list[Transaction] = []
+        if ledger_path and os.path.exists(ledger_path):
+            with open(ledger_path, 'r', encoding='utf-8') as f:
+                ledger_data = json.load(f)
+            for t in ledger_data.get('transactions', []):
+                from datetime import datetime
+                from decimal import Decimal
+                ledger_transactions.append(Transaction(
+                    date=datetime.strptime(t['date'], '%Y-%m-%d').date(),
+                    description=t['description'],
+                    amount=Decimal(str(t['amount'])),
+                    counterparty=t.get('counterparty'),
+                ))
 
         # 执行对账
         reconciler = _reconciler.Reconciler()

@@ -54,15 +54,19 @@ class Reconciler:
         )
 
     def _exact_match(self, bank_list, ledger_list, matched):
-        """精确匹配：金额相同（±0.01）+ 日期差 ≤ 3 天 + 户名相似度 ≥ 90"""
+        """精确匹配：金额相同（±0.01，考虑方向）+ 日期差 ≤ 3 天 + 户名相似度 ≥ 90"""
         for bank_tx in list(bank_list):
             for ledger_tx in list(ledger_list):
+                # 标准化金额（考虑方向：income为正，expense为负）
+                bank_signed_amount = bank_tx.amount if bank_tx.direction == 'income' else -bank_tx.amount
+                ledger_signed_amount = ledger_tx.amount
+
                 if (
-                    abs(bank_tx.amount - ledger_tx.amount) <= Decimal('0.01')
+                    abs(bank_signed_amount - ledger_signed_amount) <= Decimal('0.01')
                     and abs((bank_tx.date - ledger_tx.date).days) <= 3
                     and fuzz.ratio(
-                        bank_tx.counterparty or '',
-                        ledger_tx.counterparty or '',
+                        bank_tx.description or '',
+                        ledger_tx.description or '',
                     ) >= 90
                 ):
                     matched.append({
