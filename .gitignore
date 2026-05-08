@@ -51,12 +51,14 @@ coverage/
 # Electron test artifacts
 apps/electron/tests/output/
 apps/electron/tests/.tmp/
+apps/electron/apps/
 *.test.log
 
 # Test fixtures (sensitive/generated data)
 apps/electron/tests/fixtures/**/*.pdf
 apps/electron/tests/fixtures/**/*.xlsx
 !apps/electron/tests/fixtures/README.md
+*.xlsx
 
 # Code signing certificates (contains private key - DO NOT COMMIT)
 cert/
