@@ -8,7 +8,7 @@
 测试 Electron 主进程与 Python 后端的完整 IPC 通信流程。
 
 - `bridge-ipc.test.js` - 验证 JSON-RPC 2.0 连接（health 方法）
-- `ipc-methods.test.js` - 完整 IPC 方法测试（health/parse_pdf/reconcile/generate_excel）
+- `ipc-methods.test.js` - 完整 IPC 方法测试（health/parse_pdf/generate_excel）
 
 运行方式：
 ```bash

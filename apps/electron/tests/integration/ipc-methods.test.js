@@ -12,7 +12,7 @@ const path = require('path');
 
 // 统一输出目录
 const OUTPUT_DIR = path.resolve(__dirname, 'output');
-const TEST_EXCEL_PATH = path.join(OUTPUT_DIR, 'test_reconcile_result.xlsx');
+const TEST_EXCEL_PATH = path.join(OUTPUT_DIR, 'test_export_result.xlsx');
 
 // 确保输出目录存在
 if (!fs.existsSync(OUTPUT_DIR)) {
@@ -80,26 +80,21 @@ async function runTests() {
       throw new Error('parse_pdf 参数验证失败');
     }
 
-    // Test: reconcile - 文件不存在
-    console.log('[4/6] 测试 reconcile（异常处理）...');
-    const reconErr = await pythonProcess.call('reconcile', {
-      pdf_path: 'nonexistent.pdf'
-    });
-    if (!reconErr.success && reconErr.error) {
-      console.log(`  ✅ 错误提示: "${reconErr.error}"\n`);
+    // Test: generate_excel - 参数验证
+    console.log('[4/6] 测试 generate_excel（参数验证）...');
+    const excelErr = await pythonProcess.call('generate_excel', {});
+    if (!excelErr.success && excelErr.error) {
+      console.log(`  ✅ 错误提示: "${excelErr.error}"\n`);
     } else {
-      throw new Error('reconcile 异常处理失败');
+      throw new Error('generate_excel 参数验证失败');
     }
 
     // Test: generate_excel - 正常流程
     console.log('[5/6] 测试 generate_excel（Excel 生成）...');
     const excelResult = await pythonProcess.call('generate_excel', {
-      reconcile_result: {
-        matched: [],
-        bank_unreconciled: [],
-        ledger_unreconciled: [],
-        suspicious: [],
-      },
+      transactions: [
+        { date: '2025-01-15', description: 'Test', amount: 100.00, currency: 'CNY', direction: 'income' },
+      ],
       output_path: TEST_EXCEL_PATH,
     });
 
@@ -126,7 +121,7 @@ async function runTests() {
     console.log('  ✅ Python 进程启动');
     console.log('  ✅ health 方法');
     console.log('  ✅ parse_pdf 参数验证');
-    console.log('  ✅ reconcile 异常处理');
+    console.log('  ✅ generate_excel 参数验证');
     console.log('  ✅ generate_excel 文件生成');
     console.log('  ✅ 进程状态管理');
 

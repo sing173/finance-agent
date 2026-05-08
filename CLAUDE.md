@@ -285,7 +285,7 @@ finance-assistant/
 ### Python dependency issues
 - Dependencies managed via `pyproject.toml`
 - Install with: `pip install -e ".[dev]"` inside the virtualenv
-- Key packages: `pymupdf` (PDF parsing), `openpyxl` (Excel output), `rapidfuzz` (fuzzy matching), `nanobot` (AI agent)
+- Key packages: `pymupdf` (PDF parsing), `openpyxl` (Excel output), `nanobot` (AI agent)
 
 ---
 
