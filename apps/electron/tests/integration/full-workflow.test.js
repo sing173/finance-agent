@@ -1,6 +1,6 @@
 /**
  * 全流程端到端测试
- * 覆盖：Python 启动 → PDF 解析 → 对账 → Excel 导出 → 清理
+ * 覆盖：Python 启动 → PDF 解析 → Excel 导出 → 清理
  */
 
 const { pythonProcess } = require('../../dist/pythonProcessManager');
@@ -10,8 +10,7 @@ const { spawn } = require('child_process');
 
 const OUTPUT_DIR = path.resolve(__dirname, 'output');
 const TEST_PDF_PATH = path.join(OUTPUT_DIR, 'workflow_test_statement.pdf');
-const TEST_LEDGER_PATH = path.join(OUTPUT_DIR, 'workflow_test_ledger.json');
-const TEST_EXCEL_PATH = path.join(OUTPUT_DIR, 'workflow_reconciliation_result.xlsx');
+const TEST_EXCEL_PATH = path.join(OUTPUT_DIR, 'workflow_export_result.xlsx');
 const TEMP_SCRIPT_PATH = path.join(OUTPUT_DIR, 'workflow_gen_pdf.py');
 
 function ensureDir(dirPath) {
@@ -20,7 +19,7 @@ function ensureDir(dirPath) {
 
 function cleanup() {
   console.log('\n[Cleanup] 清理临时文件...');
-  const files = [TEST_PDF_PATH, TEST_LEDGER_PATH, TEST_EXCEL_PATH, TEMP_SCRIPT_PATH];
+  const files = [TEST_PDF_PATH, TEST_EXCEL_PATH, TEMP_SCRIPT_PATH];
   let cleaned = 0;
   for (const f of files) {
     if (fs.existsSync(f)) {
@@ -82,21 +81,6 @@ print("PDF OK")
   });
 }
 
-function generateTestLedger() {
-  console.log('[Prep] 生成测试台账...');
-  ensureDir(OUTPUT_DIR);
-  const ledger = {
-    generated_at: new Date().toISOString(),
-    transactions: [
-      { date: '2025-05-01', description: 'Salary Income from Tech', amount: 15000.00, counterparty: 'Tech Company' },
-      { date: '2025-05-02', description: 'Supermarket Shopping', amount: -328.50, counterparty: 'Walmart' },
-      { date: '2025-05-03', description: 'Transfer to Zhang San', amount: -2000.00, counterparty: 'Zhang San' },
-      { date: '2025-05-05', description: 'Interest Income from Bank', amount: 12.50, counterparty: 'Bank of China' },
-    ],
-  };
-  fs.writeFileSync(TEST_LEDGER_PATH, JSON.stringify(ledger, null, 2));
-  console.log('  ✓ 台账文件已创建');
-}
 
 async function runFullWorkflow() {
   console.log('=== 全流程端到端测试 ===\n');
@@ -108,7 +92,6 @@ async function runFullWorkflow() {
 
     console.log('=== 阶段 1: 测试数据 ===\n');
     await generateTestPDF();
-    generateTestLedger();
     console.log('');
 
     console.log('=== 阶段 2: Python 后端 ===\n');
@@ -134,26 +117,9 @@ async function runFullWorkflow() {
     if (!parse.success) throw new Error('PDF 解析失败: ' + parse.error);
     console.log('✅ 解析成功\n');
 
-    console.log('=== 阶段 5: 对账 ===\n');
-    const recon = await pythonProcess.call('reconcile', {
-      pdf_path: TEST_PDF_PATH,
-      ledger_path: TEST_LEDGER_PATH,
-    });
-    console.log('  匹配数:', recon.matched_count);
-    console.log('  银行未达:', recon.unreconciled_bank);
-    console.log('  台账未达:', recon.unreconciled_ledger);
-    console.log('  匹配率:', (recon.match_rate * 100).toFixed(1) + '%');
-    if (!recon.success) throw new Error('对账失败: ' + recon.error);
-    console.log('✅ 对账完成\n');
-
-    console.log('=== 阶段 6: Excel 导出 ===\n');
+    console.log('=== 阶段 5: Excel 导出 ===\n');
     const excel = await pythonProcess.call('generate_excel', {
-      reconcile_result: {
-        matched: recon.matched || [],
-        bank_unreconciled: [],
-        ledger_unreconciled: [],
-        suspicious: [],
-      },
+      transactions: parse.transactions,
       output_path: TEST_EXCEL_PATH,
     });
     if (!excel.success || !fs.existsSync(TEST_EXCEL_PATH)) {
@@ -164,7 +130,7 @@ async function runFullWorkflow() {
     console.log('     路径:', path.basename(TEST_EXCEL_PATH));
     console.log('     大小:', stats.size, '字节\n');
 
-    console.log('=== 阶段 7: 输出验证 ===\n');
+    console.log('=== 阶段 6: 输出验证 ===\n');
     const files = fs.readdirSync(OUTPUT_DIR);
     console.log('  输出目录:', path.relative(__dirname, OUTPUT_DIR));
     files.forEach(f => {
@@ -181,7 +147,6 @@ async function runFullWorkflow() {
     console.log('  ✅ JSON-RPC 2.0');
     console.log('  ✅ health 检查');
     console.log('  ✅ PDF 解析');
-    console.log('  ✅ 对账算法');
     console.log('  ✅ Excel 导出');
     console.log('  ✅ 文件管理');
 

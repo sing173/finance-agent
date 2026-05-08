@@ -10,9 +10,8 @@ interface ProgressStepsProps {
 export function ProgressSteps({ currentStep, processingTime }: ProgressStepsProps) {
   const steps = [
     { title: '解析 PDF', description: '正在解析银行流水' },
-    { title: '智能匹配', description: '执行四阶段对账算法' },
-    { title: '生成 Excel', description: '输出对账报告' },
-    { title: '完成', description: '对账完成' },
+    { title: '生成 Excel', description: '导出交易明细' },
+    { title: '完成', description: '处理完成' },
   ];
 
   return (

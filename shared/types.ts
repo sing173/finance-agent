@@ -54,27 +54,11 @@ export interface Transaction {
   notes?: string;
 }
 
-/** 对账请求 */
-export interface ReconcileParams {
-  pdf_path: string;
-  ledger_path: string;
-  output_path?: string;
-  rules?: Rule[]; // 可选：自定义规则
-}
-export interface ReconcileResult {
-  success: boolean;
-  matched_count: number;
-  unreconciled_bank: number;
-  unreconciled_ledger: number;
-  excel_path: string;
-  processing_time_ms: number;
-}
-
 /** Agent 聊天（非流式） */
 export interface ChatParams {
   message: string;
   session_key?: string;
-  context?: any; // 对账结果上下文
+  context?: any;
 }
 export interface ChatResult {
   content: string;
@@ -84,11 +68,4 @@ export interface ChatResult {
 /** Agent 聊天（流式） */
 export interface ChatStreamParams extends ChatParams {
   on_chunk: (chunk: string) => void;
-}
-
-/** 自定义对账规则（预留） */
-export interface Rule {
-  name: string;
-  condition: string;
-  action: "match" | "ignore" | "flag";
 }

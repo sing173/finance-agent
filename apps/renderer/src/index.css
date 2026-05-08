@@ -17,16 +17,3 @@ body {
   width: 100%;
   height: 100vh;
 }
-
-/* Transaction table row highlight colors */
-.row-matched {
-  background-color: #f6ffed !important;  /* 绿色 - 已匹配 */
-}
-
-.row-unreconciled {
-  background-color: #ffffe6 !important;  /* 黄色 - 未达 */
-}
-
-.row-suspicious {
-  background-color: #fff2e8 !important;  /* 红色 - 可疑 */
-}

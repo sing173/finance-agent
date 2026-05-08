@@ -1,16 +1,21 @@
 import { Table, Tag, Space, Typography, Button } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Transaction } from '@shared/types';
+import { useMemo } from 'react';
 
 const { Text } = Typography;
 
 interface TransactionTableProps {
   transactions: Transaction[];
   loading?: boolean;
-  highlight?: 'matched' | 'unreconciled' | 'suspicious';
 }
 
-export function TransactionTable({ transactions, loading, highlight }: TransactionTableProps) {
+export function TransactionTable({ transactions, loading }: TransactionTableProps) {
+  const dataSource = useMemo(() =>
+    transactions.map((t, i) => ({ ...t, _key: t.reference_number || `tx-${i}` })),
+    [transactions]
+  );
+
   const columns: ColumnsType<Transaction> = [
     {
       title: '日期',
@@ -81,25 +86,16 @@ export function TransactionTable({ transactions, loading, highlight }: Transacti
     },
   ];
 
-  // 根据 highlight 类型设置行样式
-  const rowClassName = (_record: Transaction) => {
-    if (highlight === 'matched') return 'row-matched';
-    if (highlight === 'unreconciled') return 'row-unreconciled';
-    if (highlight === 'suspicious') return 'row-suspicious';
-    return '';
-  };
-
   return (
     <Table
       columns={columns}
-      dataSource={transactions}
-      rowKey={(record) => record.reference_number || `row-${record.date}-${record.amount}`}
+      dataSource={dataSource}
+      rowKey="_key"
       loading={loading}
-      pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (total) => `共 ${total} 条` }}
+      pagination={{ defaultPageSize: 20, showSizeChanger: true, showTotal: (total: number) => `共 ${total} 条` }}
       scroll={{ y: 400 }}
       bordered
       size="middle"
-      rowClassName={rowClassName}
     />
   );
 }

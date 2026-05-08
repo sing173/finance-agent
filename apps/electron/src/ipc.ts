@@ -55,10 +55,6 @@ export function setupIpcHandlers() {
     return path.resolve(filePath || '');
   });
 
-  ipcMain.handle('reconcile', async (event: any, params: any) => {
-    return pythonProcess.call('reconcile', params);
-  });
-
   ipcMain.handle('generate_excel', async (event: any, params: any) => {
     return pythonProcess.call('generate_excel', params);
   });

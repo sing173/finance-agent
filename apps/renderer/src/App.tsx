@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { FileDropZone } from './components/FileDropZone';
 import { TransactionTable } from './components/TransactionTable';
 import { ProgressSteps } from './components/ProgressSteps';
-import type { ReconcileResult } from '@shared/types';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
@@ -13,9 +12,9 @@ declare global {
   interface Window {
     electronAPI: {
       health: () => Promise<any>;
-      reconcile: (params: any) => Promise<any>;
       parsePDF: (path: string) => Promise<any>;
       parsePdf: (params: any) => Promise<any>;
+      generateExcel: (params: any) => Promise<any>;
       chat: (msg: string, sessionKey?: string) => Promise<any>;
       selectFile: (filter?: string) => Promise<string | null>;
       onPythonStatus: (callback: (status: string) => void) => void;
@@ -29,9 +28,6 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
   const [parseResult, setParseResult] = useState<any>(null);
-
-  // 对账相关状态
-  const [reconcileResult, setReconcileResult] = useState<ReconcileResult | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [processingTimeMs, setProcessingTimeMs] = useState(0);
 
@@ -84,17 +80,17 @@ function App() {
       return;
     }
 
+    setParseResult(null);
     setLoading(true);
     setCurrentStep(0);
     const startTime = Date.now();
 
     try {
-      setCurrentStep(1);
       message.info('正在解析 PDF...');
 
       const result = await window.electronAPI.parsePDF(filePath);
 
-      setCurrentStep(2);
+      setCurrentStep(1);
       setProcessingTimeMs(Date.now() - startTime);
 
       if (result.success) {
@@ -112,49 +108,31 @@ function App() {
 
   const matchedCount = parseResult?.transactions?.length || 0;
 
-  // 对账流程
-  const handleReconcile = async () => {
-    // 需要先有解析结果（PDF）和台账文件
-    if (!parseResult?.success) {
-      message.warning('请先解析 PDF 文件');
+  const handleExportExcel = async () => {
+    if (!parseResult?.transactions?.length) {
+      message.warning('没有可导出的交易数据');
       return;
     }
 
+    setCurrentStep(1);
     setLoading(true);
-    setCurrentStep(2);
-    const startTime = Date.now();
-
     try {
-      message.info('正在进行对账...');
-
-      // 调用对账接口
-      const result = await window.electronAPI.reconcile({
-        pdf_path: parseResult.pdf_path || 'workflow_test_statement.pdf',
-        ledger_path: parseResult.ledger_path || 'workflow_test_ledger.json',
+      const outputPath = `bank_statement_${Date.now()}.xlsx`;
+      const result = await window.electronAPI.generateExcel({
+        transactions: parseResult.transactions,
+        output_path: outputPath,
       });
-
-      setCurrentStep(4);
-      setProcessingTimeMs(Date.now() - startTime);
-
+      setCurrentStep(2);
       if (result.success) {
-        setReconcileResult(result);
-        message.success('对账完成！');
+        message.success(`Excel 已导出: ${result.excel_path}`);
       } else {
-        message.error(`对账失败：${result.error}`);
+        message.error(`导出失败：${result.error}`);
       }
     } catch (error: any) {
-      message.error(`对账出错：${error.message}`);
+      message.error(`导出出错：${error.message}`);
     } finally {
       setLoading(false);
     }
-  };
-
-  // 根据对账结果计算高亮类型
-  const getHighlightType = (): 'matched' | 'unreconciled' | 'suspicious' | undefined => {
-    if (!reconcileResult) return undefined;
-    if (reconcileResult.matched_count > 0) return 'matched';
-    if (reconcileResult.unreconciled_bank > 0 || reconcileResult.unreconciled_ledger > 0) return 'unreconciled';
-    return 'suspicious';
   };
 
   return (
@@ -187,18 +165,18 @@ function App() {
           {/* 文件上传区域 */}
           <FileDropZone onFileSelected={handleFileSelected} />
 
-          {/* 对账按钮（解析成功后显示） */}
-          {parseResult?.success && !reconcileResult && (
-            <Card title="下一步操作" style={{ marginTop: 16 }}>
+          {/* 导出 Excel（解析成功后显示） */}
+          {parseResult?.success && (
+            <Card title="导出" style={{ marginTop: 16 }}>
               <Space>
                 <Button
                   type="primary"
                   loading={loading}
-                  onClick={handleReconcile}
+                  onClick={handleExportExcel}
                 >
-                  开始对账
+                  导出 Excel
                 </Button>
-                <Button onClick={() => { setParseResult(null); }}>
+                <Button onClick={() => { setParseResult(null); setCurrentStep(0); }}>
                   重新选择文件
                 </Button>
               </Space>
@@ -207,7 +185,7 @@ function App() {
 
           {/* 进度条 */}
           {(loading || currentStep > 0) && (
-            <Card title="对账进度" style={{ marginTop: 16 }}>
+            <Card title="处理进度" style={{ marginTop: 16 }}>
               <ProgressSteps currentStep={currentStep} processingTime={processingTimeMs} />
             </Card>
           )}
@@ -217,34 +195,21 @@ function App() {
             <Card title="解析结果" style={{ marginTop: 16 }}>
               <p>银行：{parseResult.bank}</p>
               <p>解析交易数：{matchedCount}</p>
-            </Card>
-          )}
-
-          {/* 对账结果统计 */}
-          {reconcileResult && (
-            <Card title="对账结果" style={{ marginTop: 16 }}>
-              <Space wrap>
-                <Text>已匹配：<Text strong style={{ color: '#52c41a' }}>{reconcileResult.matched_count}</Text></Text>
-                <Text>银行未达：<Text strong style={{ color: '#faad14' }}>{reconcileResult.unreconciled_bank}</Text></Text>
-                <Text>账本未达：<Text strong style={{ color: '#f5222d' }}>{reconcileResult.unreconciled_ledger}</Text></Text>
-                <Text>总耗时：<Text strong>{(processingTimeMs / 1000).toFixed(2)} 秒</Text></Text>
-              </Space>
-              {reconcileResult.excel_path && (
-                <div style={{ marginTop: 8 }}>
-                  <Text type="secondary">Excel 输出：{reconcileResult.excel_path}</Text>
-                </div>
+              {parseResult.statement_date && (
+                <p>账单日期：{parseResult.statement_date}</p>
               )}
             </Card>
           )}
 
           {/* 交易表格 */}
-          <Card title="交易列表" style={{ marginTop: 16 }}>
-            <TransactionTable
-              transactions={parseResult?.transactions || []}
-              loading={loading}
-              highlight={reconcileResult ? getHighlightType() : undefined}
-            />
-          </Card>
+          {parseResult?.transactions && (
+            <Card title="交易列表" style={{ marginTop: 16 }}>
+              <TransactionTable
+                transactions={parseResult.transactions}
+                loading={loading}
+              />
+            </Card>
+          )}
         </div>
       </Content>
       <Footer style={{ textAlign: 'center' }}>

@@ -27,14 +27,3 @@ class ParseResult:
     confidence: float = 1.0
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
-
-
-@dataclass
-class ReconcileResult:
-    matched: List[dict]
-    bank_unreconciled: List[Transaction]
-    ledger_unreconciled: List[Transaction]
-    suspicious: List[dict]
-    total_bank: int = 0
-    total_ledger: int = 0
-    match_rate: float = 0.0
