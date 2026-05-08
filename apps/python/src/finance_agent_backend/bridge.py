@@ -15,6 +15,7 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from finance_agent_backend.tools import pdf_parser as _pdf_parser
+from finance_agent_backend.tools import cmb_parser as _cmb_parser
 from finance_agent_backend.tools import reconciler as _reconciler
 from finance_agent_backend.tools import excel_builder as _excel_builder
 from finance_agent_backend.models import Transaction
@@ -41,6 +42,28 @@ def handle_health(params: dict) -> dict:
     }
 
 
+def _detect_bank_from_pdf(file_path: str) -> str:
+    """通过 PDF 文本识别银行"""
+    import fitz
+    try:
+        with open(file_path, 'rb') as f:
+            pdf_bytes = f.read()
+        doc = fitz.open('pdf', pdf_bytes)
+        sample = ''
+        for i in range(min(3, len(doc))):
+            sample += doc[i].get_text('text')
+        doc.close()
+
+        if '招商银行' in sample or 'China Merchants Bank' in sample:
+            return '招商银行'
+        for name in ['中国银行', '工商银行', '建设银行']:
+            if name in sample:
+                return name
+    except Exception:
+        pass
+    return '未知银行'
+
+
 @register_method("parse_pdf")
 def handle_parse_pdf(params: dict) -> dict:
     """解析 PDF 银行流水"""
@@ -51,8 +74,17 @@ def handle_parse_pdf(params: dict) -> dict:
         return {"success": False, "error": "缺少 file_path 参数"}
 
     try:
-        parser = _pdf_parser.BankStatementParser()
-        result = parser.parse(file_path, bank)
+        # 自动检测银行类型
+        if not bank:
+            bank = _detect_bank_from_pdf(file_path)
+
+        # 根据银行类型选择解析器
+        if bank == '招商银行' or '招商' in (bank or ''):
+            parser = _cmb_parser.CMBParser()
+            result = parser.parse(file_path)
+        else:
+            parser = _pdf_parser.BankStatementParser()
+            result = parser.parse(file_path, bank)
 
         transactions = []
         for t in result.transactions:
@@ -90,9 +122,14 @@ def handle_reconcile(params: dict) -> dict:
         return {"success": False, "error": "缺少 pdf_path 参数"}
 
     try:
-        # 解析 PDF
-        parser = _pdf_parser.BankStatementParser()
-        parse_result = parser.parse(pdf_path)
+        # 解析 PDF - 自动检测银行并选择对应解析器
+        bank = _detect_bank_from_pdf(pdf_path)
+        if bank == '招商银行':
+            parser = _cmb_parser.CMBParser()
+            parse_result = parser.parse(pdf_path)
+        else:
+            parser = _pdf_parser.BankStatementParser()
+            parse_result = parser.parse(pdf_path, bank)
 
         # 从 ledger_path 读取台账交易
         ledger_transactions: list[Transaction] = []
