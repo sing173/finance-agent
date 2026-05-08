@@ -12,9 +12,7 @@
   "dependencies": {
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "antd": "^5.22.0",
-    "axios": "^1.7.0",
-    "dayjs": "^1.11.0"
+    "antd": "^5.22.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",
