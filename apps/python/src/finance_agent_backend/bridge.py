@@ -115,6 +115,7 @@ def handle_parse_pdf(params: dict) -> dict:
                 "direction": t.direction,
                 "counterparty": t.counterparty,
                 "reference_number": t.reference_number,
+                "notes": t.notes,
             })
 
         return {

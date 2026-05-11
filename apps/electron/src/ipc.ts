@@ -59,6 +59,10 @@ export function setupIpcHandlers() {
     return pythonProcess.call('generate_excel', params);
   });
 
+  ipcMain.handle('ocr_pdf', async (event: any, params: any) => {
+    return pythonProcess.call('ocr_pdf', params);
+  });
+
   // 应用退出时清理
   app.on('before-quit', () => {
     // 可扩展：清理 IPC 处理器
