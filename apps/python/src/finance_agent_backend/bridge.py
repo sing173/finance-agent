@@ -44,7 +44,7 @@ def handle_health(params: dict) -> dict:
 
 
 def _detect_bank_from_pdf(file_path: str) -> str:
-    """通过 PDF 文本识别银行"""
+    """通过 PDF 文本识别银行。扫描件无文字时回退到快速 OCR。"""
     import fitz
     try:
         with open(file_path, 'rb') as f:
@@ -53,6 +53,21 @@ def _detect_bank_from_pdf(file_path: str) -> str:
         sample = ''
         for i in range(min(3, len(doc))):
             sample += doc[i].get_text('text')
+
+        # If no text at all, likely a scanned PDF — try OCR on page 0
+        if not sample.strip():
+            from PIL import Image
+            import cv2
+            import numpy as np
+            from rapidocr_onnxruntime import RapidOCR
+            pix = doc[0].get_pixmap(dpi=150)
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            img_np = np.array(img.convert("L"))
+            _, img_bin = cv2.threshold(img_np, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            engine = RapidOCR()
+            ocr_result, _ = engine(img_bin)
+            if ocr_result:
+                sample = "".join(text for _, text, _ in ocr_result)
         doc.close()
 
         if '招商银行' in sample or 'China Merchants Bank' in sample:
