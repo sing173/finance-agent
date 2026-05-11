@@ -18,6 +18,7 @@ from finance_agent_backend.tools import pdf_parser as _pdf_parser
 from finance_agent_backend.tools import cmb_parser as _cmb_parser
 from finance_agent_backend.tools import excel_builder as _excel_builder
 from finance_agent_backend.tools import pdf_ocr as _pdf_ocr
+from finance_agent_backend.tools import icbc_parser as _icbc_parser
 from finance_agent_backend.models import Transaction
 
 # 方法注册表
@@ -79,7 +80,10 @@ def handle_parse_pdf(params: dict) -> dict:
             bank = _detect_bank_from_pdf(file_path)
 
         # 根据银行类型选择解析器
-        if bank == '招商银行' or '招商' in (bank or ''):
+        if '工商' in (bank or ''):
+            parser = _icbc_parser.ICBCParser()
+            result = parser.parse(file_path)
+        elif bank == '招商银行' or '招商' in (bank or ''):
             parser = _cmb_parser.CMBParser()
             result = parser.parse(file_path)
         else:
