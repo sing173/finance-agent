@@ -17,6 +17,7 @@ if _project_root not in sys.path:
 from finance_agent_backend.tools import pdf_parser as _pdf_parser
 from finance_agent_backend.tools import cmb_parser as _cmb_parser
 from finance_agent_backend.tools import excel_builder as _excel_builder
+from finance_agent_backend.tools import pdf_ocr as _pdf_ocr
 from finance_agent_backend.models import Transaction
 
 # 方法注册表
@@ -137,6 +138,24 @@ def handle_generate_excel(params: dict) -> dict:
         builder = _excel_builder.ExcelBuilder()
         excel_path = builder.build(transactions, output_path)
         return {"success": True, "excel_path": excel_path}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@register_method("ocr_pdf")
+def handle_ocr_pdf(params: dict) -> dict:
+    """OCR 识别 PDF（扫描件/图片型 PDF）"""
+    file_path = params.get("file_path")
+    pages = params.get("pages")  # optional list of page numbers
+    dpi = params.get("dpi", 200)
+
+    if not file_path:
+        return {"success": False, "error": "缺少 file_path 参数"}
+
+    try:
+        ocr = _pdf_ocr.PDFOCR(dpi=dpi)
+        result = ocr.extract(file_path, pages=pages)
+        return {"success": True, **result}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
