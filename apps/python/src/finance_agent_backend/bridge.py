@@ -17,6 +17,7 @@ if _project_root not in sys.path:
 from finance_agent_backend.tools import pdf_parser as _pdf_parser
 from finance_agent_backend.tools import cmb_parser as _cmb_parser
 from finance_agent_backend.tools import excel_builder as _excel_builder
+from finance_agent_backend.tools import subject_loader as _subject_loader
 from finance_agent_backend.models import Transaction
 
 # 方法注册表
@@ -137,6 +138,65 @@ def handle_generate_excel(params: dict) -> dict:
         builder = _excel_builder.ExcelBuilder()
         excel_path = builder.build(transactions, output_path)
         return {"success": True, "excel_path": excel_path}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@register_method("generate_voucher_excel")
+def handle_generate_voucher_excel(params: dict) -> dict:
+    """将银行流水按金蝶精斗云凭证导入模板格式导出 Excel。
+
+    params:
+        transactions  (list, required): 流水列表，格式同 generate_excel
+        output_path   (str,  optional): 输出文件路径，默认 voucher.xlsx
+        subjects_path (str,  optional): 科目 xlsx 路径；为空时不加载科目，科目名称退化为科目代码
+        subject_mapping (dict, optional): 关键字映射配置；为空时读取内置默认配置
+        account_mapping (dict, optional): 账号映射配置；为空时读取内置默认配置
+        period        (str,  optional): 期间名称，用于 Sheet 名，如 '2026年第3期'
+    """
+    transactions_data = params.get("transactions")
+    output_path = params.get("output_path", "voucher.xlsx")
+    subjects_path = params.get("subjects_path", "")
+    subject_mapping = params.get("subject_mapping")   # None = 读默认配置
+    account_mapping = params.get("account_mapping")   # None = 读默认配置
+    period = params.get("period", "")
+
+    if not transactions_data:
+        return {"success": False, "error": "缺少 transactions 参数"}
+
+    try:
+        from datetime import datetime
+        from decimal import Decimal
+
+        transactions = []
+        for t in transactions_data:
+            transactions.append(Transaction(
+                date=datetime.strptime(t['date'], '%Y-%m-%d').date(),
+                description=t.get('description', ''),
+                amount=Decimal(str(t.get('amount', 0))),
+                currency=t.get('currency', 'CNY'),
+                direction=t.get('direction', 'expense'),
+                counterparty=t.get('counterparty'),
+                reference_number=t.get('reference_number'),
+                notes=t.get('notes'),
+            ))
+
+        # 加载科目（可选）
+        subjects = {}
+        if subjects_path:
+            loader = _subject_loader.SubjectLoader()
+            subjects = loader.load(subjects_path)
+
+        builder = _excel_builder.ExcelBuilder()
+        voucher_path = builder.build_voucher(
+            transactions=transactions,
+            subjects=subjects,
+            subject_mapping=subject_mapping,
+            account_mapping=account_mapping,
+            output_path=output_path,
+            period=period,
+        )
+        return {"success": True, "excel_path": voucher_path}
     except Exception as e:
         return {"success": False, "error": str(e)}
 

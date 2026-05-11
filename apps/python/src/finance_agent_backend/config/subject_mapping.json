@@ -1,0 +1,30 @@
+{
+  "_comment": "流水描述关键字 → 对方科目代码 映射配置。按 direction 分组，rules 按顺序匹配，命中第一条即止。",
+  "expense": {
+    "rules": [
+      { "keywords": ["手续费", "服务费", "汇款费", "跨行转账费"], "subject_code": "6601", "comment": "财务费用_手续费" },
+      { "keywords": ["工资", "薪酬", "薪资", "绩效", "奖金"], "subject_code": "50501", "comment": "应付职工薪酬" },
+      { "keywords": ["电话费", "通讯费", "宽带", "流量"], "subject_code": "5060201", "comment": "管理费用_通讯费" },
+      { "keywords": ["电费", "水费", "燃气", "物业", "物管", "管理费"], "subject_code": "5060204", "comment": "管理费用_水电费" },
+      { "keywords": ["个人所得税", "个税"], "subject_code": "2022112", "comment": "应交税费_应交个人所得税" },
+      { "keywords": ["印花税", "增值税", "附加税"], "subject_code": "2022101", "comment": "应交税费" },
+      { "keywords": ["社保", "社会保险", "公积金", "住房公积金"], "subject_code": "50502", "comment": "应付职工薪酬_社保公积金" },
+      { "keywords": ["房租", "租金", "租赁"], "subject_code": "5060202", "comment": "管理费用_租赁费" },
+      { "keywords": ["差旅", "出差", "机票", "高铁", "火车票", "住宿"], "subject_code": "5060203", "comment": "管理费用_差旅费" },
+      { "keywords": ["招待", "餐饮", "接待"], "subject_code": "5060205", "comment": "管理费用_业务招待费" },
+      { "keywords": ["采购", "货款", "进货", "材料"], "subject_code": "10405", "comment": "库存商品/原材料" },
+      { "keywords": ["还款", "还贷", "还款"], "subject_code": "20001", "comment": "短期借款" }
+    ],
+    "default_subject_code": "5060201",
+    "default_subject_comment": "管理费用_办公费（支出兜底科目）"
+  },
+  "income": {
+    "rules": [
+      { "keywords": ["收款", "回款", "货款", "销售收入", "技术服务"], "subject_code": "10122", "comment": "应收账款" },
+      { "keywords": ["利息", "利息收入"], "subject_code": "6082", "comment": "财务费用_利息收入" },
+      { "keywords": ["退款", "返款", "退税"], "subject_code": "10221", "comment": "其他应收款" }
+    ],
+    "default_subject_code": "10122",
+    "default_subject_comment": "应收账款（收入兜底科目）"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "_comment": "银行账号后缀 → 银行科目代码 映射配置。用于从流水信息中反查对应银行科目。",
+  "accounts": [
+    { "account_no_suffix": "4363", "subject_code": "1000201", "comment": "工商银行（4363）" },
+    { "account_no_suffix": "0146", "subject_code": "1000202", "comment": "广发银行（0146）" },
+    { "account_no_suffix": "0288", "subject_code": "1000203", "comment": "招商银行（0288）" },
+    { "account_no_suffix": "0118", "subject_code": "1000204", "comment": "招商银行（0118）" },
+    { "account_no_suffix": "7931", "subject_code": "1000205", "comment": "工商银行（7931）" }
+  ],
+  "default_bank_subject_code": "10002",
+  "default_bank_subject_comment": "银行存款（兜底，无法匹配具体账户时使用）"
+}
