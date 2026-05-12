@@ -16,21 +16,34 @@ export function setupIpcHandlers() {
   });
 
   // 打开文件选择对话框，返回绝对路径
+  // params.filter: 'pdf' | 'xlsx' | undefined（默认 PDF）
   ipcMain.handle('select_file', async (event: any, params: any) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return null;
 
-    const { filePaths } = await dialog.showOpenDialog(win, {
-      properties: ['openFile'],
-      filters: [
+    let filters: any;
+    const f = params?.filter?.toLowerCase();
+    if (f === 'xlsx') {
+      filters = [
+        { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
+        { name: 'All Files', extensions: ['*'] },
+      ];
+    } else {
+      // 默认 PDF
+      filters = [
         { name: 'PDF Files', extensions: ['pdf'] },
         { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
         { name: 'All Files', extensions: ['*'] },
-      ],
+      ];
+    }
+
+    const { filePaths } = await dialog.showOpenDialog(win, {
+      properties: ['openFile'],
+      filters,
     });
 
     if (filePaths.length > 0) {
-      return filePaths[0]; // 返回第一个选中文件的绝对路径
+      return filePaths[0];
     }
     return null;
   });
@@ -57,6 +70,25 @@ export function setupIpcHandlers() {
 
   ipcMain.handle('generate_excel', async (event: any, params: any) => {
     return pythonProcess.call('generate_excel', params);
+  });
+
+  ipcMain.handle('generate_voucher_excel', async (event: any, params: any) => {
+    return pythonProcess.call('generate_voucher_excel', params);
+  });
+
+  // 保存文件对话框：返回用户选择的保存路径，取消返回 null
+  ipcMain.handle('save_file_dialog', async (event: any, params: any) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return null;
+    const { filePath } = await dialog.showSaveDialog(win, {
+      title: params?.title || '保存文件',
+      defaultPath: params?.defaultPath || 'voucher.xlsx',
+      filters: [
+        { name: 'Excel Files', extensions: ['xlsx'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    });
+    return filePath || null;
   });
 
   // 应用退出时清理
