@@ -68,7 +68,7 @@ export class PythonProcessManager extends EventEmitter {
     return Promise.race([
       promise,
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('请求超时（10s）')), 10000)
+        setTimeout(() => reject(new Error('请求超时（60s）')), 60000)
       ),
     ]);
   }

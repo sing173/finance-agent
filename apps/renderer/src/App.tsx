@@ -18,6 +18,7 @@ declare global {
       generateVoucher: (params: any) => Promise<any>;
       importSubjects: (params: any) => Promise<any>;
       getSubjectsInfo: () => Promise<any>;
+      ocrPDF: (params: any) => Promise<any>;
       chat: (msg: string, sessionKey?: string) => Promise<any>;
       selectFile: (filter?: string) => Promise<string | null>;
       saveFileDialog: (params?: any) => Promise<string | null>;
@@ -30,7 +31,8 @@ declare global {
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>('检查中...');
   const [loading, setLoading] = useState(false);
-  const [testResult, setTestResult] = useState<any>(null);
+  const [healthModalOpen, setHealthModalOpen] = useState(false);
+  const [healthData, setHealthData] = useState<any>(null);
   const [parseResult, setParseResult] = useState<any>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [processingTimeMs, setProcessingTimeMs] = useState(0);
@@ -74,7 +76,7 @@ function App() {
     window.electronAPI.onPythonStatus?.((status: string) => {
       if (status === 'offline') {
         setBackendStatus('离线');
-        setTestResult(null);
+        setHealthData(null);
       } else if (status === 'online') {
         setBackendStatus('正常（已恢复）');
       } else if (status === 'error') {
@@ -88,12 +90,13 @@ function App() {
     try {
       const result = await window.electronAPI.health();
       setBackendStatus(`正常 (v${result.version})`);
-      setTestResult(result);
+      setHealthData(result);
+      setHealthModalOpen(true);
       message.success('后端连接成功！');
     } catch (error: any) {
       setBackendStatus(`离线: ${error.message}`);
       message.error('后端连接失败');
-      setTestResult(null);
+      setHealthData(null);
     } finally {
       setLoading(false);
     }
@@ -239,10 +242,11 @@ function App() {
           Finance Assistant
         </Title>
       </Header>
-      <Content style={{ padding: '24px' }}>
-        <div style={{ display: 'grid', gap: '24px' }}>
-          {/* 连接测试 + 科目管理 */}
-          <Card title="系统设置" style={{ width: 600 }}>
+      <Content style={{ padding: '20px 24px' }}>
+        {/* 第一行：系统设置 + 文件选择 */}
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 16 }}>
+          {/* 系统设置卡片（连接测试 + 科目管理） */}
+          <Card title="系统设置" style={{ width: 400, flexShrink: 0, height: 200 }}>
             <div style={{ marginBottom: 16 }}>
               <Text type="secondary">后端状态：</Text>
               <Text strong>{backendStatus}</Text>
@@ -268,21 +272,21 @@ function App() {
                 </Text>
               )}
             </div>
-            {testResult && (
-              <div style={{ marginTop: 16, padding: 12, background: '#f5f5f5', borderRadius: 4 }}>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  返回数据：{JSON.stringify(testResult, null, 2)}
-                </Text>
-              </div>
-            )}
+          </Card>
           </Card>
 
           {/* 文件上传区域 */}
-          <FileDropZone onFileSelected={handleFileSelected} />
+          <div style={{ flex: 1, minWidth: 300, height: 200 }}>
+            <FileDropZone onFileSelected={handleFileSelected} />
+          </div>
+        </div>
+
+        {/* 以下卡片垂直排列 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
           {/* 导出操作区（解析成功后显示） */}
           {parseResult?.success && (
-            <Card title="导出" style={{ marginTop: 16 }}>
+            <Card title="导出">
               <Space>
                 <Button
                   type="primary"
@@ -308,14 +312,14 @@ function App() {
 
           {/* 进度条 */}
           {(loading || currentStep > 0) && (
-            <Card title="处理进度" style={{ marginTop: 16 }}>
+            <Card title="处理进度">
               <ProgressSteps currentStep={currentStep} processingTime={processingTimeMs} />
             </Card>
           )}
 
           {/* 解析结果 */}
           {parseResult && (
-            <Card title="解析结果" style={{ marginTop: 16 }}>
+            <Card title="解析结果">
               <p>银行：{parseResult.bank}</p>
               <p>解析交易数：{matchedCount}</p>
               {parseResult.statement_date && (
@@ -326,7 +330,7 @@ function App() {
 
           {/* 交易表格 */}
           {parseResult?.transactions && (
-            <Card title="交易列表" style={{ marginTop: 16 }}>
+            <Card title="交易列表">
               <TransactionTable
                 transactions={parseResult.transactions}
                 loading={loading}
@@ -371,6 +375,18 @@ function App() {
             />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* 健康检查结果弹窗 */}
+      <Modal
+        title="连接测试结果"
+        open={healthModalOpen}
+        onCancel={() => setHealthModalOpen(false)}
+        footer={null}
+      >
+        <pre style={{ fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+          {JSON.stringify(healthData, null, 2)}
+        </pre>
       </Modal>
     </Layout>
   );

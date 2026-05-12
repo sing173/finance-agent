@@ -84,6 +84,10 @@ export function setupIpcHandlers() {
     return pythonProcess.call('get_subjects_info', params);
   });
 
+  ipcMain.handle('ocr_pdf', async (event: any, params: any) => {
+    return pythonProcess.call('ocr_pdf', params);
+  });
+
   // 保存文件对话框：返回用户选择的保存路径，取消返回 null
   ipcMain.handle('save_file_dialog', async (event: any, params: any) => {
     const win = BrowserWindow.fromWebContents(event.sender);

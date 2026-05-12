@@ -18,6 +18,8 @@ from finance_agent_backend.tools import pdf_parser as _pdf_parser
 from finance_agent_backend.tools import cmb_parser as _cmb_parser
 from finance_agent_backend.tools import excel_builder as _excel_builder
 from finance_agent_backend.tools import subject_loader as _subject_loader
+from finance_agent_backend.tools import pdf_ocr as _pdf_ocr
+from finance_agent_backend.tools import icbc_parser as _icbc_parser
 from finance_agent_backend.models import Transaction
 
 # 方法注册表
@@ -43,7 +45,7 @@ def handle_health(params: dict) -> dict:
 
 
 def _detect_bank_from_pdf(file_path: str) -> str:
-    """通过 PDF 文本识别银行"""
+    """通过 PDF 文本识别银行。扫描件无文字时回退到快速 OCR。"""
     import fitz
     try:
         with open(file_path, 'rb') as f:
@@ -52,6 +54,21 @@ def _detect_bank_from_pdf(file_path: str) -> str:
         sample = ''
         for i in range(min(3, len(doc))):
             sample += doc[i].get_text('text')
+
+        # If no text at all, likely a scanned PDF — try OCR on page 0
+        if not sample.strip():
+            from PIL import Image
+            import cv2
+            import numpy as np
+            from rapidocr_onnxruntime import RapidOCR
+            pix = doc[0].get_pixmap(dpi=150)
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            img_np = np.array(img.convert("L"))
+            _, img_bin = cv2.threshold(img_np, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            engine = RapidOCR()
+            ocr_result, _ = engine(img_bin)
+            if ocr_result:
+                sample = "".join(text for _, text, _ in ocr_result)
         doc.close()
 
         if '招商银行' in sample or 'China Merchants Bank' in sample:
@@ -79,7 +96,10 @@ def handle_parse_pdf(params: dict) -> dict:
             bank = _detect_bank_from_pdf(file_path)
 
         # 根据银行类型选择解析器
-        if bank == '招商银行' or '招商' in (bank or ''):
+        if '工商' in (bank or ''):
+            parser = _icbc_parser.ICBCParser()
+            result = parser.parse(file_path)
+        elif bank == '招商银行' or '招商' in (bank or ''):
             parser = _cmb_parser.CMBParser()
             result = parser.parse(file_path)
         else:
@@ -96,6 +116,7 @@ def handle_parse_pdf(params: dict) -> dict:
                 "direction": t.direction,
                 "counterparty": t.counterparty,
                 "reference_number": t.reference_number,
+                "notes": t.notes,
             })
 
         return {
@@ -194,6 +215,27 @@ def handle_generate_voucher_excel(params: dict) -> dict:
         return {"success": True, "excel_path": voucher_path}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+@register_method("ocr_pdf")
+def handle_ocr_pdf(params: dict) -> dict:
+    """OCR 识别 PDF（扫描件/图片型 PDF）"""
+    file_path = params.get("file_path")
+    pages = params.get("pages")  # optional list of page numbers
+    dpi = params.get("dpi", 200)
+
+    if not file_path:
+        return {"success": False, "error": "缺少 file_path 参数"}
+
+    try:
+        ocr = _pdf_ocr.PDFOCR(dpi=dpi)
+        result = ocr.extract(file_path, pages=pages)
+        return {"success": True, **result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 
 
 def _get_config_dir() -> str:
