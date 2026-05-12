@@ -58,6 +58,7 @@ class ICBCParser:
     def parse(self, file_path: str) -> ParseResult:
         transactions = []
         errors = []
+        inherited_col_map: Dict[int, str] = {}
 
         with open(file_path, "rb") as f:
             pdf_bytes = f.read()
@@ -65,8 +66,10 @@ class ICBCParser:
 
         for page_num in range(len(doc)):
             try:
-                page_tx = self._parse_page(doc, page_num)
+                page_tx, col_map = self._parse_page(doc, page_num, inherited_col_map)
                 transactions.extend(page_tx)
+                if col_map:
+                    inherited_col_map = col_map
             except Exception as e:
                 errors.append(f"Page {page_num + 1}: {e}")
 
@@ -85,18 +88,21 @@ class ICBCParser:
 
     # ── page pipeline ─────────────────────────────────────────────
 
-    def _parse_page(self, doc, page_num: int) -> List[Transaction]:
+    def _parse_page(self, doc, page_num: int, inherited_col_map: Dict[int, str] = None) -> Tuple[List[Transaction], Dict[int, str]]:
         img = self._render_page(doc, page_num)
         h_coords, v_coords = self._detect_table_lines(img)
         if len(h_coords) < 3 or len(v_coords) < 3:
-            return []
+            return [], {}
 
         grid_rows = self._build_grid(h_coords, v_coords)
         col_map = self._detect_header_columns(img, h_coords, v_coords)
+        # Fall back to inherited map from previous page when header row absent
+        if not col_map and inherited_col_map:
+            col_map = inherited_col_map
 
         blocks = self._ocr_page_data(img)
         cell_grid = self._assign_blocks(blocks, grid_rows)
-        return self._grid_to_transactions(cell_grid, col_map)
+        return self._grid_to_transactions(cell_grid, col_map), col_map
 
     @staticmethod
     def _render_page(doc, page_num: int, dpi: int = 300) -> np.ndarray:
