@@ -7,8 +7,6 @@ import { ProgressSteps } from './components/ProgressSteps';
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
 
-const LS_KEY = 'finance-assistant-subjects-path';
-
 // 声明 window.electronAPI 类型
 declare global {
   interface Window {
@@ -18,6 +16,8 @@ declare global {
       parsePdf: (params: any) => Promise<any>;
       generateExcel: (params: any) => Promise<any>;
       generateVoucher: (params: any) => Promise<any>;
+      importSubjects: (params: any) => Promise<any>;
+      getSubjectsInfo: () => Promise<any>;
       chat: (msg: string, sessionKey?: string) => Promise<any>;
       selectFile: (filter?: string) => Promise<string | null>;
       saveFileDialog: (params?: any) => Promise<string | null>;
@@ -38,15 +38,25 @@ function App() {
   // 导出凭证弹窗相关状态
   const [voucherModalOpen, setVoucherModalOpen] = useState(false);
   const [voucherLoading, setVoucherLoading] = useState(false);
-  const [subjectsPath, setSubjectsPath] = useState('');
   const [period, setPeriod] = useState('');
 
-  // 启动时从 localStorage 恢复上次的科目文件路径
+  // 导入科目表
+  const [importSubjectsLoading, setImportSubjectsLoading] = useState(false);
+  const [subjectsCount, setSubjectsCount] = useState<number | null>(null);
+
+  // 启动时查询内置科目数量
   useEffect(() => {
-    const saved = localStorage.getItem(LS_KEY);
-    if (saved) {
-      setSubjectsPath(saved);
-    }
+    const checkSubjects = async () => {
+      try {
+        const result = await window.electronAPI.getSubjectsInfo();
+        if (result.success) {
+          setSubjectsCount(result.count);
+        }
+      } catch {
+        // 忽略，检查失败不影响使用
+      }
+    };
+    checkSubjects();
   }, []);
 
   // 监听 Python 进程状态变化 + 初始查询
@@ -166,27 +176,9 @@ function App() {
     setVoucherModalOpen(true);
   };
 
-  const handleSelectSubjectsFile = async () => {
-    const filePath = await window.electronAPI.selectFile('xlsx');
-    if (filePath) {
-      setSubjectsPath(filePath);
-      localStorage.setItem(LS_KEY, filePath);
-    }
-  };
-
-  const handleClearSubjectsFile = () => {
-    setSubjectsPath('');
-    localStorage.removeItem(LS_KEY);
-  };
-
   const handleExportVoucher = async () => {
     if (!parseResult?.transactions?.length) {
       message.warning('没有可导出的交易数据');
-      return;
-    }
-
-    if (!subjectsPath) {
-      message.warning('请先选择科目表文件（xlsx）');
       return;
     }
 
@@ -203,7 +195,6 @@ function App() {
       const result = await window.electronAPI.generateVoucher({
         transactions: parseResult.transactions,
         output_path: outputPath,
-        subjects_path: subjectsPath || '',
         period: period,
       });
 
@@ -220,6 +211,27 @@ function App() {
     }
   };
 
+  // ---- 导入科目表 ----
+  const handleImportSubjects = async () => {
+    const filePath = await window.electronAPI.selectFile('xlsx');
+    if (!filePath) return;
+
+    setImportSubjectsLoading(true);
+    try {
+      const result = await window.electronAPI.importSubjects({ xlsx_path: filePath });
+      if (result.success) {
+        setSubjectsCount(result.count);
+        message.success(`科目表导入成功，共 ${result.count} 条科目`);
+      } else {
+        message.error(`导入失败：${result.error}`);
+      }
+    } catch (error: any) {
+      message.error(`导入出错：${error.message}`);
+    } finally {
+      setImportSubjectsLoading(false);
+    }
+  };
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Header style={{ background: '#001529', padding: '0 24px' }}>
@@ -229,15 +241,33 @@ function App() {
       </Header>
       <Content style={{ padding: '24px' }}>
         <div style={{ display: 'grid', gap: '24px' }}>
-          {/* 连接测试卡片 */}
-          <Card title="连接测试" style={{ width: 400 }}>
+          {/* 连接测试 + 科目管理 */}
+          <Card title="系统设置" style={{ width: 600 }}>
             <div style={{ marginBottom: 16 }}>
               <Text type="secondary">后端状态：</Text>
               <Text strong>{backendStatus}</Text>
             </div>
-            <Button type="primary" loading={loading} onClick={testConnection}>
-              测试连接
-            </Button>
+            <Space style={{ marginBottom: 16 }}>
+              <Button type="primary" loading={loading} onClick={testConnection}>
+                测试连接
+              </Button>
+              <Button
+                loading={importSubjectsLoading}
+                onClick={handleImportSubjects}
+              >
+                导入科目表
+              </Button>
+            </Space>
+            <div>
+              <Text type="secondary">
+                当前内置科目：{subjectsCount !== null ? `${subjectsCount} 条` : '未知'}
+              </Text>
+              {subjectsCount !== null && subjectsCount > 0 && (
+                <Text type="success" style={{ marginLeft: 8 }}>
+                  ✓ 已就绪
+                </Text>
+              )}
+            </div>
             {testResult && (
               <div style={{ marginTop: 16, padding: 12, background: '#f5f5f5', borderRadius: 4 }}>
                 <Text type="secondary" style={{ fontSize: 12 }}>
@@ -309,7 +339,7 @@ function App() {
         Finance Assistant ©2026 — Built with Electron + React + Python
       </Footer>
 
-      {/* 导出凭证弹窗 */}
+      {/* 导出凭证弹窗 — 仅保留期间名称 */}
       <Modal
         title="导出凭证（金蝶精斗云格式）"
         open={voucherModalOpen}
@@ -327,7 +357,7 @@ function App() {
             选择保存路径并导出
           </Button>,
         ]}
-        width={520}
+        width={420}
       >
         <Form layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item
@@ -339,29 +369,6 @@ function App() {
               onChange={e => setPeriod(e.target.value)}
               placeholder="2026年3月"
             />
-          </Form.Item>
-          <Form.Item
-            label="科目表文件"
-            validateStatus={!subjectsPath ? 'warning' : undefined}
-            help={
-              subjectsPath
-                ? `当前使用：${subjectsPath.split(/[\\/]/).pop()}`
-                : '请选择从金蝶精斗云导出的科目 xlsx'
-            }
-          >
-            <Space.Compact style={{ width: '100%' }}>
-              <Input
-                value={subjectsPath}
-                readOnly
-                placeholder="点击右侧「选择文件」按钮"
-                status={!subjectsPath ? 'warning' : undefined}
-                style={{ flex: 1 }}
-              />
-              <Button onClick={handleSelectSubjectsFile}>选择文件</Button>
-              {subjectsPath && (
-                <Button danger onClick={handleClearSubjectsFile}>清除</Button>
-              )}
-            </Space.Compact>
           </Form.Item>
         </Form>
       </Modal>

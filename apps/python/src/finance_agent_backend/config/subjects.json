@@ -1,0 +1,2972 @@
+{
+  "10001": {
+    "code": "10001",
+    "name": "库存现金",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": true,
+    "enabled": true,
+    "full_name": "库存现金"
+  },
+  "10002": {
+    "code": "10002",
+    "name": "银行存款",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": true,
+    "enabled": true,
+    "full_name": "银行存款"
+  },
+  "1000201": {
+    "code": "1000201",
+    "name": "工商银行（4363）",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": true,
+    "enabled": true,
+    "full_name": "银行存款_工商银行（4363）"
+  },
+  "1000202": {
+    "code": "1000202",
+    "name": "广发银行（0146）",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": true,
+    "enabled": true,
+    "full_name": "银行存款_广发银行（0146）"
+  },
+  "1000203": {
+    "code": "1000203",
+    "name": "招商银行（0288）",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": true,
+    "enabled": true,
+    "full_name": "银行存款_招商银行（0288）"
+  },
+  "1000204": {
+    "code": "1000204",
+    "name": "招商银行（0118）",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": true,
+    "enabled": true,
+    "full_name": "银行存款_招商银行（0118）"
+  },
+  "1000205": {
+    "code": "1000205",
+    "name": "工商银行（7931）",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": true,
+    "enabled": true,
+    "full_name": "银行存款_工商银行（7931）"
+  },
+  "10012": {
+    "code": "10012",
+    "name": "其他货币资金",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": true,
+    "enabled": true,
+    "full_name": "其他货币资金"
+  },
+  "10101": {
+    "code": "10101",
+    "name": "短期投资",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "短期投资"
+  },
+  "1010101": {
+    "code": "1010101",
+    "name": "股票",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "短期投资_股票"
+  },
+  "1010102": {
+    "code": "1010102",
+    "name": "债券",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "短期投资_债券"
+  },
+  "1010103": {
+    "code": "1010103",
+    "name": "基金",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "短期投资_基金"
+  },
+  "1010110": {
+    "code": "1010110",
+    "name": "其他",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "短期投资_其他"
+  },
+  "10121": {
+    "code": "10121",
+    "name": "应收票据",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应收票据"
+  },
+  "10122": {
+    "code": "10122",
+    "name": "应收账款",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "客户",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应收账款"
+  },
+  "10123": {
+    "code": "10123",
+    "name": "预付账款",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "预付账款"
+  },
+  "10131": {
+    "code": "10131",
+    "name": "应收股利",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应收股利"
+  },
+  "10132": {
+    "code": "10132",
+    "name": "应收利息",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应收利息"
+  },
+  "10221": {
+    "code": "10221",
+    "name": "其他应收款",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款"
+  },
+  "1022101": {
+    "code": "1022101",
+    "name": "待摊费用",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_待摊费用"
+  },
+  "1022102": {
+    "code": "1022102",
+    "name": "社保",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_社保"
+  },
+  "1022103": {
+    "code": "1022103",
+    "name": "其他",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_其他"
+  },
+  "1022104": {
+    "code": "1022104",
+    "name": "押金",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_押金"
+  },
+  "1022105": {
+    "code": "1022105",
+    "name": "广州博智投资合伙企业（有限合伙）",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_广州博智投资合伙企业（有限合伙）"
+  },
+  "1022106": {
+    "code": "1022106",
+    "name": "宣钢炜",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_宣钢炜"
+  },
+  "1022107": {
+    "code": "1022107",
+    "name": "深圳市巽升科技有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_深圳市巽升科技有限公司"
+  },
+  "1022108": {
+    "code": "1022108",
+    "name": "中锦技术（广东）有限公司深圳分公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_中锦技术（广东）有限公司深圳分公司"
+  },
+  "1022109": {
+    "code": "1022109",
+    "name": "公积金",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_公积金"
+  },
+  "1022110": {
+    "code": "1022110",
+    "name": "华亿认证中心有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_华亿认证中心有限公司"
+  },
+  "1022111": {
+    "code": "1022111",
+    "name": "广州中海税务事务所有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_广州中海税务事务所有限公司"
+  },
+  "1022112": {
+    "code": "1022112",
+    "name": "深圳市昊泽物业管理有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_深圳市昊泽物业管理有限公司"
+  },
+  "1022113": {
+    "code": "1022113",
+    "name": "深圳市比克电池有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_深圳市比克电池有限公司"
+  },
+  "1022114": {
+    "code": "1022114",
+    "name": "广州市启胜物业管理有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_广州市启胜物业管理有限公司"
+  },
+  "1022115": {
+    "code": "1022115",
+    "name": "广州京诺知识产权代理有限公司番禺分公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_广州京诺知识产权代理有限公司番禺分公司"
+  },
+  "1022116": {
+    "code": "1022116",
+    "name": "广州思汇信息科技有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_广州思汇信息科技有限公司"
+  },
+  "1022117": {
+    "code": "1022117",
+    "name": "深圳力征通信有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_深圳力征通信有限公司"
+  },
+  "1022118": {
+    "code": "1022118",
+    "name": "华为终端有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_华为终端有限公司"
+  },
+  "1022119": {
+    "code": "1022119",
+    "name": "广东恒唯信信息科技有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_广东恒唯信信息科技有限公司"
+  },
+  "1022120": {
+    "code": "1022120",
+    "name": "手续费",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_手续费"
+  },
+  "1022121": {
+    "code": "1022121",
+    "name": "中国电信股份有限公司广州分公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_中国电信股份有限公司广州分公司"
+  },
+  "1022122": {
+    "code": "1022122",
+    "name": "增力清洁服务（广州）有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_增力清洁服务（广州）有限公司"
+  },
+  "1022123": {
+    "code": "1022123",
+    "name": "珠海市南方人力资源服务有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_珠海市南方人力资源服务有限公司"
+  },
+  "1022124": {
+    "code": "1022124",
+    "name": "中国移动通信集团广东有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_中国移动通信集团广东有限公司"
+  },
+  "1022125": {
+    "code": "1022125",
+    "name": "李毅",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_李毅"
+  },
+  "1022126": {
+    "code": "1022126",
+    "name": "广州医科大学附属第二医院",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_广州医科大学附属第二医院"
+  },
+  "1022127": {
+    "code": "1022127",
+    "name": "广州好水易达便利超市连锁有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_广州好水易达便利超市连锁有限公司"
+  },
+  "1022128": {
+    "code": "1022128",
+    "name": "广州市富景房地产开发有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_广州市富景房地产开发有限公司"
+  },
+  "1022129": {
+    "code": "1022129",
+    "name": "广东冠城项目管理有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_广东冠城项目管理有限公司"
+  },
+  "1022130": {
+    "code": "1022130",
+    "name": "深圳犁陌科技有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_深圳犁陌科技有限公司"
+  },
+  "1022131": {
+    "code": "1022131",
+    "name": "湖北华中天地国际工程咨询有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_湖北华中天地国际工程咨询有限公司"
+  },
+  "1022132": {
+    "code": "1022132",
+    "name": "广东中洲国信建设管理咨询有限公司东莞分公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_广东中洲国信建设管理咨询有限公司东莞分公司"
+  },
+  "1022133": {
+    "code": "1022133",
+    "name": "北京飞书科技有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_北京飞书科技有限公司"
+  },
+  "1022134": {
+    "code": "1022134",
+    "name": "广州裕禾建设工程有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_广州裕禾建设工程有限公司"
+  },
+  "1022135": {
+    "code": "1022135",
+    "name": "罗明星",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_罗明星"
+  },
+  "1022136": {
+    "code": "1022136",
+    "name": "麒麟软件有限公司",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应收款_麒麟软件有限公司"
+  },
+  "10401": {
+    "code": "10401",
+    "name": "材料采购",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "材料采购"
+  },
+  "10402": {
+    "code": "10402",
+    "name": "在途物资",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "在途物资"
+  },
+  "10403": {
+    "code": "10403",
+    "name": "原材料",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "原材料"
+  },
+  "10404": {
+    "code": "10404",
+    "name": "材料成本差异",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "材料成本差异"
+  },
+  "10405": {
+    "code": "10405",
+    "name": "库存商品",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "存货",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "库存商品"
+  },
+  "10407": {
+    "code": "10407",
+    "name": "商品进销差价",
+    "category": "流动资产",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "商品进销差价"
+  },
+  "10408": {
+    "code": "10408",
+    "name": "委托加工物资",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "委托加工物资"
+  },
+  "10411": {
+    "code": "10411",
+    "name": "周转材料",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "周转材料"
+  },
+  "10421": {
+    "code": "10421",
+    "name": "消耗性生物资产",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "消耗性生物资产"
+  },
+  "10501": {
+    "code": "10501",
+    "name": "长期债券投资",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "长期债券投资"
+  },
+  "1050101": {
+    "code": "1050101",
+    "name": "债券投资",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "长期债券投资_债券投资"
+  },
+  "1050102": {
+    "code": "1050102",
+    "name": "其他债权投资",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "长期债券投资_其他债权投资"
+  },
+  "10511": {
+    "code": "10511",
+    "name": "长期股权投资",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "长期股权投资"
+  },
+  "1051101": {
+    "code": "1051101",
+    "name": "股票投资",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "长期股权投资_股票投资"
+  },
+  "1051102": {
+    "code": "1051102",
+    "name": "其他股权投资",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "长期股权投资_其他股权投资"
+  },
+  "10601": {
+    "code": "10601",
+    "name": "固定资产",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "固定资产"
+  },
+  "10602": {
+    "code": "10602",
+    "name": "累计折旧",
+    "category": "非流动资产",
+    "direction": "贷",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "累计折旧"
+  },
+  "10604": {
+    "code": "10604",
+    "name": "在建工程",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "在建工程"
+  },
+  "1060401": {
+    "code": "1060401",
+    "name": "建筑工程",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "在建工程_建筑工程"
+  },
+  "1060402": {
+    "code": "1060402",
+    "name": "安装工程",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "在建工程_安装工程"
+  },
+  "1060403": {
+    "code": "1060403",
+    "name": "技术改造工程",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "在建工程_技术改造工程"
+  },
+  "1060404": {
+    "code": "1060404",
+    "name": "其他支出",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "在建工程_其他支出"
+  },
+  "10605": {
+    "code": "10605",
+    "name": "工程物资",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "工程物资"
+  },
+  "10606": {
+    "code": "10606",
+    "name": "固定资产清理",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "固定资产清理"
+  },
+  "10621": {
+    "code": "10621",
+    "name": "生产性生物资产",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "生产性生物资产"
+  },
+  "10622": {
+    "code": "10622",
+    "name": "生产性生物资产累计折旧",
+    "category": "非流动资产",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "生产性生物资产累计折旧"
+  },
+  "10701": {
+    "code": "10701",
+    "name": "无形资产",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "无形资产"
+  },
+  "10702": {
+    "code": "10702",
+    "name": "累计摊销",
+    "category": "非流动资产",
+    "direction": "贷",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "累计摊销"
+  },
+  "10801": {
+    "code": "10801",
+    "name": "长期待摊费用",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "长期待摊费用"
+  },
+  "10901": {
+    "code": "10901",
+    "name": "待处理财产损溢",
+    "category": "非流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "待处理财产损溢"
+  },
+  "11001": {
+    "code": "11001",
+    "name": "待摊费用",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "待摊费用"
+  },
+  "1100101": {
+    "code": "1100101",
+    "name": "技术服务",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "待摊费用_技术服务"
+  },
+  "1100102": {
+    "code": "1100102",
+    "name": "租赁服务",
+    "category": "流动资产",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "待摊费用_租赁服务"
+  },
+  "20001": {
+    "code": "20001",
+    "name": "短期借款",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "短期借款"
+  },
+  "2000101": {
+    "code": "2000101",
+    "name": "工商银行",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "短期借款_工商银行"
+  },
+  "20201": {
+    "code": "20201",
+    "name": "应付票据",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应付票据"
+  },
+  "20202": {
+    "code": "20202",
+    "name": "应付账款",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "供应商",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应付账款"
+  },
+  "20203": {
+    "code": "20203",
+    "name": "预收账款",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "预收账款"
+  },
+  "2020301": {
+    "code": "2020301",
+    "name": "北京财富环球科技有限公司",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "预收账款_北京财富环球科技有限公司"
+  },
+  "2020302": {
+    "code": "2020302",
+    "name": "哈尔滨莆梵科技有限公司",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "预收账款_哈尔滨莆梵科技有限公司"
+  },
+  "2020303": {
+    "code": "2020303",
+    "name": "其他",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "预收账款_其他"
+  },
+  "2020304": {
+    "code": "2020304",
+    "name": "广州市霖云计算机科技有限公司",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "预收账款_广州市霖云计算机科技有限公司"
+  },
+  "20211": {
+    "code": "20211",
+    "name": "应付职工薪酬",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应付职工薪酬"
+  },
+  "2021101": {
+    "code": "2021101",
+    "name": "工资",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应付职工薪酬_工资"
+  },
+  "2021102": {
+    "code": "2021102",
+    "name": "奖金",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应付职工薪酬_奖金"
+  },
+  "20221": {
+    "code": "20221",
+    "name": "应交税费",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费"
+  },
+  "2022101": {
+    "code": "2022101",
+    "name": "应交增值税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交增值税"
+  },
+  "202210101": {
+    "code": "202210101",
+    "name": "进项税额",
+    "category": "流动负债",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交增值税_进项税额"
+  },
+  "202210102": {
+    "code": "202210102",
+    "name": "销项税额的抵减",
+    "category": "流动负债",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交增值税_销项税额的抵减"
+  },
+  "202210103": {
+    "code": "202210103",
+    "name": "已交税金",
+    "category": "流动负债",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交增值税_已交税金"
+  },
+  "202210104": {
+    "code": "202210104",
+    "name": "转出未交增值税",
+    "category": "流动负债",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交增值税_转出未交增值税"
+  },
+  "202210105": {
+    "code": "202210105",
+    "name": "减免税款",
+    "category": "流动负债",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交增值税_减免税款"
+  },
+  "202210106": {
+    "code": "202210106",
+    "name": "出口抵减内销产品应纳税额",
+    "category": "流动负债",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交增值税_出口抵减内销产品应纳税额"
+  },
+  "202210107": {
+    "code": "202210107",
+    "name": "销项税额",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交增值税_销项税额"
+  },
+  "202210108": {
+    "code": "202210108",
+    "name": "出口退税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交增值税_出口退税"
+  },
+  "202210109": {
+    "code": "202210109",
+    "name": "进项税额转出",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交增值税_进项税额转出"
+  },
+  "202210110": {
+    "code": "202210110",
+    "name": "转出多交增值税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交增值税_转出多交增值税"
+  },
+  "2022102": {
+    "code": "2022102",
+    "name": "未交增值税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_未交增值税"
+  },
+  "2022103": {
+    "code": "2022103",
+    "name": "预交增值税",
+    "category": "流动负债",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_预交增值税"
+  },
+  "2022104": {
+    "code": "2022104",
+    "name": "待抵扣进项税额",
+    "category": "流动负债",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_待抵扣进项税额"
+  },
+  "2022105": {
+    "code": "2022105",
+    "name": "待认证进项税额",
+    "category": "流动负债",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_待认证进项税额"
+  },
+  "2022106": {
+    "code": "2022106",
+    "name": "待转销项税额",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_待转销项税额"
+  },
+  "2022107": {
+    "code": "2022107",
+    "name": "增值税留抵税额",
+    "category": "流动负债",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_增值税留抵税额"
+  },
+  "2022108": {
+    "code": "2022108",
+    "name": "简易计税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_简易计税"
+  },
+  "2022109": {
+    "code": "2022109",
+    "name": "转让金融商品应交增值税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_转让金融商品应交增值税"
+  },
+  "2022110": {
+    "code": "2022110",
+    "name": "代扣代交增值税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_代扣代交增值税"
+  },
+  "2022111": {
+    "code": "2022111",
+    "name": "应交所得税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交所得税"
+  },
+  "2022112": {
+    "code": "2022112",
+    "name": "应交个人所得税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交个人所得税"
+  },
+  "2022113": {
+    "code": "2022113",
+    "name": "教育费附加",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_教育费附加"
+  },
+  "2022114": {
+    "code": "2022114",
+    "name": "地方教育费附加",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_地方教育费附加"
+  },
+  "2022115": {
+    "code": "2022115",
+    "name": "印花税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_印花税"
+  },
+  "2022116": {
+    "code": "2022116",
+    "name": "应交土地增值税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交土地增值税"
+  },
+  "2022117": {
+    "code": "2022117",
+    "name": "应交城市维护建设税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交城市维护建设税"
+  },
+  "2022118": {
+    "code": "2022118",
+    "name": "应交房产税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交房产税"
+  },
+  "2022119": {
+    "code": "2022119",
+    "name": "应交土地使用税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交土地使用税"
+  },
+  "2022120": {
+    "code": "2022120",
+    "name": "应交车船购置税",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应交税费_应交车船购置税"
+  },
+  "20231": {
+    "code": "20231",
+    "name": "应付利息",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应付利息"
+  },
+  "20232": {
+    "code": "20232",
+    "name": "应付利润",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "应付利润"
+  },
+  "20241": {
+    "code": "20241",
+    "name": "其他应付款",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款"
+  },
+  "2024101": {
+    "code": "2024101",
+    "name": "宣钢炜",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款_宣钢炜"
+  },
+  "2024102": {
+    "code": "2024102",
+    "name": "李锦",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款_李锦"
+  },
+  "2024103": {
+    "code": "2024103",
+    "name": "代缴代扣社会保险",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款_代缴代扣社会保险"
+  },
+  "2024104": {
+    "code": "2024104",
+    "name": "代缴代扣公积金",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款_代缴代扣公积金"
+  },
+  "2024105": {
+    "code": "2024105",
+    "name": "其他",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款_其他"
+  },
+  "2024106": {
+    "code": "2024106",
+    "name": "深圳市巽升科技有限公司",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款_深圳市巽升科技有限公司"
+  },
+  "2024107": {
+    "code": "2024107",
+    "name": "祁小红",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款_祁小红"
+  },
+  "2024108": {
+    "code": "2024108",
+    "name": "博林中凯（北京）科技有限公司",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款_博林中凯（北京）科技有限公司"
+  },
+  "2024109": {
+    "code": "2024109",
+    "name": "陈新波",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款_陈新波"
+  },
+  "2024110": {
+    "code": "2024110",
+    "name": "广州博智投资合伙企业（有限合伙）",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款_广州博智投资合伙企业（有限合伙）"
+  },
+  "2024111": {
+    "code": "2024111",
+    "name": "广州市中锦技术服务有限公司",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款_广州市中锦技术服务有限公司"
+  },
+  "2024112": {
+    "code": "2024112",
+    "name": "中国工商银行",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款_中国工商银行"
+  },
+  "2024113": {
+    "code": "2024113",
+    "name": "广州东云科技服务有限公司",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款_广州东云科技服务有限公司"
+  },
+  "2024114": {
+    "code": "2024114",
+    "name": "华锦智晟技术（深圳）有限公司",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他应付款_华锦智晟技术（深圳）有限公司"
+  },
+  "20401": {
+    "code": "20401",
+    "name": "递延收益",
+    "category": "流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "递延收益"
+  },
+  "20501": {
+    "code": "20501",
+    "name": "长期借款",
+    "category": "非流动负债",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "长期借款"
+  },
+  "20701": {
+    "code": "20701",
+    "name": "长期应付款",
+    "category": "非流动负债",
+    "direction": "贷",
+    "aux_category": "供应商",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "长期应付款"
+  },
+  "30001": {
+    "code": "30001",
+    "name": "实收资本",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "实收资本"
+  },
+  "3000101": {
+    "code": "3000101",
+    "name": "宣钢炜",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "实收资本_宣钢炜"
+  },
+  "3000102": {
+    "code": "3000102",
+    "name": "李毅",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "实收资本_李毅"
+  },
+  "3000103": {
+    "code": "3000103",
+    "name": "刘达明",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "实收资本_刘达明"
+  },
+  "3000104": {
+    "code": "3000104",
+    "name": "罗明星",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "实收资本_罗明星"
+  },
+  "3000105": {
+    "code": "3000105",
+    "name": "顾振英",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "实收资本_顾振英"
+  },
+  "3000106": {
+    "code": "3000106",
+    "name": "范沫曾",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "实收资本_范沫曾"
+  },
+  "3000107": {
+    "code": "3000107",
+    "name": "胡亚星",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "实收资本_胡亚星"
+  },
+  "3000108": {
+    "code": "3000108",
+    "name": "深圳市巽升科技有限公司",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "实收资本_深圳市巽升科技有限公司"
+  },
+  "3000109": {
+    "code": "3000109",
+    "name": "华锦智晟技术（深圳）有限公司",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "实收资本_华锦智晟技术（深圳）有限公司"
+  },
+  "30002": {
+    "code": "30002",
+    "name": "资本公积",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "资本公积"
+  },
+  "3000201": {
+    "code": "3000201",
+    "name": "资本溢价",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "资本公积_资本溢价"
+  },
+  "3000202": {
+    "code": "3000202",
+    "name": "接受捐赠非现金资产准备",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "资本公积_接受捐赠非现金资产准备"
+  },
+  "3000206": {
+    "code": "3000206",
+    "name": "外币资本折算差额",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "资本公积_外币资本折算差额"
+  },
+  "3000207": {
+    "code": "3000207",
+    "name": "其他资本公积",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "资本公积_其他资本公积"
+  },
+  "30101": {
+    "code": "30101",
+    "name": "盈余公积",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "盈余公积"
+  },
+  "3010101": {
+    "code": "3010101",
+    "name": "法定盈余公积",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "盈余公积_法定盈余公积"
+  },
+  "3010102": {
+    "code": "3010102",
+    "name": "任意盈余公积",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "盈余公积_任意盈余公积"
+  },
+  "3010103": {
+    "code": "3010103",
+    "name": "法定公益金",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "盈余公积_法定公益金"
+  },
+  "30103": {
+    "code": "30103",
+    "name": "本年利润",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "本年利润"
+  },
+  "30104": {
+    "code": "30104",
+    "name": "利润分配",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "利润分配"
+  },
+  "3010401": {
+    "code": "3010401",
+    "name": "其他转入",
+    "category": "所有者权益",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "利润分配_其他转入"
+  },
+  "3010402": {
+    "code": "3010402",
+    "name": "提取法定盈余公积",
+    "category": "所有者权益",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "利润分配_提取法定盈余公积"
+  },
+  "3010403": {
+    "code": "3010403",
+    "name": "提取法定公益金",
+    "category": "所有者权益",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "利润分配_提取法定公益金"
+  },
+  "3010409": {
+    "code": "3010409",
+    "name": "提取任意盈余公积",
+    "category": "所有者权益",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "利润分配_提取任意盈余公积"
+  },
+  "3010410": {
+    "code": "3010410",
+    "name": "应付股利",
+    "category": "所有者权益",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "利润分配_应付股利"
+  },
+  "3010411": {
+    "code": "3010411",
+    "name": "转作资本的利润",
+    "category": "所有者权益",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "利润分配_转作资本的利润"
+  },
+  "3010415": {
+    "code": "3010415",
+    "name": "未分配利润",
+    "category": "所有者权益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "利润分配_未分配利润"
+  },
+  "40001": {
+    "code": "40001",
+    "name": "生产成本",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "生产成本"
+  },
+  "4000101": {
+    "code": "4000101",
+    "name": "基本生产成本",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "生产成本_基本生产成本"
+  },
+  "4000102": {
+    "code": "4000102",
+    "name": "辅助生产成本",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "生产成本_辅助生产成本"
+  },
+  "40101": {
+    "code": "40101",
+    "name": "制造费用",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "制造费用"
+  },
+  "40301": {
+    "code": "40301",
+    "name": "研发支出",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出"
+  },
+  "4030101": {
+    "code": "4030101",
+    "name": "费用化支出",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出"
+  },
+  "403010101": {
+    "code": "403010101",
+    "name": "公积金",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_公积金"
+  },
+  "403010102": {
+    "code": "403010102",
+    "name": "社保费",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_社保费"
+  },
+  "403010103": {
+    "code": "403010103",
+    "name": "软著费",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_软著费"
+  },
+  "403010104": {
+    "code": "403010104",
+    "name": "工资",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_工资"
+  },
+  "403010105": {
+    "code": "403010105",
+    "name": "差旅费",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_差旅费"
+  },
+  "403010106": {
+    "code": "403010106",
+    "name": "福利费",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_福利费"
+  },
+  "403010107": {
+    "code": "403010107",
+    "name": "软件服务费",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_软件服务费"
+  },
+  "403010108": {
+    "code": "403010108",
+    "name": "市内交通费",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_市内交通费"
+  },
+  "403010109": {
+    "code": "403010109",
+    "name": "固定资产折旧",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_固定资产折旧"
+  },
+  "403010110": {
+    "code": "403010110",
+    "name": "奖金",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_奖金"
+  },
+  "403010111": {
+    "code": "403010111",
+    "name": "测试费",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_测试费"
+  },
+  "403010112": {
+    "code": "403010112",
+    "name": "培训费",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_培训费"
+  },
+  "403010113": {
+    "code": "403010113",
+    "name": "技术服务费",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_技术服务费"
+  },
+  "403010114": {
+    "code": "403010114",
+    "name": "租金",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_租金"
+  },
+  "403010115": {
+    "code": "403010115",
+    "name": "设备",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_设备"
+  },
+  "403010116": {
+    "code": "403010116",
+    "name": "其他",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_其他"
+  },
+  "403010117": {
+    "code": "403010117",
+    "name": "劳务派遣工资",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_费用化支出_劳务派遣工资"
+  },
+  "4030102": {
+    "code": "4030102",
+    "name": "资本化支出",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "研发支出_资本化支出"
+  },
+  "40401": {
+    "code": "40401",
+    "name": "工程施工",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "工程施工"
+  },
+  "40403": {
+    "code": "40403",
+    "name": "机械作业",
+    "category": "成本",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "机械作业"
+  },
+  "50001": {
+    "code": "50001",
+    "name": "主营业务收入",
+    "category": "营业收入",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "主营业务收入"
+  },
+  "5000101": {
+    "code": "5000101",
+    "name": "技术服务收入",
+    "category": "营业收入",
+    "direction": "贷",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "主营业务收入_技术服务收入"
+  },
+  "5000102": {
+    "code": "5000102",
+    "name": "产品销售收入",
+    "category": "营业收入",
+    "direction": "贷",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "主营业务收入_产品销售收入"
+  },
+  "5000103": {
+    "code": "5000103",
+    "name": "租赁业务收入",
+    "category": "营业收入",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "主营业务收入_租赁业务收入"
+  },
+  "50051": {
+    "code": "50051",
+    "name": "其他业务收入",
+    "category": "其他收益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他业务收入"
+  },
+  "5005101": {
+    "code": "5005101",
+    "name": "租赁业务",
+    "category": "其他收益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他业务收入_租赁业务"
+  },
+  "50111": {
+    "code": "50111",
+    "name": "投资收益",
+    "category": "其他收益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "投资收益"
+  },
+  "50301": {
+    "code": "50301",
+    "name": "营业外收入",
+    "category": "其他收益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外收入"
+  },
+  "5030101": {
+    "code": "5030101",
+    "name": "非流动资产处置净收益",
+    "category": "其他收益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外收入_非流动资产处置净收益"
+  },
+  "5030102": {
+    "code": "5030102",
+    "name": "政府补助",
+    "category": "其他收益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外收入_政府补助"
+  },
+  "5030103": {
+    "code": "5030103",
+    "name": "捐赠收益",
+    "category": "其他收益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外收入_捐赠收益"
+  },
+  "5030104": {
+    "code": "5030104",
+    "name": "盘盈收益",
+    "category": "其他收益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外收入_盘盈收益"
+  },
+  "5030105": {
+    "code": "5030105",
+    "name": "其他",
+    "category": "其他收益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外收入_其他"
+  },
+  "5030106": {
+    "code": "5030106",
+    "name": "减免税",
+    "category": "其他收益",
+    "direction": "贷",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外收入_减免税"
+  },
+  "50401": {
+    "code": "50401",
+    "name": "主营业务成本",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "主营业务成本"
+  },
+  "5040101": {
+    "code": "5040101",
+    "name": "产品销售成本",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "主营业务成本_产品销售成本"
+  },
+  "5040102": {
+    "code": "5040102",
+    "name": "技术服务",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "主营业务成本_技术服务"
+  },
+  "5040103": {
+    "code": "5040103",
+    "name": "租赁成本",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "主营业务成本_租赁成本"
+  },
+  "50402": {
+    "code": "50402",
+    "name": "其他业务成本",
+    "category": "其他损失",
+    "direction": "借",
+    "aux_category": "项目",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "其他业务成本"
+  },
+  "50403": {
+    "code": "50403",
+    "name": "税金及附加",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "税金及附加"
+  },
+  "5040301": {
+    "code": "5040301",
+    "name": "消费税",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "税金及附加_消费税"
+  },
+  "5040303": {
+    "code": "5040303",
+    "name": "城市维护建设税",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "税金及附加_城市维护建设税"
+  },
+  "5040304": {
+    "code": "5040304",
+    "name": "资源税",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "税金及附加_资源税"
+  },
+  "5040305": {
+    "code": "5040305",
+    "name": "土地增值税",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "税金及附加_土地增值税"
+  },
+  "5040306": {
+    "code": "5040306",
+    "name": "城镇土地使用税",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "税金及附加_城镇土地使用税"
+  },
+  "5040307": {
+    "code": "5040307",
+    "name": "房产税",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "税金及附加_房产税"
+  },
+  "5040308": {
+    "code": "5040308",
+    "name": "车船税",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "税金及附加_车船税"
+  },
+  "5040309": {
+    "code": "5040309",
+    "name": "印花税",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "税金及附加_印花税"
+  },
+  "5040310": {
+    "code": "5040310",
+    "name": "教育费附加",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "税金及附加_教育费附加"
+  },
+  "5040311": {
+    "code": "5040311",
+    "name": "矿产资源补偿费",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "税金及附加_矿产资源补偿费"
+  },
+  "5040312": {
+    "code": "5040312",
+    "name": "排污费",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "税金及附加_排污费"
+  },
+  "5040313": {
+    "code": "5040313",
+    "name": "地方教育费附加",
+    "category": "营业成本及税金",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "税金及附加_地方教育费附加"
+  },
+  "50601": {
+    "code": "50601",
+    "name": "销售费用",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用"
+  },
+  "5060101": {
+    "code": "5060101",
+    "name": "办公用品",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_办公用品"
+  },
+  "5060105": {
+    "code": "5060105",
+    "name": "业务招待费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_业务招待费"
+  },
+  "5060106": {
+    "code": "5060106",
+    "name": "市内交通费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_市内交通费"
+  },
+  "5060107": {
+    "code": "5060107",
+    "name": "差旅费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_差旅费"
+  },
+  "5060108": {
+    "code": "5060108",
+    "name": "公积金",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_公积金"
+  },
+  "5060109": {
+    "code": "5060109",
+    "name": "通讯费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_通讯费"
+  },
+  "5060110": {
+    "code": "5060110",
+    "name": "工资",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_工资"
+  },
+  "5060111": {
+    "code": "5060111",
+    "name": "佣金",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_佣金"
+  },
+  "5060112": {
+    "code": "5060112",
+    "name": "社会保险",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_社会保险"
+  },
+  "5060113": {
+    "code": "5060113",
+    "name": "福利费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_福利费"
+  },
+  "5060114": {
+    "code": "5060114",
+    "name": "累计折旧",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_累计折旧"
+  },
+  "5060115": {
+    "code": "5060115",
+    "name": "商品维修费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_商品维修费"
+  },
+  "5060116": {
+    "code": "5060116",
+    "name": "广告和业务宣传费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_广告和业务宣传费"
+  },
+  "5060117": {
+    "code": "5060117",
+    "name": "奖金",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_奖金"
+  },
+  "5060118": {
+    "code": "5060118",
+    "name": "信息技术服务费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_信息技术服务费"
+  },
+  "5060119": {
+    "code": "5060119",
+    "name": "临时工工资",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_临时工工资"
+  },
+  "5060199": {
+    "code": "5060199",
+    "name": "其他",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "销售费用_其他"
+  },
+  "50602": {
+    "code": "50602",
+    "name": "管理费用",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用"
+  },
+  "5060201": {
+    "code": "5060201",
+    "name": "办公费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_办公费"
+  },
+  "5060202": {
+    "code": "5060202",
+    "name": "房租",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_房租"
+  },
+  "5060203": {
+    "code": "5060203",
+    "name": "物业管理费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_物业管理费"
+  },
+  "5060204": {
+    "code": "5060204",
+    "name": "水电费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_水电费"
+  },
+  "5060205": {
+    "code": "5060205",
+    "name": "业务招待费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_业务招待费"
+  },
+  "5060206": {
+    "code": "5060206",
+    "name": "市内交通费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_市内交通费"
+  },
+  "5060207": {
+    "code": "5060207",
+    "name": "差旅费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_差旅费"
+  },
+  "5060208": {
+    "code": "5060208",
+    "name": "无形资产摊销",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_无形资产摊销"
+  },
+  "5060209": {
+    "code": "5060209",
+    "name": "工资",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_工资"
+  },
+  "5060210": {
+    "code": "5060210",
+    "name": "社会保险",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_社会保险"
+  },
+  "5060211": {
+    "code": "5060211",
+    "name": "福利费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_福利费"
+  },
+  "5060212": {
+    "code": "5060212",
+    "name": "累计折旧",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_累计折旧"
+  },
+  "5060213": {
+    "code": "5060213",
+    "name": "低值易耗品",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_低值易耗品"
+  },
+  "5060214": {
+    "code": "5060214",
+    "name": "公积金",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_公积金"
+  },
+  "5060215": {
+    "code": "5060215",
+    "name": "研发费用",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_研发费用"
+  },
+  "5060216": {
+    "code": "5060216",
+    "name": "电迅费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_电迅费"
+  },
+  "5060217": {
+    "code": "5060217",
+    "name": "辞退补偿金",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_辞退补偿金"
+  },
+  "5060218": {
+    "code": "5060218",
+    "name": "奖金",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_奖金"
+  },
+  "5060219": {
+    "code": "5060219",
+    "name": "劳务派遣",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_劳务派遣"
+  },
+  "5060220": {
+    "code": "5060220",
+    "name": "印花税",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_印花税"
+  },
+  "5060221": {
+    "code": "5060221",
+    "name": "车船购置税",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_车船购置税"
+  },
+  "5060222": {
+    "code": "5060222",
+    "name": "汽车使用费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_汽车使用费"
+  },
+  "5060299": {
+    "code": "5060299",
+    "name": "其他",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "部门",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "管理费用_其他"
+  },
+  "50603": {
+    "code": "50603",
+    "name": "财务费用",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "财务费用"
+  },
+  "5060301": {
+    "code": "5060301",
+    "name": "汇兑损益",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "财务费用_汇兑损益"
+  },
+  "5060302": {
+    "code": "5060302",
+    "name": "利息",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "财务费用_利息"
+  },
+  "5060303": {
+    "code": "5060303",
+    "name": "手续费",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "财务费用_手续费"
+  },
+  "5060399": {
+    "code": "5060399",
+    "name": "其他",
+    "category": "期间费用",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "财务费用_其他"
+  },
+  "50711": {
+    "code": "50711",
+    "name": "营业外支出",
+    "category": "其他损失",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外支出"
+  },
+  "5071101": {
+    "code": "5071101",
+    "name": "存货盘亏毁损",
+    "category": "其他损失",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外支出_存货盘亏毁损"
+  },
+  "5071102": {
+    "code": "5071102",
+    "name": "非流动资产处置净损失",
+    "category": "其他损失",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外支出_非流动资产处置净损失"
+  },
+  "5071103": {
+    "code": "5071103",
+    "name": "坏账损失",
+    "category": "其他损失",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外支出_坏账损失"
+  },
+  "5071104": {
+    "code": "5071104",
+    "name": "无法收回的长期债券投资损失",
+    "category": "其他损失",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外支出_无法收回的长期债券投资损失"
+  },
+  "5071105": {
+    "code": "5071105",
+    "name": "无法收回的长期股权投资损失",
+    "category": "其他损失",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外支出_无法收回的长期股权投资损失"
+  },
+  "5071106": {
+    "code": "5071106",
+    "name": "自然灾害等不可抗力造成的损失",
+    "category": "其他损失",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外支出_自然灾害等不可抗力造成的损失"
+  },
+  "5071107": {
+    "code": "5071107",
+    "name": "税收滞纳金",
+    "category": "其他损失",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外支出_税收滞纳金"
+  },
+  "5071108": {
+    "code": "5071108",
+    "name": "罚金、罚款",
+    "category": "其他损失",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外支出_罚金、罚款"
+  },
+  "5071109": {
+    "code": "5071109",
+    "name": "捐赠支出",
+    "category": "其他损失",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外支出_捐赠支出"
+  },
+  "5071110": {
+    "code": "5071110",
+    "name": "其他",
+    "category": "其他损失",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "营业外支出_其他"
+  },
+  "50801": {
+    "code": "50801",
+    "name": "所得税费用",
+    "category": "所得税",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "所得税费用"
+  },
+  "60000": {
+    "code": "60000",
+    "name": "以前年度损益调整",
+    "category": "以前年度损益调整",
+    "direction": "借",
+    "aux_category": "",
+    "is_cash": false,
+    "enabled": true,
+    "full_name": "以前年度损益调整"
+  }
+}

@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   parsePdf: (params: any) => ipcRenderer.invoke('parse_pdf', params),
   generateExcel: (params: any) => ipcRenderer.invoke('generate_excel', params),
   generateVoucher: (params: any) => ipcRenderer.invoke('generate_voucher_excel', params),
+  importSubjects: (params: any) => ipcRenderer.invoke('import_subjects', params),
+  getSubjectsInfo: () => ipcRenderer.invoke('get_subjects_info', {}),
   chat: (msg: string, sessionKey?: string) =>
     ipcRenderer.invoke('chat', { message: msg, session_key: sessionKey }),
   selectFile: (filter: string) => ipcRenderer.invoke('select_file', { filter }),

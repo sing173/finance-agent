@@ -76,6 +76,14 @@ export function setupIpcHandlers() {
     return pythonProcess.call('generate_voucher_excel', params);
   });
 
+  ipcMain.handle('import_subjects', async (event: any, params: any) => {
+    return pythonProcess.call('import_subjects', params);
+  });
+
+  ipcMain.handle('get_subjects_info', async (event: any, params: any) => {
+    return pythonProcess.call('get_subjects_info', params);
+  });
+
   // 保存文件对话框：返回用户选择的保存路径，取消返回 null
   ipcMain.handle('save_file_dialog', async (event: any, params: any) => {
     const win = BrowserWindow.fromWebContents(event.sender);

@@ -149,14 +149,12 @@ def handle_generate_voucher_excel(params: dict) -> dict:
     params:
         transactions  (list, required): 流水列表，格式同 generate_excel
         output_path   (str,  optional): 输出文件路径，默认 voucher.xlsx
-        subjects_path (str,  optional): 科目 xlsx 路径；为空时不加载科目，科目名称退化为科目代码
         subject_mapping (dict, optional): 关键字映射配置；为空时读取内置默认配置
         account_mapping (dict, optional): 账号映射配置；为空时读取内置默认配置
         period        (str,  optional): 期间名称，用于 Sheet 名，如 '2026年第3期'
     """
     transactions_data = params.get("transactions")
     output_path = params.get("output_path", "voucher.xlsx")
-    subjects_path = params.get("subjects_path", "")
     subject_mapping = params.get("subject_mapping")   # None = 读默认配置
     account_mapping = params.get("account_mapping")   # None = 读默认配置
     period = params.get("period", "")
@@ -181,11 +179,8 @@ def handle_generate_voucher_excel(params: dict) -> dict:
                 notes=t.get('notes'),
             ))
 
-        # 加载科目（可选）
-        subjects = {}
-        if subjects_path:
-            loader = _subject_loader.SubjectLoader()
-            subjects = loader.load(subjects_path)
+        # 加载内置科目（config/subjects.json）
+        subjects = _load_built_in_subjects()
 
         builder = _excel_builder.ExcelBuilder()
         voucher_path = builder.build_voucher(
@@ -199,6 +194,100 @@ def handle_generate_voucher_excel(params: dict) -> dict:
         return {"success": True, "excel_path": voucher_path}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def _get_config_dir() -> str:
+    """获取 config 目录的绝对路径。"""
+    return os.path.join(_project_root, 'finance_agent_backend', 'config')
+
+
+def _load_built_in_subjects() -> dict:
+    """从内置 config/subjects.json 加载科目字典。"""
+    config_dir = _get_config_dir()
+    subjects_path = os.path.join(config_dir, 'subjects.json')
+    if not os.path.exists(subjects_path):
+        return {}
+
+    with open(subjects_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    from finance_agent_backend.models import Subject
+    subjects: dict = {}
+    for code, info in data.items():
+        subjects[code] = Subject(
+            code=info.get('code', code),
+            name=info.get('name', ''),
+            category=info.get('category', ''),
+            direction=info.get('direction', '借'),
+            aux_category=info.get('aux_category', ''),
+            is_cash=info.get('is_cash', False),
+            enabled=info.get('enabled', True),
+            full_name=info.get('full_name', info.get('name', '')),
+        )
+    return subjects
+
+
+@register_method("import_subjects")
+def handle_import_subjects(params: dict) -> dict:
+    """从科目 xlsx 导入并保存为内置 subjects.json。
+
+    params:
+        xlsx_path (str, required): 科目 xlsx 文件路径
+
+    返回:
+        success: 是否成功
+        count: 导入的科目数量
+        path: 保存的 JSON 路径
+    """
+    xlsx_path = params.get("xlsx_path", "")
+    if not xlsx_path:
+        return {"success": False, "error": "缺少 xlsx_path 参数"}
+
+    try:
+        loader = _subject_loader.SubjectLoader()
+        subjects = loader.load(xlsx_path)
+
+        # 序列化为 JSON
+        data = {}
+        for code, subj in subjects.items():
+            data[code] = {
+                'code': subj.code,
+                'name': subj.name,
+                'category': subj.category,
+                'direction': subj.direction,
+                'aux_category': subj.aux_category,
+                'is_cash': subj.is_cash,
+                'enabled': subj.enabled,
+                'full_name': subj.full_name,
+            }
+
+        config_dir = _get_config_dir()
+        subjects_json_path = os.path.join(config_dir, 'subjects.json')
+        with open(subjects_json_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        return {
+            "success": True,
+            "count": len(subjects),
+            "path": subjects_json_path,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@register_method("get_subjects_info")
+def handle_get_subjects_info(params: dict) -> dict:
+    """查询内置科目表信息。"""
+    config_dir = _get_config_dir()
+    subjects_path = os.path.join(config_dir, 'subjects.json')
+    if not os.path.exists(subjects_path):
+        return {"success": True, "count": 0, "loaded": False}
+    try:
+        with open(subjects_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return {"success": True, "count": len(data), "loaded": True}
+    except Exception as e:
+        return {"success": False, "count": 0, "loaded": False, "error": str(e)}
 
 
 def handle_request(request: dict) -> dict:

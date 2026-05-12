@@ -118,9 +118,6 @@ class ExcelBuilder:
         if account_mapping is None:
             account_mapping = self._load_default_config('account_mapping.json')
 
-        # 计算凭证统一日期（期末汇总日期）
-        voucher_date = self._get_period_end_date(transactions)
-
         # 生成所有凭证分录
         all_entries: List[VoucherEntry] = []
         for voucher_no, t in enumerate(transactions, start=1):
@@ -129,6 +126,9 @@ class ExcelBuilder:
 
             bank_subject = subjects.get(bank_code)
             counter_subject = subjects.get(counter_code)
+
+            # 每笔流水按自己的月份取该月最后一天作为凭证日期
+            voucher_date = self._get_period_end_date(t.date)
 
             entries = self._transaction_to_entries(
                 t, voucher_no, voucher_date, bank_subject, counter_subject,
@@ -158,16 +158,14 @@ class ExcelBuilder:
         with open(config_path, 'r', encoding='utf-8') as f:
             return json.load(f)
 
-    def _get_period_end_date(self, transactions: List[Transaction]) -> date:
-        """计算期末日期：取所有流水中最大日期所在月份的最后一天。
+    def _get_period_end_date(self, d: date) -> date:
+        """计算指定日期所在月份的最后一天。
 
-        例如流水最大日期为 2026-03-15，则返回 2026-03-31。
+        例如 d 为 2026-03-15，则返回 2026-03-31。
+        d 为 2026-04-05，则返回 2026-04-30。
         """
-        if not transactions:
-            return date.today()
-        max_date = max(t.date for t in transactions)
-        last_day = calendar.monthrange(max_date.year, max_date.month)[1]
-        return date(max_date.year, max_date.month, last_day)
+        last_day = calendar.monthrange(d.year, d.month)[1]
+        return date(d.year, d.month, last_day)
 
     def _match_subject_code(
         self, description: str, direction: str, subject_mapping: dict
