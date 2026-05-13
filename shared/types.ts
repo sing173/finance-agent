@@ -52,6 +52,8 @@ export interface Transaction {
   counterparty?: string;
   reference_number?: string;
   notes?: string | null;
+  account_number?: string | null;
+  account_name?: string | null;
 }
 
 /** Agent 聊天（非流式） */
