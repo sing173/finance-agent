@@ -273,7 +273,6 @@ function App() {
               )}
             </div>
           </Card>
-          </Card>
 
           {/* 文件上传区域 */}
           <div style={{ flex: 1, minWidth: 300, height: 200 }}>
