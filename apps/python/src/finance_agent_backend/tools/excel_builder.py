@@ -19,7 +19,7 @@ class ExcelBuilder:
         ws.title = '交易明细'
         ws['A1'] = '银行流水明细'
         ws['A1'].font = Font(bold=True, size=14)
-        ws.merge_cells('A1:G1')
+        ws.merge_cells('A1:I1')
 
         # 统计
         income_count = sum(1 for t in transactions if t.direction == 'income')
@@ -42,7 +42,7 @@ class ExcelBuilder:
 
         # 交易列表
         data_start = len(stats) + 5
-        headers = ['日期', '描述', '金额', '币种', '方向', '对方户名', '流水号']
+        headers = ['日期', '描述', '金额', '币种', '方向', '对方户名', '流水号', '本方帐号', '本方户名']
         for col, header in enumerate(headers, start=1):
             cell = ws.cell(row=data_start, column=col, value=header)
             cell.font = Font(bold=True, color='FFFFFF')
@@ -57,6 +57,8 @@ class ExcelBuilder:
             ws.cell(row=row, column=5, value=t.direction)
             ws.cell(row=row, column=6, value=t.counterparty)
             ws.cell(row=row, column=7, value=t.reference_number)
+            ws.cell(row=row, column=8, value=t.account_number)
+            ws.cell(row=row, column=9, value=t.account_name)
 
         ws.freeze_panes = f'A{data_start + 1}'
         self._auto_width(ws)

@@ -32,6 +32,8 @@ class ICBCParser:
     def __init__(self, dpi: int = 300):
         self.dpi = dpi
         self._ocr_engine = None
+        self._account_number: Optional[str] = None
+        self._account_name: Optional[str] = None
 
     @property
     def _ocr(self) -> RapidOCR:
@@ -52,14 +54,24 @@ class ICBCParser:
 
         for page_num in range(len(doc)):
             try:
-                page_tx, col_map = self._parse_page(doc, page_num, inherited_col_map)
+                page_tx, col_map, page_acct = self._parse_page(
+                    doc, page_num, inherited_col_map, is_first=(page_num == 0)
+                )
                 transactions.extend(page_tx)
                 if col_map:
                     inherited_col_map = col_map
+                if page_acct:
+                    self._account_number, self._account_name = page_acct
             except Exception as e:
                 errors.append(f"Page {page_num + 1}: {e}")
 
         doc.close()
+
+        # Attach account info to each transaction
+        for tx in transactions:
+            tx.account_number = self._account_number
+            tx.account_name = self._account_name
+
         statement_date = transactions[-1].date if transactions else None
         confidence = max(0.0, 1.0 - 0.02 * len(errors))
 
@@ -74,21 +86,45 @@ class ICBCParser:
 
     # ── page pipeline ─────────────────────────────────────────────
 
-    def _parse_page(self, doc, page_num: int, inherited_col_map: Dict[int, str] = None) -> Tuple[List[Transaction], Dict[int, str]]:
+    def _parse_page(
+        self, doc, page_num: int, inherited_col_map: Dict[int, str] = None,
+        is_first: bool = False,
+    ) -> Tuple[List[Transaction], Dict[int, str], Optional[Tuple[str, str]]]:
         img = self._render_page(doc, page_num)
         h_coords, v_coords = self._detect_table_lines(img)
         if len(h_coords) < 3 or len(v_coords) < 3:
-            return [], {}
+            return [], {}, None
 
         grid_rows = self._build_grid(h_coords, v_coords)
         col_map = self._detect_header_columns(h_coords, v_coords)
-        # Fall back to inherited map from previous page when header row absent
         if not col_map and inherited_col_map:
             col_map = inherited_col_map
 
         blocks = self._ocr_page_data(img)
+
+        # Extract account info from header blocks on first page only
+        page_acct = None
+        if is_first and len(h_coords) > 1:
+            header_blocks = [
+                b for b in blocks
+                if h_coords[0] < b["y0"] < h_coords[1]
+            ]
+            if header_blocks:
+                acct_num = None
+                acct_name = None
+                for b in header_blocks:
+                    text = b["text"].strip()
+                    m = re.search(r"[帐賬][号號][：:]\s*(\d{12,20})", text)
+                    if m:
+                        acct_num = m.group(1)
+                    m = re.search(r"[户戶]名[：:]\s*([一-鿿()（）\w]{3,30})", text)
+                    if m:
+                        acct_name = m.group(1).strip()
+                if acct_num or acct_name:
+                    page_acct = (acct_num, acct_name)
+
         cell_grid = self._assign_blocks(blocks, grid_rows)
-        return self._grid_to_transactions(cell_grid, col_map), col_map
+        return self._grid_to_transactions(cell_grid, col_map), col_map, page_acct
 
     @staticmethod
     def _render_page(doc, page_num: int, dpi: int = 300) -> np.ndarray:
