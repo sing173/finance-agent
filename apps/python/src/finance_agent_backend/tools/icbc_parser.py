@@ -114,10 +114,10 @@ class ICBCParser:
                 acct_name = None
                 for b in header_blocks:
                     text = b["text"].strip()
-                    m = re.search(r"[帐賬][号號][：:]\s*(\d{12,20})", text)
+                    m = re.search(r"账号[：:]\s*(\d{12,20})", text)
                     if m:
                         acct_num = m.group(1)
-                    m = re.search(r"[户戶]名[：:]\s*([一-鿿()（）\w]{3,30})", text)
+                    m = re.search(r"户名[：:]\s*([一-鿿()（）\w]{3,30})", text)
                     if m:
                         acct_name = m.group(1).strip()
                 if acct_num or acct_name:
