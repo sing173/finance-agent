@@ -15,6 +15,8 @@ class Transaction:
     counterparty: Optional[str] = None
     reference_number: Optional[str] = None
     notes: Optional[str] = None
+    account_number: Optional[str] = None
+    account_name: Optional[str] = None
 
 
 @dataclass

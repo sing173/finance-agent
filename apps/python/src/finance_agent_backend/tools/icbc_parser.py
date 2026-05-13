@@ -1,12 +1,12 @@
 """中国工商银行 (ICBC) 交易流水 PDF OCR 解析器
 
 ICBC PDF 是扫描件/图片型，须经 OCR 提取文字。
-使用「表格线检测 + 网格分割 + 表头识别」方案：
+使用「表格线检测 + 网格分割 + 固定列映射」方案：
   1. PDF 渲染为高分辨率图像
   2. OpenCV 形态学操作检测水平/垂直线
   3. 投影法提取线条坐标，构建表格网格
-  4. 低阈值 OCR 表头行，自动识别每列的语义
-  5. 数据行 OCR → 按网格+表头映射分配到具体单元格
+  4. 列映射固定为 10 列（无需 OCR 表头识别）
+  5. 数据行 OCR → 按网格坐标分配到具体单元格
   6. 同行单元格合并为一条交易记录
 """
 import re
@@ -23,20 +23,6 @@ from rapidocr_onnxruntime import RapidOCR
 
 from ..models import Transaction, ParseResult
 
-# Header keyword → internal column name
-_HEADER_MAP: Dict[str, str] = {
-    "日期": "date",
-    "交易类型": "type",
-    "凭证种类": "type",  # merged with 交易类型
-    "凭证号": "ref",
-    "对方账号": "ref",  # alternate ref (流水号) — merged with 凭证号
-    "对方户名": "counterparty",
-    "摘要": "purpose",
-    "借方发生额": "amount_out",
-    "贷方发生额": "amount_in",
-    "余额": "balance",
-}
-
 
 class ICBCParser:
     """中国工商银行 OCR 流水解析器 (table-line grid + header detection)"""
@@ -46,6 +32,8 @@ class ICBCParser:
     def __init__(self, dpi: int = 300):
         self.dpi = dpi
         self._ocr_engine = None
+        self._account_number: Optional[str] = None
+        self._account_name: Optional[str] = None
 
     @property
     def _ocr(self) -> RapidOCR:
@@ -66,14 +54,24 @@ class ICBCParser:
 
         for page_num in range(len(doc)):
             try:
-                page_tx, col_map = self._parse_page(doc, page_num, inherited_col_map)
+                page_tx, col_map, page_acct = self._parse_page(
+                    doc, page_num, inherited_col_map, is_first=(page_num == 0)
+                )
                 transactions.extend(page_tx)
                 if col_map:
                     inherited_col_map = col_map
+                if page_acct:
+                    self._account_number, self._account_name = page_acct
             except Exception as e:
                 errors.append(f"Page {page_num + 1}: {e}")
 
         doc.close()
+
+        # Attach account info to each transaction
+        for tx in transactions:
+            tx.account_number = self._account_number
+            tx.account_name = self._account_name
+
         statement_date = transactions[-1].date if transactions else None
         confidence = max(0.0, 1.0 - 0.02 * len(errors))
 
@@ -88,21 +86,45 @@ class ICBCParser:
 
     # ── page pipeline ─────────────────────────────────────────────
 
-    def _parse_page(self, doc, page_num: int, inherited_col_map: Dict[int, str] = None) -> Tuple[List[Transaction], Dict[int, str]]:
+    def _parse_page(
+        self, doc, page_num: int, inherited_col_map: Dict[int, str] = None,
+        is_first: bool = False,
+    ) -> Tuple[List[Transaction], Dict[int, str], Optional[Tuple[str, str]]]:
         img = self._render_page(doc, page_num)
         h_coords, v_coords = self._detect_table_lines(img)
         if len(h_coords) < 3 or len(v_coords) < 3:
-            return [], {}
+            return [], {}, None
 
         grid_rows = self._build_grid(h_coords, v_coords)
-        col_map = self._detect_header_columns(img, h_coords, v_coords)
-        # Fall back to inherited map from previous page when header row absent
+        col_map = self._detect_header_columns(h_coords, v_coords)
         if not col_map and inherited_col_map:
             col_map = inherited_col_map
 
         blocks = self._ocr_page_data(img)
+
+        # Extract account info from header blocks on first page only
+        page_acct = None
+        if is_first and len(h_coords) > 1:
+            header_blocks = [
+                b for b in blocks
+                if h_coords[0] < b["y0"] < h_coords[1]
+            ]
+            if header_blocks:
+                acct_num = None
+                acct_name = None
+                for b in header_blocks:
+                    text = b["text"].strip()
+                    m = re.search(r"[帐賬][号號][：:]\s*(\d{12,20})", text)
+                    if m:
+                        acct_num = m.group(1)
+                    m = re.search(r"[户戶]名[：:]\s*([一-鿿()（）\w]{3,30})", text)
+                    if m:
+                        acct_name = m.group(1).strip()
+                if acct_num or acct_name:
+                    page_acct = (acct_num, acct_name)
+
         cell_grid = self._assign_blocks(blocks, grid_rows)
-        return self._grid_to_transactions(cell_grid, col_map), col_map
+        return self._grid_to_transactions(cell_grid, col_map), col_map, page_acct
 
     @staticmethod
     def _render_page(doc, page_num: int, dpi: int = 300) -> np.ndarray:
@@ -170,61 +192,29 @@ class ICBCParser:
             rows.append(cells)
         return rows
 
-    # ── header detection ──────────────────────────────────────────
+    # Fixed column order for ICBC statements (10 columns)
+    _COLUMN_NAMES = [
+        "date", "type", "type", "ref", "ref",
+        "counterparty", "purpose", "amount_out", "amount_in", "balance",
+    ]
 
     def _detect_header_columns(
-        self, img: np.ndarray, h_coords: List[int], v_coords: List[int]
+        self, h_coords: List[int], v_coords: List[int]
     ) -> Dict[int, str]:
-        """Group header-row OCR text by grid column, then match keywords.
+        """Map grid column indices to semantic names using fixed column order.
 
-        The header row often has text split across multiple OCR blocks within
-        the same cell (e.g. "交易类" + "型" → "交易类型").  We first bucket
-        all OCR blocks into grid columns, concatenate, then match.
+        ICBC statements always have 10 columns in the same order:
+          日期 | 交易类型 | 凭证种类 | 凭证号 | 对方账号 |
+          对方户名 | 摘要 | 借方发生额 | 贷方发生额 | 余额
+
+        We derive the mapping purely from the number of grid columns
+        (v_coords) without any OCR pass on the header row.
         """
-        if len(h_coords) < 3 or len(v_coords) < 2:
-            return {}
-
-        gray = np.array(Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)).convert("L"))
-        _, img_bin = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY_INV)
-
-        ocr_result, _ = self._ocr(img_bin)
-        if not ocr_result:
-            return {}
-
-        # Scan candidate header rows (rows 1-3), pick the one with most
-        # keyword matches after per-column concatenation.
-        best_score, best_map = 0, {}
-
-        for row_idx in range(1, min(len(h_coords) - 1, 4)):
-            hy0, hy1 = h_coords[row_idx], h_coords[row_idx + 1]
-            # Collect text blocks per grid column within this row
-            col_texts: Dict[int, List[str]] = {
-                ci: [] for ci in range(len(v_coords) - 1)
-            }
-            for box, text, _ in ocr_result:
-                yc = (box[0][1] + box[2][1]) / 2
-                if not (hy0 <= yc <= hy1):
-                    continue
-                x0, x1 = int(box[0][0]), int(box[2][0])
-                for ci in range(len(v_coords) - 1):
-                    if x0 < v_coords[ci + 1] and x1 > v_coords[ci]:
-                        col_texts[ci].append(text)
-                        break
-
-            # Match keywords against concatenated per-column text
-            col_map: Dict[int, str] = {}
-            for ci, texts in col_texts.items():
-                joined = "".join(texts)
-                for keyword, semantic in _HEADER_MAP.items():
-                    if keyword in joined:
-                        if ci not in col_map:
-                            col_map[ci] = semantic
-
-            score = len(col_map)
-            if score > best_score:
-                best_score, best_map = score, col_map
-
-        return best_map
+        num_cols = len(v_coords) - 1
+        col_map: Dict[int, str] = {}
+        for ci in range(min(num_cols, len(self._COLUMN_NAMES))):
+            col_map[ci] = self._COLUMN_NAMES[ci]
+        return col_map
 
     # ── data OCR ──────────────────────────────────────────────────
 
@@ -376,7 +366,7 @@ class ICBCParser:
 
     @staticmethod
     def _parse_amount(text: str) -> Decimal:
-        text = text.strip().replace(",", "").replace(" ", "")
+        text = text.strip().replace(",", "").replace("，", "").replace(" ", "")
         m = re.search(r"[\d,]+\.?\d*", text)
         if m:
             return Decimal(m.group().replace(",", ""))
