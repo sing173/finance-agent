@@ -9,7 +9,8 @@ interface FileDropZoneProps {
 export function FileDropZone({ onFileSelected }: FileDropZoneProps) {
   const handleSelectFile = useCallback(async () => {
     try {
-      const filePath = await window.electronAPI?.selectFile?.('pdf');
+      // 支持 PDF、CSV、Excel 文件
+      const filePath = await window.electronAPI?.selectFile?.('all');
       if (filePath) {
         onFileSelected(filePath);
         message.success(`已选择: ${filePath.split(/[/\\]/).pop()}`);
@@ -35,7 +36,7 @@ export function FileDropZone({ onFileSelected }: FileDropZoneProps) {
         color: '#999',
       }}>
         <InboxOutlined style={{ fontSize: 40, color: '#1677ff', marginBottom: 12 }} />
-        <span style={{ fontSize: 14 }}>点击此区域选择 PDF 银行流水文件</span>
+        <span style={{ fontSize: 14 }}>点击此区域选择文件（PDF / CSV / Excel）</span>
       </div>
     </Card>
   );

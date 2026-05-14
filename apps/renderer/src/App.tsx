@@ -105,9 +105,10 @@ function App() {
   const handleFileSelected = async (filePath: string) => {
     if (!filePath) return;
 
-    // 检查是否为 PDF 文件
-    if (!filePath.toLowerCase().endsWith('.pdf')) {
-      message.warning('请选择 PDF 文件');
+    // 检查文件类型（支持 PDF、CSV、Excel）
+    const ext = filePath.toLowerCase().split('.').pop();
+    if (!['pdf', 'csv', 'xlsx', 'xls'].includes(ext || '')) {
+      message.warning('请选择 PDF、CSV 或 Excel 文件');
       return;
     }
 
@@ -117,8 +118,10 @@ function App() {
     const startTime = Date.now();
 
     try {
-      message.info('正在解析 PDF...');
+      const fileType = ext === 'csv' ? 'CSV' : 'PDF';
+      message.info(`正在解析${fileType}文件...`);
 
+      // 统一使用 parsePDF（bridge 内部自动识别 CSV）
       const result = await window.electronAPI.parsePDF(filePath);
 
       setCurrentStep(1);

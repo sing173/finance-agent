@@ -23,19 +23,15 @@ export function setupIpcHandlers() {
 
     let filters: any;
     const f = params?.filter?.toLowerCase();
-    if (f === 'xlsx') {
-      filters = [
-        { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
-        { name: 'All Files', extensions: ['*'] },
-      ];
-    } else {
-      // 默认 PDF
-      filters = [
-        { name: 'PDF Files', extensions: ['pdf'] },
-        { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
-        { name: 'All Files', extensions: ['*'] },
-      ];
-    }
+
+    // 默认 PDF
+    filters = [
+      { name: 'All Supported Files', extensions: ['pdf', 'csv', 'xlsx', 'xls'] },
+      { name: 'PDF Files', extensions: ['pdf'] },
+      { name: 'CSV Files', extensions: ['csv'] },
+      { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
+      { name: 'All Files', extensions: ['*'] },
+    ];
 
     const { filePaths } = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
