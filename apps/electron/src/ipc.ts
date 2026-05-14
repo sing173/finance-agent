@@ -23,7 +23,9 @@ export function setupIpcHandlers() {
     const { filePaths } = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
       filters: [
+        { name: 'All Supported Files', extensions: ['pdf', 'csv', 'xlsx', 'xls'] },
         { name: 'PDF Files', extensions: ['pdf'] },
+        { name: 'CSV Files', extensions: ['csv'] },
         { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
         { name: 'All Files', extensions: ['*'] },
       ],
@@ -57,6 +59,10 @@ export function setupIpcHandlers() {
 
   ipcMain.handle('generate_excel', async (event: any, params: any) => {
     return pythonProcess.call('generate_excel', params);
+  });
+
+  ipcMain.handle('ocr_pdf', async (event: any, params: any) => {
+    return pythonProcess.call('ocr_pdf', params);
   });
 
   // 应用退出时清理

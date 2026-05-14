@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { message, Button } from 'antd';
+import { message, Card } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 
 interface FileDropZoneProps {
@@ -9,9 +9,8 @@ interface FileDropZoneProps {
 export function FileDropZone({ onFileSelected }: FileDropZoneProps) {
   const handleSelectFile = useCallback(async () => {
     try {
-      // 通过 Electron dialog 选择文件，返回绝对路径
-      const filePath = await window.electronAPI?.selectFile?.('pdf');
-
+      // 支持 PDF、CSV、Excel 文件
+      const filePath = await window.electronAPI?.selectFile?.('all');
       if (filePath) {
         onFileSelected(filePath);
         message.success(`已选择: ${filePath.split(/[/\\]/).pop()}`);
@@ -22,34 +21,23 @@ export function FileDropZone({ onFileSelected }: FileDropZoneProps) {
   }, [onFileSelected]);
 
   return (
-    <div
-      style={{
-        border: '2px dashed #d9d9d9',
-        borderRadius: '8px',
-        padding: '40px 24px',
-        textAlign: 'center',
-        backgroundColor: '#fafafa',
-        transition: 'border-color 0.3s',
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = '#1677ff';
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = '#d9d9d9';
-      }}
+    <Card
+      title="上传交易流水文件"
+      hoverable
+      style={{ height: '100%', cursor: 'pointer' }}
+      onClick={handleSelectFile}
     >
-      <InboxOutlined style={{ fontSize: 48, color: '#1677ff', marginBottom: 16 }} />
-      <p style={{ fontSize: 16, color: '#666' }}>
-        点击选择 PDF 银行流水文件
-      </p>
-      <p style={{ color: '#999' }}>支持 PDF、Excel 格式</p>
-      <Button
-        type="primary"
-        style={{ marginTop: 16 }}
-        onClick={handleSelectFile}
-      >
-        选择文件
-      </Button>
-    </div>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 120,
+        color: '#999',
+      }}>
+        <InboxOutlined style={{ fontSize: 40, color: '#1677ff', marginBottom: 12 }} />
+        <span style={{ fontSize: 14 }}>点击此区域选择文件（PDF / CSV / Excel）</span>
+      </div>
+    </Card>
   );
 }

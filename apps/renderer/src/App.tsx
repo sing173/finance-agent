@@ -1,4 +1,4 @@
-import { Layout, Typography, Button, Card, message, Space } from 'antd';
+import { Layout, Typography, Button, Card, message, Space, Modal } from 'antd';
 import { useState, useEffect } from 'react';
 import { FileDropZone } from './components/FileDropZone';
 import { TransactionTable } from './components/TransactionTable';
@@ -26,7 +26,8 @@ declare global {
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>('检查中...');
   const [loading, setLoading] = useState(false);
-  const [testResult, setTestResult] = useState<any>(null);
+  const [healthModalOpen, setHealthModalOpen] = useState(false);
+  const [healthData, setHealthData] = useState<any>(null);
   const [parseResult, setParseResult] = useState<any>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [processingTimeMs, setProcessingTimeMs] = useState(0);
@@ -46,7 +47,7 @@ function App() {
     window.electronAPI.onPythonStatus?.((status: string) => {
       if (status === 'offline') {
         setBackendStatus('离线');
-        setTestResult(null);
+        setHealthData(null);
       } else if (status === 'online') {
         setBackendStatus('正常（已恢复）');
       } else if (status === 'error') {
@@ -60,12 +61,13 @@ function App() {
     try {
       const result = await window.electronAPI.health();
       setBackendStatus(`正常 (v${result.version})`);
-      setTestResult(result);
+      setHealthData(result);
+      setHealthModalOpen(true);
       message.success('后端连接成功！');
     } catch (error: any) {
       setBackendStatus(`离线: ${error.message}`);
       message.error('后端连接失败');
-      setTestResult(null);
+      setHealthData(null);
     } finally {
       setLoading(false);
     }
@@ -74,9 +76,10 @@ function App() {
   const handleFileSelected = async (filePath: string) => {
     if (!filePath) return;
 
-    // 检查是否为 PDF 文件
-    if (!filePath.toLowerCase().endsWith('.pdf')) {
-      message.warning('请选择 PDF 文件');
+    // 检查文件类型（支持 PDF、CSV、Excel）
+    const ext = filePath.toLowerCase().split('.').pop();
+    if (!['pdf', 'csv', 'xlsx', 'xls'].includes(ext || '')) {
+      message.warning('请选择 PDF、CSV 或 Excel 文件');
       return;
     }
 
@@ -86,8 +89,10 @@ function App() {
     const startTime = Date.now();
 
     try {
-      message.info('正在解析 PDF...');
+      const fileType = ext === 'csv' ? 'CSV' : 'PDF';
+      message.info(`正在解析${fileType}文件...`);
 
+      // 统一使用 parsePDF（bridge 内部自动识别 CSV）
       const result = await window.electronAPI.parsePDF(filePath);
 
       setCurrentStep(1);
@@ -142,10 +147,11 @@ function App() {
           Finance Assistant
         </Title>
       </Header>
-      <Content style={{ padding: '24px' }}>
-        <div style={{ display: 'grid', gap: '24px' }}>
+      <Content style={{ padding: '20px 24px' }}>
+        {/* 第一行：连接测试 + 文件选择 */}
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 16 }}>
           {/* 连接测试卡片 */}
-          <Card title="连接测试" style={{ width: 400 }}>
+          <Card title="连接测试" style={{ width: 400, flexShrink: 0, height: 200 }}>
             <div style={{ marginBottom: 16 }}>
               <Text type="secondary">后端状态：</Text>
               <Text strong>{backendStatus}</Text>
@@ -153,21 +159,20 @@ function App() {
             <Button type="primary" loading={loading} onClick={testConnection}>
               测试连接
             </Button>
-            {testResult && (
-              <div style={{ marginTop: 16, padding: 12, background: '#f5f5f5', borderRadius: 4 }}>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  返回数据：{JSON.stringify(testResult, null, 2)}
-                </Text>
-              </div>
-            )}
           </Card>
 
           {/* 文件上传区域 */}
-          <FileDropZone onFileSelected={handleFileSelected} />
+          <div style={{ flex: 1, minWidth: 300, height: 200 }}>
+            <FileDropZone onFileSelected={handleFileSelected} />
+          </div>
+        </div>
+
+        {/* 以下卡片垂直排列 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
           {/* 导出 Excel（解析成功后显示） */}
           {parseResult?.success && (
-            <Card title="导出" style={{ marginTop: 16 }}>
+            <Card title="导出">
               <Space>
                 <Button
                   type="primary"
@@ -185,14 +190,14 @@ function App() {
 
           {/* 进度条 */}
           {(loading || currentStep > 0) && (
-            <Card title="处理进度" style={{ marginTop: 16 }}>
+            <Card title="处理进度">
               <ProgressSteps currentStep={currentStep} processingTime={processingTimeMs} />
             </Card>
           )}
 
           {/* 解析结果 */}
           {parseResult && (
-            <Card title="解析结果" style={{ marginTop: 16 }}>
+            <Card title="解析结果">
               <p>银行：{parseResult.bank}</p>
               <p>解析交易数：{matchedCount}</p>
               {parseResult.statement_date && (
@@ -203,7 +208,7 @@ function App() {
 
           {/* 交易表格 */}
           {parseResult?.transactions && (
-            <Card title="交易列表" style={{ marginTop: 16 }}>
+            <Card title="交易列表">
               <TransactionTable
                 transactions={parseResult.transactions}
                 loading={loading}
@@ -215,6 +220,17 @@ function App() {
       <Footer style={{ textAlign: 'center' }}>
         Finance Assistant ©2026 — Built with Electron + React + Python
       </Footer>
+
+      <Modal
+        title="连接测试结果"
+        open={healthModalOpen}
+        onCancel={() => setHealthModalOpen(false)}
+        footer={null}
+      >
+        <pre style={{ fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+          {JSON.stringify(healthData, null, 2)}
+        </pre>
+      </Modal>
     </Layout>
   );
 }

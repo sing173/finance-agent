@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   parsePDF: (path: string) => ipcRenderer.invoke('parse_pdf', { file_path: path }),
   parsePdf: (params: any) => ipcRenderer.invoke('parse_pdf', params),
   generateExcel: (params: any) => ipcRenderer.invoke('generate_excel', params),
+  ocrPDF: (params: any) => ipcRenderer.invoke('ocr_pdf', params),
   chat: (msg: string, sessionKey?: string) =>
     ipcRenderer.invoke('chat', { message: msg, session_key: sessionKey }),
   selectFile: (filter: string) => ipcRenderer.invoke('select_file', { filter }),

@@ -51,7 +51,9 @@ export interface Transaction {
   direction: "income" | "expense" | "transfer";
   counterparty?: string;
   reference_number?: string;
-  notes?: string;
+  notes?: string | null;
+  account_number?: string | null;
+  account_name?: string | null;
 }
 
 /** Agent 聊天（非流式） */
