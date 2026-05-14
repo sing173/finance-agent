@@ -135,14 +135,18 @@ class CMBParser:
                 desc_parts.append(line)
                 i += 1
 
-            # 构建描述：交易类型 + 对方信息，用 | 分隔
-            description = ' | '.join(desc_parts) if desc_parts else '银行交易'
+            # desc_parts 结构：第0行=交易类型（如"转账"），后续行=对方名称/账号
+            # 摘要只用对方信息部分，不拼交易类型前缀
+            transaction_type = desc_parts[0] if desc_parts else ''
+            info_parts = desc_parts[1:] if len(desc_parts) > 1 else desc_parts
+            description = ' '.join(info_parts) if info_parts else transaction_type
 
-            # 提取对方户名：取最后 1-3 行
+            # 提取对方户名：取最后 1-2 行
             counterparty = None
-            if len(desc_parts) >= 1:
-                # 对方信息通常是最后1-3行
-                counterparty = ' '.join(desc_parts[-2:]) if len(desc_parts) >= 2 else desc_parts[-1]
+            if len(info_parts) >= 2:
+                counterparty = ' '.join(info_parts[-2:])
+            elif len(info_parts) == 1:
+                counterparty = info_parts[0]
 
             transaction = Transaction(
                 date=tx_date,

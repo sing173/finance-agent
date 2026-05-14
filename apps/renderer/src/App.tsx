@@ -1,4 +1,4 @@
-import { Layout, Typography, Button, Card, message, Space, Modal } from 'antd';
+import { Layout, Typography, Button, Card, message, Space, Modal, Form, Input } from 'antd';
 import { useState, useEffect } from 'react';
 import { FileDropZone } from './components/FileDropZone';
 import { TransactionTable } from './components/TransactionTable';
@@ -15,8 +15,13 @@ declare global {
       parsePDF: (path: string) => Promise<any>;
       parsePdf: (params: any) => Promise<any>;
       generateExcel: (params: any) => Promise<any>;
+      generateVoucher: (params: any) => Promise<any>;
+      importSubjects: (params: any) => Promise<any>;
+      getSubjectsInfo: () => Promise<any>;
+      ocrPDF: (params: any) => Promise<any>;
       chat: (msg: string, sessionKey?: string) => Promise<any>;
       selectFile: (filter?: string) => Promise<string | null>;
+      saveFileDialog: (params?: any) => Promise<string | null>;
       onPythonStatus: (callback: (status: string) => void) => void;
       getPythonStatus: () => Promise<string>;
     };
@@ -31,6 +36,30 @@ function App() {
   const [parseResult, setParseResult] = useState<any>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [processingTimeMs, setProcessingTimeMs] = useState(0);
+
+  // 导出凭证弹窗相关状态
+  const [voucherModalOpen, setVoucherModalOpen] = useState(false);
+  const [voucherLoading, setVoucherLoading] = useState(false);
+  const [period, setPeriod] = useState('');
+
+  // 导入科目表
+  const [importSubjectsLoading, setImportSubjectsLoading] = useState(false);
+  const [subjectsCount, setSubjectsCount] = useState<number | null>(null);
+
+  // 启动时查询内置科目数量
+  useEffect(() => {
+    const checkSubjects = async () => {
+      try {
+        const result = await window.electronAPI.getSubjectsInfo();
+        if (result.success) {
+          setSubjectsCount(result.count);
+        }
+      } catch {
+        // 忽略，检查失败不影响使用
+      }
+    };
+    checkSubjects();
+  }, []);
 
   // 监听 Python 进程状态变化 + 初始查询
   useEffect(() => {
@@ -140,6 +169,75 @@ function App() {
     }
   };
 
+  // ---- 导出凭证 ----
+  const handleOpenVoucherModal = () => {
+    // 自动推导期间名称（取解析结果中最早的月份，如 "2026年3月"）
+    if (!period && parseResult?.transactions?.length) {
+      const dates: string[] = parseResult.transactions.map((t: any) => t.date as string);
+      dates.sort();
+      const earliest = dates[0]; // 'YYYY-MM-DD'
+      const [y, m] = earliest.split('-');
+      setPeriod(`${y}年${Number(m)}月`);
+    }
+    setVoucherModalOpen(true);
+  };
+
+  const handleExportVoucher = async () => {
+    if (!parseResult?.transactions?.length) {
+      message.warning('没有可导出的交易数据');
+      return;
+    }
+
+    // 1. 弹出保存路径对话框
+    const defaultName = `voucher_${period || Date.now()}.xlsx`;
+    const outputPath = await window.electronAPI.saveFileDialog({
+      title: '保存凭证 Excel',
+      defaultPath: defaultName,
+    });
+    if (!outputPath) return; // 用户取消
+
+    setVoucherLoading(true);
+    try {
+      const result = await window.electronAPI.generateVoucher({
+        transactions: parseResult.transactions,
+        output_path: outputPath,
+        period: period,
+      });
+
+      if (result.success) {
+        message.success(`凭证已导出: ${result.excel_path}`);
+        setVoucherModalOpen(false);
+      } else {
+        message.error(`导出失败：${result.error}`);
+      }
+    } catch (error: any) {
+      message.error(`导出出错：${error.message}`);
+    } finally {
+      setVoucherLoading(false);
+    }
+  };
+
+  // ---- 导入科目表 ----
+  const handleImportSubjects = async () => {
+    const filePath = await window.electronAPI.selectFile('xlsx');
+    if (!filePath) return;
+
+    setImportSubjectsLoading(true);
+    try {
+      const result = await window.electronAPI.importSubjects({ xlsx_path: filePath });
+      if (result.success) {
+        setSubjectsCount(result.count);
+        message.success(`科目表导入成功，共 ${result.count} 条科目`);
+      } else {
+        message.error(`导入失败：${result.error}`);
+      }
+    } catch (error: any) {
+      message.error(`导入出错：${error.message}`);
+    } finally {
+      setImportSubjectsLoading(false);
+    }
+  };
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Header style={{ background: '#001529', padding: '0 24px' }}>
@@ -148,17 +246,35 @@ function App() {
         </Title>
       </Header>
       <Content style={{ padding: '20px 24px' }}>
-        {/* 第一行：连接测试 + 文件选择 */}
+        {/* 第一行：系统设置 + 文件选择 */}
         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 16 }}>
-          {/* 连接测试卡片 */}
-          <Card title="连接测试" style={{ width: 400, flexShrink: 0, height: 200 }}>
+          {/* 系统设置卡片（连接测试 + 科目管理） */}
+          <Card title="系统设置" style={{ width: 400, flexShrink: 0, height: 200 }}>
             <div style={{ marginBottom: 16 }}>
               <Text type="secondary">后端状态：</Text>
               <Text strong>{backendStatus}</Text>
             </div>
-            <Button type="primary" loading={loading} onClick={testConnection}>
-              测试连接
-            </Button>
+            <Space style={{ marginBottom: 16 }}>
+              <Button type="primary" loading={loading} onClick={testConnection}>
+                测试连接
+              </Button>
+              <Button
+                loading={importSubjectsLoading}
+                onClick={handleImportSubjects}
+              >
+                导入科目表
+              </Button>
+            </Space>
+            <div>
+              <Text type="secondary">
+                当前内置科目：{subjectsCount !== null ? `${subjectsCount} 条` : '未知'}
+              </Text>
+              {subjectsCount !== null && subjectsCount > 0 && (
+                <Text type="success" style={{ marginLeft: 8 }}>
+                  ✓ 已就绪
+                </Text>
+              )}
+            </div>
           </Card>
 
           {/* 文件上传区域 */}
@@ -170,7 +286,7 @@ function App() {
         {/* 以下卡片垂直排列 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-          {/* 导出 Excel（解析成功后显示） */}
+          {/* 导出操作区（解析成功后显示） */}
           {parseResult?.success && (
             <Card title="导出">
               <Space>
@@ -179,7 +295,15 @@ function App() {
                   loading={loading}
                   onClick={handleExportExcel}
                 >
-                  导出 Excel
+                  导出 Excel（流水表）
+                </Button>
+                <Button
+                  type="primary"
+                  style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                  loading={loading}
+                  onClick={handleOpenVoucherModal}
+                >
+                  导出凭证（精斗云）
                 </Button>
                 <Button onClick={() => { setParseResult(null); setCurrentStep(0); }}>
                   重新选择文件
@@ -221,6 +345,41 @@ function App() {
         Finance Assistant ©2026 — Built with Electron + React + Python
       </Footer>
 
+      {/* 导出凭证弹窗 — 仅保留期间名称 */}
+      <Modal
+        title="导出凭证（金蝶精斗云格式）"
+        open={voucherModalOpen}
+        onCancel={() => setVoucherModalOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setVoucherModalOpen(false)}>
+            取消
+          </Button>,
+          <Button
+            key="export"
+            type="primary"
+            loading={voucherLoading}
+            onClick={handleExportVoucher}
+          >
+            选择保存路径并导出
+          </Button>,
+        ]}
+        width={420}
+      >
+        <Form layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item
+            label="期间名称（用于 Sheet 名）"
+            help="例如：2026年3月、2026年第3期"
+          >
+            <Input
+              value={period}
+              onChange={e => setPeriod(e.target.value)}
+              placeholder="2026年3月"
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 健康检查结果弹窗 */}
       <Modal
         title="连接测试结果"
         open={healthModalOpen}

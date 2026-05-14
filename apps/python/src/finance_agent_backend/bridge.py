@@ -19,6 +19,7 @@ from finance_agent_backend.tools import cmb_parser as _cmb_parser
 from finance_agent_backend.tools import cmb_table_parser as _cmb_table_parser
 from finance_agent_backend.tools import gfb_table_parser as _gfb_table_parser
 from finance_agent_backend.tools import excel_builder as _excel_builder
+from finance_agent_backend.tools import subject_loader as _subject_loader
 from finance_agent_backend.tools import pdf_ocr as _pdf_ocr
 from finance_agent_backend.tools import icbc_parser as _icbc_parser
 from finance_agent_backend.tools import icbc_receipt_grid_parser as _icbc_receipt_parser
@@ -325,6 +326,62 @@ def handle_generate_excel(params: dict) -> dict:
         return {"success": False, "error": str(e)}
 
 
+@register_method("generate_voucher_excel")
+def handle_generate_voucher_excel(params: dict) -> dict:
+    """将银行流水按金蝶精斗云凭证导入模板格式导出 Excel。
+
+    params:
+        transactions  (list, required): 流水列表，格式同 generate_excel
+        output_path   (str,  optional): 输出文件路径，默认 voucher.xlsx
+        subject_mapping (dict, optional): 关键字映射配置；为空时读取内置默认配置
+        account_mapping (dict, optional): 账号映射配置；为空时读取内置默认配置
+        period        (str,  optional): 期间名称，用于 Sheet 名，如 '2026年第3期'
+    """
+    transactions_data = params.get("transactions")
+    output_path = params.get("output_path", "voucher.xlsx")
+    subject_mapping = params.get("subject_mapping")   # None = 读默认配置
+    account_mapping = params.get("account_mapping")   # None = 读默认配置
+    period = params.get("period", "")
+
+    if not transactions_data:
+        return {"success": False, "error": "缺少 transactions 参数"}
+
+    try:
+        from datetime import datetime
+        from decimal import Decimal
+
+        transactions = []
+        for t in transactions_data:
+            transactions.append(Transaction(
+                date=datetime.strptime(t['date'], '%Y-%m-%d').date(),
+                description=t.get('description', ''),
+                amount=Decimal(str(t.get('amount', 0))),
+                currency=t.get('currency', 'CNY'),
+                direction=t.get('direction', 'expense'),
+                counterparty=t.get('counterparty'),
+                reference_number=t.get('reference_number'),
+                notes=t.get('notes'),
+                account_number=t.get('account_number'),
+                account_name=t.get('account_name'),
+            ))
+
+        # 加载内置科目（config/subjects.json）
+        subjects = _load_built_in_subjects()
+
+        builder = _excel_builder.ExcelBuilder()
+        voucher_path = builder.build_voucher(
+            transactions=transactions,
+            subjects=subjects,
+            subject_mapping=subject_mapping,
+            account_mapping=account_mapping,
+            output_path=output_path,
+            period=period,
+        )
+        return {"success": True, "excel_path": voucher_path}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 @register_method("parse_csv")
 def handle_parse_csv(params: dict) -> dict:
     """解析 ICBC CSV 对账流水（快捷方法）"""
@@ -350,6 +407,103 @@ def handle_ocr_pdf(params: dict) -> dict:
         return {"success": True, **result}
     except Exception as e:
         return {"success": False, "error": str(e)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+
+def _get_config_dir() -> str:
+    """获取 config 目录的绝对路径。"""
+    return os.path.join(_project_root, 'finance_agent_backend', 'config')
+
+
+def _load_built_in_subjects() -> dict:
+    """从内置 config/subjects.json 加载科目字典。"""
+    config_dir = _get_config_dir()
+    subjects_path = os.path.join(config_dir, 'subjects.json')
+    if not os.path.exists(subjects_path):
+        return {}
+
+    with open(subjects_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    from finance_agent_backend.models import Subject
+    subjects: dict = {}
+    for code, info in data.items():
+        subjects[code] = Subject(
+            code=info.get('code', code),
+            name=info.get('name', ''),
+            category=info.get('category', ''),
+            direction=info.get('direction', '借'),
+            aux_category=info.get('aux_category', ''),
+            is_cash=info.get('is_cash', False),
+            enabled=info.get('enabled', True),
+            full_name=info.get('full_name', info.get('name', '')),
+        )
+    return subjects
+
+
+@register_method("import_subjects")
+def handle_import_subjects(params: dict) -> dict:
+    """从科目 xlsx 导入并保存为内置 subjects.json。
+
+    params:
+        xlsx_path (str, required): 科目 xlsx 文件路径
+
+    返回:
+        success: 是否成功
+        count: 导入的科目数量
+        path: 保存的 JSON 路径
+    """
+    xlsx_path = params.get("xlsx_path", "")
+    if not xlsx_path:
+        return {"success": False, "error": "缺少 xlsx_path 参数"}
+
+    try:
+        loader = _subject_loader.SubjectLoader()
+        subjects = loader.load(xlsx_path)
+
+        # 序列化为 JSON
+        data = {}
+        for code, subj in subjects.items():
+            data[code] = {
+                'code': subj.code,
+                'name': subj.name,
+                'category': subj.category,
+                'direction': subj.direction,
+                'aux_category': subj.aux_category,
+                'is_cash': subj.is_cash,
+                'enabled': subj.enabled,
+                'full_name': subj.full_name,
+            }
+
+        config_dir = _get_config_dir()
+        subjects_json_path = os.path.join(config_dir, 'subjects.json')
+        with open(subjects_json_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        return {
+            "success": True,
+            "count": len(subjects),
+            "path": subjects_json_path,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@register_method("get_subjects_info")
+def handle_get_subjects_info(params: dict) -> dict:
+    """查询内置科目表信息。"""
+    config_dir = _get_config_dir()
+    subjects_path = os.path.join(config_dir, 'subjects.json')
+    if not os.path.exists(subjects_path):
+        return {"success": True, "count": 0, "loaded": False}
+    try:
+        with open(subjects_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return {"success": True, "count": len(data), "loaded": True}
+    except Exception as e:
+        return {"success": False, "count": 0, "loaded": False, "error": str(e)}
 
 
 def handle_request(request: dict) -> dict:

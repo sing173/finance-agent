@@ -35,6 +35,7 @@ dist_electron/
 
 # Claude Code (local agent config)
 .claude/
+.workbuddy/
 
 # OS
 .DS_Store

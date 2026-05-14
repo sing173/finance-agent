@@ -16,23 +16,30 @@ export function setupIpcHandlers() {
   });
 
   // 打开文件选择对话框，返回绝对路径
+  // params.filter: 'pdf' | 'xlsx' | undefined（默认 PDF）
   ipcMain.handle('select_file', async (event: any, params: any) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return null;
 
+    let filters: any;
+    const f = params?.filter?.toLowerCase();
+
+    // 默认 PDF
+    filters = [
+      { name: 'All Supported Files', extensions: ['pdf', 'csv', 'xlsx', 'xls'] },
+      { name: 'PDF Files', extensions: ['pdf'] },
+      { name: 'CSV Files', extensions: ['csv'] },
+      { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
+      { name: 'All Files', extensions: ['*'] },
+    ];
+
     const { filePaths } = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
-      filters: [
-        { name: 'All Supported Files', extensions: ['pdf', 'csv', 'xlsx', 'xls'] },
-        { name: 'PDF Files', extensions: ['pdf'] },
-        { name: 'CSV Files', extensions: ['csv'] },
-        { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
-        { name: 'All Files', extensions: ['*'] },
-      ],
+      filters,
     });
 
     if (filePaths.length > 0) {
-      return filePaths[0]; // 返回第一个选中文件的绝对路径
+      return filePaths[0];
     }
     return null;
   });
@@ -61,8 +68,35 @@ export function setupIpcHandlers() {
     return pythonProcess.call('generate_excel', params);
   });
 
+  ipcMain.handle('generate_voucher_excel', async (event: any, params: any) => {
+    return pythonProcess.call('generate_voucher_excel', params);
+  });
+
+  ipcMain.handle('import_subjects', async (event: any, params: any) => {
+    return pythonProcess.call('import_subjects', params);
+  });
+
+  ipcMain.handle('get_subjects_info', async (event: any, params: any) => {
+    return pythonProcess.call('get_subjects_info', params);
+  });
+
   ipcMain.handle('ocr_pdf', async (event: any, params: any) => {
     return pythonProcess.call('ocr_pdf', params);
+  });
+
+  // 保存文件对话框：返回用户选择的保存路径，取消返回 null
+  ipcMain.handle('save_file_dialog', async (event: any, params: any) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return null;
+    const { filePath } = await dialog.showSaveDialog(win, {
+      title: params?.title || '保存文件',
+      defaultPath: params?.defaultPath || 'voucher.xlsx',
+      filters: [
+        { name: 'Excel Files', extensions: ['xlsx'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    });
+    return filePath || null;
   });
 
   // 应用退出时清理
