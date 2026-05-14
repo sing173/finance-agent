@@ -16,9 +16,12 @@ if _project_root not in sys.path:
 
 from finance_agent_backend.tools import pdf_parser as _pdf_parser
 from finance_agent_backend.tools import cmb_parser as _cmb_parser
+from finance_agent_backend.tools import cmb_table_parser as _cmb_table_parser
+from finance_agent_backend.tools import gfb_table_parser as _gfb_table_parser
 from finance_agent_backend.tools import excel_builder as _excel_builder
 from finance_agent_backend.tools import pdf_ocr as _pdf_ocr
 from finance_agent_backend.tools import icbc_parser as _icbc_parser
+from finance_agent_backend.tools import icbc_receipt_grid_parser as _icbc_receipt_parser
 from finance_agent_backend.models import Transaction
 
 # 方法注册表
@@ -43,9 +46,42 @@ def handle_health(params: dict) -> dict:
     }
 
 
-def _detect_bank_from_pdf(file_path: str) -> str:
-    """通过 PDF 文本识别银行。扫描件无文字时回退到快速 OCR。"""
+def _detect_bank_from_pdf(file_path: str) -> tuple:
+    """检测银行和文档类型。返回 (bank_name, doc_type)。
+
+    逻辑:
+      1. 提取 PDF 嵌入文字
+      2. 有文字 → 关键字匹配银行名和文档类型
+      3. 无文字(扫描件) → 返回 unknown，由路由层先试 receipt 再回退 statement
+         （不在检测阶段 OCR，避免与解析器重复加载 ONNX 模型）
+    """
     import fitz
+
+    BANK_KEYWORDS = {
+        '招商银行': ['招商银行', 'China Merchants Bank'],
+        '工商银行': ['工商银行', 'ICBC'],
+        '中国银行': ['中国银行', 'Bank of China'],
+        '建设银行': ['建设银行', 'China Construction Bank'],
+        '广发银行': ['广发银行', '广东发展银行', 'CGB'],
+    }
+
+    def _classify(sample: str) -> tuple:
+        bank = '未知银行'
+        for name, kws in BANK_KEYWORDS.items():
+            if any(kw in sample for kw in kws):
+                bank = name
+                break
+
+        doc_type = 'unknown'
+        if '出账回单' in sample or '入账回单' in sample or '电子回单' in sample or '网上银行电子回单' in sample:
+            doc_type = 'receipt'
+        elif '交易流水' in sample or '明细清单' in sample or '对账单' in sample:
+            doc_type = 'statement'
+        elif '日期' in sample and '金额' in sample and '余额' in sample:
+            doc_type = 'statement'
+
+        return (bank, doc_type)
+
     try:
         with open(file_path, 'rb') as f:
             pdf_bytes = f.read()
@@ -53,31 +89,16 @@ def _detect_bank_from_pdf(file_path: str) -> str:
         sample = ''
         for i in range(min(3, len(doc))):
             sample += doc[i].get_text('text')
-
-        # If no text at all, likely a scanned PDF — try OCR on page 0
-        if not sample.strip():
-            from PIL import Image
-            import cv2
-            import numpy as np
-            from rapidocr_onnxruntime import RapidOCR
-            pix = doc[0].get_pixmap(dpi=150)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            img_np = np.array(img.convert("L"))
-            _, img_bin = cv2.threshold(img_np, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            engine = RapidOCR()
-            ocr_result, _ = engine(img_bin)
-            if ocr_result:
-                sample = "".join(text for _, text, _ in ocr_result)
         doc.close()
 
-        if '招商银行' in sample or 'China Merchants Bank' in sample:
-            return '招商银行'
-        for name in ['中国银行', '工商银行', '建设银行']:
-            if name in sample:
-                return name
+        # 有嵌入文字 → 关键字匹配
+        if sample.strip():
+            return _classify(sample)
+
+        # 扫描件 → 不单独 OCR，让解析器完成全部工作
+        return ('未知银行', 'unknown')
     except Exception:
-        pass
-    return '未知银行'
+        return ('未知银行', 'unknown')
 
 
 @register_method("parse_pdf")
@@ -90,18 +111,42 @@ def handle_parse_pdf(params: dict) -> dict:
         return {"success": False, "error": "缺少 file_path 参数"}
 
     try:
-        # 自动检测银行类型
+        # 自动检测银行类型和文档类型
         if not bank:
-            bank = _detect_bank_from_pdf(file_path)
-
-        # 根据银行类型选择解析器
-        if '工商' in (bank or ''):
-            parser = _icbc_parser.ICBCParser()
-            result = parser.parse(file_path)
-        elif bank == '招商银行' or '招商' in (bank or ''):
-            parser = _cmb_parser.CMBParser()
-            result = parser.parse(file_path)
+            bank, doc_type = _detect_bank_from_pdf(file_path)
         else:
+            doc_type = 'unknown'
+
+        # 路由策略:
+        #   receipt / 未知银行 / 工商但不明确 → 先试回单网格解析器(自带验证，失败返回空)
+        #   工商明确流水 → ICBCParser
+        #   招商 → CMBTableParser (对账单) / CMBParser (旧列式流水)
+        #   广发 → GFBTableParser
+        result = None
+        try_receipt_first = (
+            doc_type == 'receipt'
+            or bank == '未知银行'
+            or ('工商' in (bank or '') and doc_type != 'statement')
+        )
+        if try_receipt_first:
+            parser = _icbc_receipt_parser.ICBCReceiptGridParser()
+            result = parser.parse(file_path)
+
+        if result is None or not result.transactions:
+            if '工商' in (bank or '') or bank == '未知银行':
+                parser = _icbc_parser.ICBCParser()
+                result = parser.parse(file_path)
+        if result is None or not result.transactions:
+            if '招商' in (bank or ''):
+                parser = (_cmb_table_parser.CMBTableParser()
+                          if _detect_cmb_pdf_type(file_path) == 'table'
+                          else _cmb_parser.CMBParser())
+                result = parser.parse(file_path)
+        if result is None or not result.transactions:
+            if '广发' in (bank or ''):
+                parser = _gfb_table_parser.GFBTableParser()
+                result = parser.parse(file_path)
+        if result is None or not result.transactions:
             parser = _pdf_parser.BankStatementParser()
             result = parser.parse(file_path, bank)
 
@@ -131,6 +176,25 @@ def handle_parse_pdf(params: dict) -> dict:
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def _detect_cmb_pdf_type(file_path: str) -> str:
+    """检测招行 PDF 类型: 'table' (账务明细清单) 或 'column' (旧列式流水)。"""
+    import fitz
+    TABLE_TITLES = ['账务明细清单', 'Statement Of Account',
+                    'Statement of Account', 'STATEMENT OF ACCOUNT']
+    try:
+        with open(file_path, 'rb') as f:
+            pdf_bytes = f.read()
+        doc = fitz.open('pdf', pdf_bytes)
+        text = doc[0].get_text('text')
+        doc.close()
+        for title in TABLE_TITLES:
+            if title in text:
+                return 'table'
+    except Exception:
+        pass
+    return 'column'
 
 
 @register_method("generate_excel")

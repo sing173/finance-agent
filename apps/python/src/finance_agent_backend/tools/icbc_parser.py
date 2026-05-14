@@ -243,6 +243,7 @@ class ICBCParser:
                     "cy": (box[0][1] + box[2][1]) / 2,
                 }
             )
+        blocks.sort(key=lambda b: (b["cy"], b["cx"]))  # Sort by center to avoid order reversal
         return blocks
 
     # ── cell assignment ───────────────────────────────────────────

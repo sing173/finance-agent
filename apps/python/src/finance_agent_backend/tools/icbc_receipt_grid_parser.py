@@ -206,7 +206,7 @@ class ICBCReceiptGridParser:
                 "cx": (box[0][0] + box[2][0]) / 2,
                 "cy": (box[0][1] + box[2][1]) / 2,
             })
-        blocks.sort(key=lambda b: (b["y0"], b["x0"]))
+        blocks.sort(key=lambda b: (b["cy"], b["cx"]))  # 使用中心点排序
         return blocks
 
     # ── stage 5: assign blocks to grid cells ─────────────────────
@@ -234,7 +234,9 @@ class ICBCReceiptGridParser:
                         best_cell = (ri, ci)
 
             if best_cell and best_overlap > 0:
-                result[best_cell[0]][best_cell[1]]["texts"].append(b["text"])
+                result[best_cell[0]][best_cell[1]]["texts"].append(
+                    {"text": b["text"], "cx": b["cx"]}
+                )
 
         return result
 
@@ -246,7 +248,11 @@ class ICBCReceiptGridParser:
         cells = []
         for ri, row in enumerate(cell_grid):
             for ci, cell in enumerate(row):
-                text = "".join(cell["texts"]).strip()
+                if not cell["texts"]:
+                    continue
+                # Sort text fragments within cell by x-center to avoid order reversal
+                cell["texts"].sort(key=lambda t: t["cx"])
+                text = "".join(t["text"] for t in cell["texts"]).strip()
                 if not text:
                     continue
                 cx0, cy0, cx1, cy1 = v_coords[ci], h_coords[ri], v_coords[ci+1], h_coords[ri+1]
@@ -322,151 +328,120 @@ class ICBCReceiptGridParser:
 
         return receipts
 
-    # ── stage 7: cells → fields ─────────────────────────────────
+    # ── stage 7: cells → fields (固定坐标) ────────────────────────
 
     def _cells_to_fields(self, rec_cells: List[dict]) -> Dict[str, str]:
-        """从回单单元格列表提取字段。
+        """按固定网格坐标提取回单字段。
 
-        核心列映射（基于调试结论）:
-          col 1 (x=391~617): 标签区（付款人/收款人/金额等）
-          col 3 (x=629~1246): 值区左（账户名/账号/金额等）
-          col 5 (x=1327~1565): 值区右（摘要/大写金额等）
-          col 6 (x=1565~1792): 值区右2（付款人户名/收款人账号等）
-          col 7 (x=1792~2185): 时间戳/验证码/打印日期
+        回单布局固定，每回单 11 行 (type A, 标题在第0行) 或 12 行 (type B, 第0行=提示)。
+
+        账户信息3行 (左右两栏):
+          户名行(off=0):  [1]户名 [3]付款人户名 [5]户名 [6+7]收款人户名
+          账号行(off=1):  [0]付款人 [1]账号 [3]付款人账号 [4]收款人 [5]账号 [6]收款人账号
+          开户行(off=2):  [1]开户银行 [3]付款人开户行 [5]开户银行 [6+7]收款人开户行
+
+        后续行:
+          off=3 金额:     [1]金额 [3]金额值 [5]金额(大写) [6+7]大写金额
+          off=4 摘要:     [1]摘要 [3]摘要值 [5+6]业务种类
+          off=5 用途:     [1]用途 [3]用途值
+          off=6 流水:     [1]交易流水号 [3]流水号 [5]时间戳 [7]时间戳值
+          off=7 备注:     [1]印章(忽略) [3]备注
+          off=8 验证码:   [3]验证码
+          off=9 记账:     [1]记账网点 [3]柜员 [4]网点号 [6]记账日期 [7]日期值
         """
+        grid: Dict[int, Dict[int, str]] = {}
+        for c in rec_cells:
+            grid.setdefault(c["row"], {})[c["col"]] = c["text"]
+
+        # 找到"户名"行作为基准 (col 1 包含"户名")
+        base_row = None
+        for r in sorted(grid.keys()):
+            if 1 in grid[r] and '户名' in grid[r][1]:
+                base_row = r
+                break
+        if base_row is None:
+            return {}
+
+        def cell(offset: int, col: int) -> str:
+            r = base_row + offset
+            return grid.get(r, {}).get(col, "").strip()
+
         fields: Dict[str, str] = {}
 
-        # 构建按 row → cell 的映射
-        row_cells: Dict[int, Dict[int, dict]] = {}
-        for c in rec_cells:
-            ri = c["row"]
-            if ri not in row_cells:
-                row_cells[ri] = {}
-            row_cells[ri][c["col"]] = c
+        # ── 账户信息 ──
+        fields["payer_name"] = cell(0, 3)
 
-        # 优先从 col 0/1 提取标签行
-        label_cells = sorted(
-            [c for c in rec_cells if c["col"] in (0, 1)],
-            key=lambda c: (c["row"], c["col"])
-        )
+        # 收款人户名: col6 + col7 是同一个宽单元格
+        # col7 是主文本, col6 是换行/溢出片段, 合并时 col7 在前
+        fields["payee_name"] = cell(0, 7) + cell(0, 6)
 
-        # 将标签与值配对
-        for lc in label_cells:
-            label_text = lc["text"].strip()
-            ri = lc["row"]
-            # 匹配标签关键词
-            field_name = self._label_to_field(label_text)
-            if not field_name:
-                continue
+        fields["payer_account"] = cell(1, 3)
+        fields["payee_account"] = cell(1, 6)
 
-            # 优先从同 row 的 col 3/5/6 取值
-            val = ""
-            if ri in row_cells:
-                value_cols = [3, 5, 6]
-                if field_name in ("payer", "payee", "payer_account", "payee_account"):
-                    value_cols = [6, 3, 5]
+        fields["payer_bank"] = cell(2, 3)
+        fields["payee_bank"] = cell(2, 7) + cell(2, 6)
 
-                for col in value_cols:
-                    if col in row_cells[ri]:
-                        candidate = row_cells[ri][col]["text"].strip()
-                        # 对于金额类字段，优先取有数字的
-                        if field_name in ("amount_text", "amount_cn"):
-                            if any(c.isdigit() for c in candidate):
-                                val = candidate
-                                break
-                        # 跳过标签文本
-                        elif candidate != label_text and len(candidate) > 1:
-                            # 跳过常见 OCR 误识别片段
-                            ocr_garbage = {'号账', '户', '账号', '户名', '付款人', '收款人', '开户银行'}
-                            if candidate in ocr_garbage:
-                                continue
-                            # 对于 payer/payee，跳过纯数字和掩码账号
-                            if field_name in ("payer", "payee", "payer_account", "payee_account"):
-                                if candidate.isdigit() or '*' in candidate:
-                                    continue
-                            val = candidate
-                            break
+        # ── 金额 ──
+        fields["amount_text"] = cell(3, 3)
+        amount_cn = cell(3, 7) or cell(3, 6)
+        # 过滤 OCR 残字: 纯"分"/"角"/"柒分"等
+        if amount_cn and len(amount_cn) <= 2 and not amount_cn.startswith("人民币"):
+            amount_cn = cell(3, 7)  # retry col 7 only
+        fields["amount_cn"] = amount_cn
 
-            # 特殊布局：付款人/收款人在 col 0/4，名字在上一行 col 6/3
-            if not val and field_name in ("payer", "payee"):
-                if lc["col"] == 0 and field_name == "payer":  # 付款人 at col 0
-                    prev_ri = ri - 1
-                    if prev_ri in row_cells:
-                        for col in [6, 3, 5]:
-                            if col in row_cells[prev_ri]:
-                                candidate = row_cells[prev_ri][col]["text"].strip()
-                                if candidate and len(candidate) > 1 and not candidate.isdigit() and '*' not in candidate:
-                                    val = candidate
-                                    break
-                elif lc["col"] == 4 and field_name == "payee":  # 收款人 at col 4
-                    prev_ri = ri - 1
-                    if prev_ri in row_cells:
-                        for col in [3, 6, 5]:
-                            if col in row_cells[prev_ri]:
-                                candidate = row_cells[prev_ri][col]["text"].strip()
-                                if candidate and len(candidate) > 1 and not candidate.isdigit() and '*' not in candidate:
-                                    val = candidate
-                                    break
+        # ── 摘要 + 业务种类 ──
+        fields["purpose"] = cell(4, 3)
+        biz_type_raw = cell(4, 5)
+        biz_type_extra = cell(4, 6)
+        prefix = "业务（产品）种类"
+        if biz_type_raw.startswith(prefix):
+            fields["business_type"] = biz_type_raw[len(prefix):]
+        elif prefix in biz_type_raw:
+            fields["business_type"] = biz_type_raw.replace(prefix, "")
+        elif biz_type_raw:
+            fields["business_type"] = biz_type_raw
+        # 如果 col 5 只有 "业务（产品）种类" 而值在 col 6
+        if not fields.get("business_type") and biz_type_extra:
+            fields["business_type"] = biz_type_extra
 
-            fields[field_name] = val
+        # ── 用途 ──
+        fields["usage"] = cell(5, 3)
 
-        # col 7 单独处理（验证码/时间戳/打印日期）
-        for c in rec_cells:
-            if c["col"] == 7:
-                text = c["text"].strip()
-                if "验证码" in text:
-                    m = re.search(r'[A-Za-z0-9+/=]{20,}', text)
-                    if m:
-                        fields["verify_code"] = m.group()
-                elif re.match(r'\d{4}-\d{2}-\d{2}', text):
-                    fields["timestamp"] = text
+        # ── 交易流水号 + 时间戳 ──
+        fields["ref_no"] = cell(6, 3)
+        fields["timestamp"] = cell(6, 7)
 
-        # col 0 补充：回单号
-        for c in rec_cells:
-            if c["col"] == 0:
-                m = re.search(r'\d{4}-\d{4}-\d{4}-\d{4}', c["text"])
-                if m:
-                    fields["receipt_no"] = m.group()
-                    break
+        # ── 备注 ──
+        fields["notes"] = cell(7, 3)
+
+        # ── 验证码 ──
+        verify_raw = cell(8, 3)
+        if "验证码" in verify_raw:
+            m = re.search(r'[A-Za-z0-9+/=]{20,}', verify_raw)
+            if m:
+                fields["verify_code"] = m.group()
+
+        # ── 记账信息 ──
+        teller_raw = cell(9, 3)
+        if "记账柜员" in teller_raw:
+            fields["teller"] = teller_raw
+        fields["accounting_date"] = cell(9, 7)
+
+        # ── 回单号 (标题行 = base_row - 1) ──
+        title_row = base_row - 1
+        if title_row in grid:
+            title_text = grid[title_row].get(3, "")
+            m = re.search(r'\d{4}-\d{4}-\d{4}-\d{4}', title_text)
+            if m:
+                fields["receipt_no"] = m.group()
 
         return fields
-
-    # ── 标签 → 字段名映射 ───────────────────────────────────────
-
-    @staticmethod
-    def _label_to_field(label_text: str) -> Optional[str]:
-        """将标签文本映射到字段名"""
-        mapping = {
-            "账户名称": "account_name",
-            "户名": "account_name",
-            "账户账号": "account_number",
-            "开户银行": "bank_name",
-            "金额": "amount_text",
-            "金额(大写)": "amount_cn",
-            "付款人": "payer",
-            "付款账号": "payer_account",
-            "收款人": "payee",
-            "收款账号": "payee_account",
-            "摘要": "purpose",
-            "用途": "usage",
-            "交易流水号": "ref_no",
-            "记账日期": "date",
-            "打印日期": "print_date",
-            "备注": "notes",
-            "附言": "postscript",
-            "时间戳": "timestamp",
-            "验证码": "verify_code",
-        }
-        for key, field in mapping.items():
-            if key in label_text:
-                return field
-        return None
 
     # ── stage 8: fields → Transaction ────────────────────────────
 
     def _fields_to_transaction(self, fields: Dict[str, str]) -> Optional[Transaction]:
-        # date
-        date_str = fields.get("date", "")
+        # date: 从记账日期提取, fallback 时间戳
+        date_str = fields.get("accounting_date", "")
         tx_date = self._parse_date(date_str)
         if not tx_date:
             ts = fields.get("timestamp", "")
@@ -478,47 +453,49 @@ class ICBCReceiptGridParser:
         amount_text = fields.get("amount_text", "")
         amount = self._parse_amount(amount_text)
 
-        # direction: if we have both payee and payer, use payee as default (incoming)
-        # for expense (debit/outgoing), counterparty = payee
-        # for income (credit/incoming), counterparty = payer
-        # We'll determine direction after we check the fields
-        payer = fields.get("payer", "").strip()
-        payee = fields.get("payee", "").strip()
+        # direction: 付款人包含"中锦" → 我方付款 → expense
+        payer_name = fields.get("payer_name", "")
+        payee_name = fields.get("payee_name", "")
+        is_mine = "中锦" in payer_name
 
-        # counterparty
-        counterparty = None
-        # 不排除银行名称（工商银行/农业银行等），因为收/付款方可能是银行
-        if payee:
-            counterparty = payee
-        elif payer:
-            counterparty = payer
+        if is_mine:
+            direction = "expense"
+            counterparty = payee_name or None
+            # 追加收款人账号
+            payee_acct = fields.get("payee_account", "")
+            if counterparty and payee_acct and "*" not in payee_acct:
+                counterparty = f"{counterparty}（{payee_acct}）"
+        else:
+            direction = "income"
+            counterparty = payer_name or None
+            payer_acct = fields.get("payer_account", "")
+            if counterparty and payer_acct and "*" not in payer_acct:
+                counterparty = f"{counterparty}（{payer_acct}）"
 
-        # description
-        purpose = fields.get("purpose", "")
-        usage = fields.get("usage", "")
-        desc_parts = [p for p in [purpose, usage] if p and len(p) > 1]
-        description = " | ".join(desc_parts) if desc_parts else "银行回单"
+        # description: 摘要 + 用途 + 业务种类 (去重)
+        parts = []
+        for k in ("purpose", "usage", "business_type"):
+            v = fields.get(k, "").strip()
+            if v and v not in parts:
+                parts.append(v)
+        description = " | ".join(parts) or "银行回单"
 
         # ref_no
-        ref_no = fields.get("ref_no", "").strip() or None
+        ref_no = fields.get("ref_no") or None
 
-        # notes
-        note_parts = []
-        for key in ["notes", "postscript", "receipt_no"]:
-            v = fields.get(key, "").strip()
-            if v:
-                note_parts.append(f"{key}:{v}")
-        combined_notes = " | ".join(note_parts) if note_parts else None
+        # notes: 去掉 "备注：" 前缀，保留原始内容
+        notes_raw = fields.get("notes", "")
+        notes = notes_raw.removeprefix("备注：") if notes_raw else None
 
         return Transaction(
             date=tx_date,
             description=description,
             amount=amount,
             currency="CNY",
-            direction="expense",
+            direction=direction,
             counterparty=counterparty,
             reference_number=ref_no,
-            notes=combined_notes,
+            notes=notes,
         )
 
     # ── helpers ───────────────────────────────────────────────────
