@@ -177,12 +177,11 @@ class ExcelBuilder:
         匹配规则：
           1. 按 direction 选取规则列表（expense / income）
           2. 遍历 rules，description 包含任意 keyword 则返回对应 subject_code
-          3. 无匹配时返回 default_subject_code
+          3. 无匹配时返回空字符串（不使用兜底科目，由调用方决定如何处理）
         """
         direction_key = 'expense' if direction == 'expense' else 'income'
         group = subject_mapping.get(direction_key, {})
         rules = group.get('rules', [])
-        default_code = group.get('default_subject_code', '')
 
         desc_lower = description.lower()
         for rule in rules:
@@ -190,20 +189,31 @@ class ExcelBuilder:
                 if kw in description or kw.lower() in desc_lower:
                     return rule['subject_code']
 
-        return default_code
+        return ''
 
     def _match_bank_subject_code(
         self, transaction: Transaction, account_mapping: dict
     ) -> str:
         """根据流水信息匹配银行科目代码。
 
-        匹配策略：在 reference_number / notes / counterparty 中寻找账号后缀。
-        无匹配时返回 default_bank_subject_code。
+        匹配策略（按优先级）：
+          1. 优先使用 transaction.account_number 的最后 4 位匹配具体银行账户
+          2. 其次在 reference_number / notes / counterparty / description 中寻找账号后缀
+          3. 均无匹配时返回 default_bank_subject_code
         """
         accounts = account_mapping.get('accounts', [])
         default_code = account_mapping.get('default_bank_subject_code', '10002')
 
-        # 拼接可能包含账号信息的字段
+        # 优先级1：用完整账号的最后4位匹配
+        acct = transaction.account_number or ''
+        if acct and len(acct) >= 4:
+            acct_suffix = acct[-4:]
+            for acc in accounts:
+                suffix = acc.get('account_no_suffix', '')
+                if suffix and acct_suffix == suffix:
+                    return acc['subject_code']
+
+        # 优先级2：在其它字段文本中寻找账号后缀（兜底）
         haystack = ' '.join(filter(None, [
             transaction.reference_number or '',
             transaction.notes or '',

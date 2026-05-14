@@ -200,6 +200,8 @@ def handle_generate_voucher_excel(params: dict) -> dict:
                 counterparty=t.get('counterparty'),
                 reference_number=t.get('reference_number'),
                 notes=t.get('notes'),
+                account_number=t.get('account_number'),
+                account_name=t.get('account_name'),
             ))
 
         # 加载内置科目（config/subjects.json）

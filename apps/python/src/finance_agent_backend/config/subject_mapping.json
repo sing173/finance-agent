@@ -159,8 +159,7 @@
         "comment": "管理费用_辞退补偿金"
       }
     ],
-    "default_subject_code": "5060201",
-    "default_subject_comment": "管理费用_办公费（支出兜底科目）"
+    "_comment_default": "无默认兜底科目，匹配不到时留空，由财务人员手动填写"
   },
 
   "income": {
@@ -201,7 +200,6 @@
         "comment": "主营业务收入_产品销售收入"
       }
     ],
-    "default_subject_code": "10122",
-    "default_subject_comment": "应收账款（收入兜底科目）"
+    "_comment_default": "无默认兜底科目，匹配不到时留空，由财务人员手动填写"
   }
 }

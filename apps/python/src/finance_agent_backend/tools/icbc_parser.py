@@ -340,10 +340,9 @@ class ICBCParser:
         counterparty = cols.get("counterparty", "").strip() or None
         purpose = cols.get("purpose", "").strip()
         type_text = cols.get("type", "").strip()
-        if type_text and type_text not in purpose:
-            description = f"{type_text} | {purpose}" if purpose else type_text
-        else:
-            description = purpose or "银行交易"
+        # 摘要直接用交易用途（purpose），不拼交易类型前缀
+        # 若 purpose 为空则降级用 type_text，两者都空则留空
+        description = purpose or type_text or ''
 
         ref_no = cols.get("ref", "").strip().replace("|", "") or None
         if ref_no:
