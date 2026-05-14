@@ -334,8 +334,6 @@ class ICBCReceiptGridParser:
           col 6 (x=1565~1792): 值区右2（付款人户名/收款人账号等）
           col 7 (x=1792~2185): 时间戳/验证码/打印日期
         """
-        import sys
-        print("DEBUG: _cells_to_fields called", file=sys.stderr)
         fields: Dict[str, str] = {}
 
         # 构建按 row → cell 的映射
