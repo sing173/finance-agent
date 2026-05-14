@@ -23,7 +23,9 @@ export function setupIpcHandlers() {
     const { filePaths } = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
       filters: [
+        { name: 'All Supported Files', extensions: ['pdf', 'csv', 'xlsx', 'xls'] },
         { name: 'PDF Files', extensions: ['pdf'] },
+        { name: 'CSV Files', extensions: ['csv'] },
         { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
         { name: 'All Files', extensions: ['*'] },
       ],

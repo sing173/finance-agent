@@ -22,6 +22,9 @@ from finance_agent_backend.tools import excel_builder as _excel_builder
 from finance_agent_backend.tools import pdf_ocr as _pdf_ocr
 from finance_agent_backend.tools import icbc_parser as _icbc_parser
 from finance_agent_backend.tools import icbc_receipt_grid_parser as _icbc_receipt_parser
+from finance_agent_backend.tools import cmb_receipt_parser as _cmb_receipt_parser
+from finance_agent_backend.tools import icbc_csv_parser as _icbc_csv_parser
+from finance_agent_backend.tools import cmb_excel_parser as _cmb_excel_parser
 from finance_agent_backend.models import Transaction
 
 # 方法注册表
@@ -73,7 +76,8 @@ def _detect_bank_from_pdf(file_path: str) -> tuple:
                 break
 
         doc_type = 'unknown'
-        if '出账回单' in sample or '入账回单' in sample or '电子回单' in sample or '网上银行电子回单' in sample:
+        sample_no_space = sample.replace(' ', '')
+        if '出账回单' in sample_no_space or '入账回单' in sample_no_space or '电子回单' in sample or '网上银行电子回单' in sample:
             doc_type = 'receipt'
         elif '交易流水' in sample or '明细清单' in sample or '对账单' in sample:
             doc_type = 'statement'
@@ -103,7 +107,7 @@ def _detect_bank_from_pdf(file_path: str) -> tuple:
 
 @register_method("parse_pdf")
 def handle_parse_pdf(params: dict) -> dict:
-    """解析 PDF 银行流水"""
+    """解析 PDF 银行流水或 ICBC CSV 对账流水"""
     file_path = params.get("file_path")
     bank = params.get("bank")
 
@@ -111,7 +115,15 @@ def handle_parse_pdf(params: dict) -> dict:
         return {"success": False, "error": "缺少 file_path 参数"}
 
     try:
-        # 自动检测银行类型和文档类型
+        # CMB Excel 交易流水
+        if _is_xlsx_file(file_path):
+            return _parse_cmb_excel(file_path)
+
+        # ICBC CSV 对账流水 - 特殊处理
+        if _is_csv_file(file_path):
+            return _parse_icbc_csv(file_path)
+
+        # PDF 文件 - 自动检测银行类型和文档类型
         if not bank:
             bank, doc_type = _detect_bank_from_pdf(file_path)
         else:
@@ -138,9 +150,12 @@ def handle_parse_pdf(params: dict) -> dict:
                 result = parser.parse(file_path)
         if result is None or not result.transactions:
             if '招商' in (bank or ''):
-                parser = (_cmb_table_parser.CMBTableParser()
-                          if _detect_cmb_pdf_type(file_path) == 'table'
-                          else _cmb_parser.CMBParser())
+                if doc_type == 'receipt':
+                    parser = _cmb_receipt_parser.CMBReceiptParser()
+                else:
+                    parser = (_cmb_table_parser.CMBTableParser()
+                              if _detect_cmb_pdf_type(file_path) == 'table'
+                              else _cmb_parser.CMBParser())
                 result = parser.parse(file_path)
         if result is None or not result.transactions:
             if '广发' in (bank or ''):
@@ -197,6 +212,88 @@ def _detect_cmb_pdf_type(file_path: str) -> str:
     return 'column'
 
 
+def _is_xlsx_file(file_path: str) -> bool:
+    """判断是否为 CMB Excel 交易流水文件"""
+    return file_path.lower().endswith('.xlsx')
+
+
+def _parse_cmb_excel(file_path: str) -> dict:
+    """解析招行 Excel 交易流水，返回与 parse_pdf 兼容的结果"""
+    try:
+        parser = _cmb_excel_parser.CMBExcelParser()
+        result = parser.parse(file_path)
+
+        transactions = []
+        for t in result.transactions:
+            transactions.append({
+                "date": t.date.isoformat(),
+                "description": t.description,
+                "amount": float(t.amount),
+                "currency": t.currency,
+                "direction": t.direction,
+                "counterparty": t.counterparty,
+                "reference_number": t.reference_number,
+                "notes": t.notes,
+                "account_number": t.account_number,
+                "account_name": t.account_name,
+            })
+
+        return {
+            "success": True,
+            "transactions": transactions,
+            "bank": result.bank,
+            "statement_date": result.statement_date.isoformat() if result.statement_date else None,
+            "opening_balance": float(result.opening_balance) if result.opening_balance else None,
+            "closing_balance": float(result.closing_balance) if result.closing_balance else None,
+            "confidence": result.confidence,
+            "errors": result.errors,
+            "warnings": result.warnings,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _is_csv_file(file_path: str) -> bool:
+    """判断是否为 ICBC CSV 对账流水文件"""
+    return file_path.lower().endswith('.csv')
+
+
+def _parse_icbc_csv(file_path: str) -> dict:
+    """解析工行 CSV 对账流水，返回与 parse_pdf 兼容的结果"""
+    try:
+        parser = _icbc_csv_parser.ICBCCSVParser()
+        result = parser.parse(file_path)
+
+        transactions = []
+        for t in result.transactions:
+            transactions.append({
+                "date": t.date.isoformat(),
+                "description": t.description,
+                "amount": float(t.amount),
+                "currency": t.currency,
+                "direction": t.direction,
+                "counterparty": t.counterparty,
+                "reference_number": t.reference_number,
+                "notes": t.notes,
+                "account_number": t.account_number,
+                "account_name": t.account_name,
+            })
+
+        return {
+            "success": True,
+            "transactions": transactions,
+            "bank": result.bank,
+            "statement_date": result.statement_date.isoformat() if result.statement_date else None,
+            "opening_balance": float(result.opening_balance) if result.opening_balance else None,
+            "closing_balance": float(result.closing_balance) if result.closing_balance else None,
+            "confidence": result.confidence,
+            "errors": result.errors,
+            "warnings": result.warnings,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 @register_method("generate_excel")
 def handle_generate_excel(params: dict) -> dict:
     """导出交易列表到 Excel"""
@@ -226,6 +323,15 @@ def handle_generate_excel(params: dict) -> dict:
         return {"success": True, "excel_path": excel_path}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+@register_method("parse_csv")
+def handle_parse_csv(params: dict) -> dict:
+    """解析 ICBC CSV 对账流水（快捷方法）"""
+    file_path = params.get("file_path")
+    if not file_path:
+        return {"success": False, "error": "缺少 file_path 参数"}
+    return _parse_icbc_csv(file_path)
 
 
 @register_method("ocr_pdf")

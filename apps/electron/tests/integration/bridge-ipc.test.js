@@ -1,5 +1,5 @@
 // Direct test of Python bridge connection
-const { pythonProcess } = require('./dist/pythonProcessManager');
+const { pythonProcess } = require('../../dist/pythonProcessManager');
 
 console.log('Starting Python bridge test...');
 
