@@ -1,0 +1,124 @@
+{
+  "transactions": [
+    {
+      "date": "2026-03-30",
+      "description": "银行回单",
+      "amount": "0",
+      "currency": "CNY",
+      "direction": "expense",
+      "counterparty": null,
+      "reference_number": null,
+      "notes": null,
+      "account_number": null,
+      "account_name": null
+    },
+    {
+      "date": "2026-03-30",
+      "description": "银行回单",
+      "amount": "0",
+      "currency": "CNY",
+      "direction": "expense",
+      "counterparty": null,
+      "reference_number": null,
+      "notes": null,
+      "account_number": null,
+      "account_name": null
+    },
+    {
+      "date": "2026-03-26",
+      "description": "银行回单",
+      "amount": "0",
+      "currency": "CNY",
+      "direction": "expense",
+      "counterparty": null,
+      "reference_number": null,
+      "notes": null,
+      "account_number": null,
+      "account_name": null
+    },
+    {
+      "date": "2026-03-25",
+      "description": "银行回单",
+      "amount": "0",
+      "currency": "CNY",
+      "direction": "expense",
+      "counterparty": null,
+      "reference_number": null,
+      "notes": null,
+      "account_number": null,
+      "account_name": null
+    },
+    {
+      "date": "2026-03-23",
+      "description": "银行回单",
+      "amount": "0",
+      "currency": "CNY",
+      "direction": "expense",
+      "counterparty": null,
+      "reference_number": null,
+      "notes": null,
+      "account_number": null,
+      "account_name": null
+    },
+    {
+      "date": "2026-03-21",
+      "description": "银行回单",
+      "amount": "0",
+      "currency": "CNY",
+      "direction": "expense",
+      "counterparty": null,
+      "reference_number": null,
+      "notes": null,
+      "account_number": null,
+      "account_name": null
+    },
+    {
+      "date": "2026-03-19",
+      "description": "银行回单",
+      "amount": "0",
+      "currency": "CNY",
+      "direction": "expense",
+      "counterparty": null,
+      "reference_number": null,
+      "notes": null,
+      "account_number": null,
+      "account_name": null
+    },
+    {
+      "date": "2026-03-19",
+      "description": "银行回单",
+      "amount": "0",
+      "currency": "CNY",
+      "direction": "expense",
+      "counterparty": null,
+      "reference_number": null,
+      "notes": null,
+      "account_number": null,
+      "account_name": null
+    },
+    {
+      "date": "2026-03-17",
+      "description": "银行回单",
+      "amount": "0",
+      "currency": "CNY",
+      "direction": "expense",
+      "counterparty": null,
+      "reference_number": null,
+      "notes": null,
+      "account_number": null,
+      "account_name": null
+    },
+    {
+      "date": "2026-03-16",
+      "description": "银行回单",
+      "amount": "0",
+      "currency": "CNY",
+      "direction": "expense",
+      "counterparty": null,
+      "reference_number": null,
+      "notes": null,
+      "account_number": null,
+      "account_name": null
+    }
+  ]
+}

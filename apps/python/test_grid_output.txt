@@ -1,0 +1,166 @@
+================================================================================
+File: C:\Users\dell\Desktop\finance agent\回单pdf\中国工商银行企业网上银行363-1回单.pdf
+Transactions: 10
+
+--- Receipt 0 ---
+  date: 2026-03-30
+  description: 1201035721 | 24291860
+  amount: 22655.00
+  counterparty: 中锦技术（广东）有限公司
+  ref: None
+  notes: 备注:1201035721 | 回单号:0911-2852-5177-1100
+
+--- Receipt 1 ---
+  date: 2026-03-30
+  description: 代理国库税收收缴代理国库税收收缴 | 82651287
+  amount: 40686.66
+  counterparty: 中锦技术（广东）有限公司
+  ref: ：28782651
+  notes: 备注:28782651 | 回单号:0911-2852-5181-1100
+
+--- Receipt 2 ---
+  date: 2026-03-26
+  description: 明细入帐 | 25132504
+  amount: 10.00
+  counterparty: 中锦技术（广东）有限公司
+  ref: None
+  notes: 回单号:0911-2852-5197-1100
+
+--- Receipt 3 ---
+  date: 2026-03-25
+  description: 业务（产品）种类对公收费
+  amount: 1
+  counterparty: 中锦技术（广东）有限公司
+  ref: None
+  notes: 回单号:0911-2852-5217-1100
+
+--- Receipt 4 ---
+  date: 2026-03-23
+  description: 付中锦技术广东有限公 | 付中锦技术广东有限公49075169
+  amount: 0
+  counterparty: 中锦技术（广东）有限公司
+  ref: None
+  notes: 备注:付中锦技术广东有限公司（CMGD-202201926）（2110 | 附言:付中锦技术广东有限公司（CMGD-202201926）（2110用途： | 回单号:0911-2852-5233-1100
+
+--- Receipt 5 ---
+  date: 2026-03-21
+  description: 银行回单
+  amount: 32.28
+  counterparty: 中锦技术（广东）有限公司
+  ref: None
+  notes: 回单号:0911-2852-5255-1100
+
+--- Receipt 6 ---
+  date: 2026-03-19
+  description: 通信服务费通信服务费
+  amount: 144.00
+  counterparty: 中国联合网络通信有限公司广州市分
+  ref: 73945726
+  notes: 备注:联通卡202601月份费用支付 | 回单号:0910-5806-7613-1100
+
+--- Receipt 7 ---
+  date: 2026-03-19
+  description: 认证费 | 认证费
+  amount: 700.00
+  counterparty: 广州市宏方网络科技有限公司
+  ref: None
+  notes: 备注:麒麟操作系统桌面工程师认证 | 附言:麒麟操作系统桌面工程师认证指令编号：HQP927040259619提交 | 回单号:0910-5806-5571-1100
+
+--- Receipt 8 ---
+  date: 2026-03-17
+  description: 汇划收报 | 采购结算单汇出行：0020000998汇出行名称：工行望京
+  amount: 0
+  counterparty: 中锦技术（广东）有限公司
+  ref: None
+  notes: 附言:用途：采购结算单汇出行：0020000998汇出行名称：工行望京 | 回单号:0911-2852-5309-1100
+
+--- Receipt 9 ---
+  date: 2026-03-15
+  description: 工资 | 00000000
+  amount: 115111.80
+  counterparty: 中锦技术（广东）有限公司
+  ref: None
+  notes: 回单号:0911-2852-5325-1100
+================================================================================
+File: C:\Users\dell\Desktop\finance agent\回单pdf\中国工商银行企业网上银行363-2回单.pdf
+Transactions: 10
+
+--- Receipt 0 ---
+  date: 2026-03-13
+  description: 备用金
+  amount: 0
+  counterparty: 中锦技术（广东）有限公司
+  ref: None
+  notes: 备注:指令编号：HQP927039647373提交人：0910004436300001.c | 回单号:0911-2852-5337-1100
+
+--- Receipt 1 ---
+  date: 2026-03-13
+  description: 往来
+  amount: 100000.00
+  counterparty: 广州市中锦技术服务有限公司
+  ref: None
+  notes: 备注:往来清理2603 | 附言:往来清理2603指令编号：HQP927039648334提交人：0910004436 | 回单号:0911-2852-5355-1100
+
+--- Receipt 2 ---
+  date: 2026-03-13
+  description: 付中锦技术（广东）有 | 付中
+  amount: 0
+  counterparty: 中锦技术（广东）有限公司
+  ref: 34563629
+  notes: 备注:付中锦技术（广东）有限公司（单项合同CMGD-2 | 附言:付中锦技术（广东）有限公司（单项合同CMGD-2用途：付中 | 回单号:0911-2852-5367-1100
+
+--- Receipt 3 ---
+  date: 2026-03-13
+  description: 付中锦技术（广东）有付中锦技术（广东）有 | 付中
+  amount: 261485.09
+  counterparty: 中锦技术（广东）有限公司
+  ref: 39347629
+  notes: 备注:付中锦技术（广东）有限公司（单项合同CMGD-2 | 附言:付中锦技术（广东）有限公司（单项合同CMGD-2用途：付中 | 回单号:0911-2852-5385-1100
+
+--- Receipt 4 ---
+  date: 2026-03-13
+  description: 银税业务 | 代理国库税收收缴
+  amount: 0
+  counterparty: 中锦技术（广东）有限公司
+  ref: 12679131
+  notes: 备注:13112679 | 回单号:0911-2852-5399-1100
+
+--- Receipt 5 ---
+  date: 2026-03-13
+  description: 代理国库税收收缴代理国库税收收缴 | 38941130
+  amount: 1571.26
+  counterparty: 中锦技术（广东）有限公司
+  ref: ：13038941
+  notes: 备注:13038941 | 回单号:0911-2852-5421-1100
+
+--- Receipt 6 ---
+  date: 2026-03-10
+  description: 保洁费保洁费 | 保洁费
+  amount: 270.00
+  counterparty: 增力清洁服务（广州）有限公司
+  ref: None
+  notes: 备注:保洁费 | 回单号:0910-1525-4655-1100
+
+--- Receipt 7 ---
+  date: 2026-03-10
+  description: 办公场地费用办公场地费用 | 94018758
+  amount: 6343.58
+  counterparty: 广州市启胜物业管理有限公司
+  ref: None
+  notes: 备注:天盈东塔1002单元3月物业费，及水电费 | 回单号:0910-1524-9453-1100
+
+--- Receipt 8 ---
+  date: 2026-03-10
+  description: 银行回单
+  amount: 100.00
+  counterparty: 中锦技术（广东）有限公司
+  ref: None
+  notes: 备注:0910004436300002.c.3602 | 回单号:0911-2852-5465-1100
+
+--- Receipt 9 ---
+  date: 2026-03-05
+  description: 36609019
+  amount: 799.00
+  counterparty: 中国电信股份有限公司广州分公司
+  ref: None
+  notes: 回单号:0911-2845-4391-1100

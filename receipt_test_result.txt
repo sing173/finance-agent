@@ -1,0 +1,95 @@
+Bank: 中国工商银行
+Statement date: 2026-03-21
+Confidence: 1.00
+Transactions: 10
+
+--- Transaction 1 ---
+  Date: 2026-03-26
+  Description: 广州CLF0126GZ00QY26A业务（产品）种类跨行收报 | 交易流水号
+  Amount: 0.22
+  Direction: expense
+  Counterparty: None
+  Reference: 53457603时间戳
+  Notes: 备注:广州CLF0126GZ00QY26A-包组1 | 附言:广州CLF0126GZ00QY26A-包组1支付交易序号：18747719报文种 | 回单号:0911-2877-6939-1100
+
+--- Transaction 2 ---
+  Date: 2026-03-26
+  Description: 111业务（产品）种类跨行收报 | 16348539
+  Amount: 10261.00
+  Direction: expense
+  Counterparty: None
+  Reference: 16348539时间戳
+  Notes: 备注:111 | 附言:111支付交易序号：18506227报文种类：小额客户发起普通贷记业 | 回单号:0911-2877-6955-1100
+
+--- Transaction 3 ---
+  Date: 2026-03-25
+  Description: 跨行汇款手续费业务（产品）种类对公收费 | 43107483
+  Amount: 1
+  Direction: expense
+  Counterparty: None
+  Reference: 43107483时间戳
+  Notes: 备注:5.00实收金额：1
+
+--- Transaction 4 ---
+  Date: 2026-03-25
+  Description: 跨行汇款手续费业务（产品）种类对公收费 | 43106483
+  Amount: 9
+  Direction: expense
+  Counterparty: None
+  Reference: 43106483时间戳
+  Notes: 备注:0.00实收金额：9
+
+--- Transaction 5 ---
+  Date: 2026-03-25
+  Description: 退还货款业务（产品）种类网银互联 | 78216453
+  Amount: 388500.00
+  Direction: expense
+  Counterparty: None
+  Reference: 78216453时间戳
+  Notes: 备注:退还货款 | 附言:退还货款支付交易序号：28312417报文种类：IBP101网银贷记业务 | 回单号:0911-2877-6983-1100
+
+--- Transaction 6 ---
+  Date: 2026-03-25
+  Description: 支付应付款业务（产品）种类跨行发报 | 57511072
+  Amount: 388500.00
+  Direction: expense
+  Counterparty: None
+  Reference: 57511072时间戳
+  Notes: 备注:广州银行麒麟操作系统采购项目 | 回单号:0910-8418-8215-1100
+
+--- Transaction 7 ---
+  Date: 2026-03-25
+  Description: 货款业务（产品）种类跨行发报 | 57626072
+  Amount: 10080.00
+  Direction: expense
+  Counterparty: None
+  Reference: 57626072时间戳
+  Notes: 备注:东莞农商行擎云第四代c5平板电脑4台采购 | 回单号:0910-8419-4839-1100
+
+--- Transaction 8 ---
+  Date: 2026-03-25
+  Description: 中锦业务（产品）种类跨行收报 | 22171966
+  Amount: 500000.00
+  Direction: expense
+  Counterparty: None
+  Reference: 22171966时间戳
+  Notes: 备注:中锦 | 附言:中锦支付交易序号：23079397报文种类：小额客户发起普通贷记业 | 回单号:0911-2877-7015-1100
+
+--- Transaction 9 ---
+  Date: 2026-03-21
+  Description: 对公贷款利息支付业务（产品）种类利息入账 | 14035274
+  Amount: 0
+  Direction: expense
+  Counterparty: None
+  Reference: 14035274时间戳
+  Notes: 备注:率：3.000000%利
+
+--- Transaction 10 ---
+  Date: 2026-03-21
+  Description: 对公贷款利息支付业务（产品）种类利息入账 | 11363274
+  Amount: 0
+  Direction: expense
+  Counterparty: None
+  Reference: 11363274时间戳
+  Notes: 备注:率：3.000000%
+

@@ -1,0 +1,28 @@
+Parsing: C:\Users\dell\Desktop\finance agent\回单pdf\中国工商银行企业网上银行363-1回单.pdf
+Total transactions: 10
+Errors: []
+
+Receipt 1:
+  Date: 2026-03-30
+  Description: 银行回单
+  Amount: 0
+  Direction: expense
+  Counterparty: None
+  Ref No: None
+
+Receipt 2:
+  Date: 2026-03-30
+  Description: 银行回单
+  Amount: 0
+  Direction: expense
+  Counterparty: None
+  Ref No: None
+
+Receipt 3:
+  Date: 2026-03-26
+  Description: 银行回单
+  Amount: 0
+  Direction: expense
+  Counterparty: None
+  Ref No: None
+

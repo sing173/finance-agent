@@ -1,0 +1,520 @@
+===== 中国工商银行企业网上银行363-1回单.pdf =====
+
+  Page 0: 4 receipts
+
+  --- Receipt 0 ---
+  [Raw fields extracted]
+    payer: 中锦技术（广东）有限公司
+    receipt_no: 0911-2852-5177-1100
+  [Transaction]: None (date required)
+
+  --- Receipt 1 ---
+  [Raw fields extracted]
+    amount_text: ￥22,655.00元
+    date: 2026年03月30日
+    notes: 1201035721
+    payee: 中国工商银行
+    payer: 广州高德广场支行
+    print_date: 2026年5月9日
+    purpose: 1201035721
+    timestamp: 2026-03-30-17.09.35.328721
+    usage: 24291860
+    verify_code: x7pUgksYV8+mT9ACFgPMo5txG24=
+  [Transaction]
+    date: 2026-03-30
+    description: 1201035721 | 24291860
+    amount: 22655.00
+    currency: CNY
+    direction: expense
+    counterparty: 中国工商银行
+    reference_number: None
+    notes: 备注:1201035721 | 付款人:广州高德广场支行
+
+  --- Receipt 2 ---
+  [Raw fields extracted]
+    payee: 3602030811*********
+    payer: 中锦技术（广东）有限公司
+    receipt_no: 0911-2852-5181-1100
+  [Transaction]: None (date required)
+
+  --- Receipt 3 ---
+  [Raw fields extracted]
+    amount_text: ￥40,686.66元
+    notes: 28782651
+    payee: 中国工商银行
+    payer: 广州高德广场支行
+    print_date: 2026年5月9日
+    purpose: 代理国库税收收缴代理国库税收收缴
+    ref_no: 备注：28782651
+    timestamp: 2026-03-30-17.09.21.802514
+    usage: 82651287
+    verify_code: hTYn4kBbcxddKJF3Yx+C9GXbV9E=
+  [Transaction]
+    date: 2026-03-30
+    description: 代理国库税收收缴代理国库税收收缴 | 82651287
+    amount: 40686.66
+    currency: CNY
+    direction: expense
+    counterparty: 中国工商银行
+    reference_number: ：28782651
+    notes: 备注:28782651 | 付款人:广州高德广场支行
+
+  Page 1: 2 receipts
+
+  --- Receipt 0 ---
+  [Raw fields extracted]
+    amount_text: ￥10.00元
+    payee: 中国工商银行广州分行
+    payer: 中锦技术（广东）有限公司
+    print_date: 2026年5月9日
+    purpose: 对公收费明细入帐
+    receipt_no: 0911-2852-5197-1100
+    timestamp: 2026-03-26-05.09.02.490779
+    usage: 25132504
+    verify_code: tSbO1ChRC/5U4tFp7AqTJ4JaTEY=
+  [Transaction]
+    date: 2026-03-26
+    description: 明细入帐 | 25132504
+    amount: 10.00
+    currency: CNY
+    direction: expense
+    counterparty: 中国工商银行广州分行
+    reference_number: None
+    notes: 付款人:中锦技术（广东）有限公司 | 回单号:0911-2852-5197-1100
+
+  --- Receipt 1 ---
+  [Raw fields extracted]
+    amount_text: 1
+    payee: 中国工商银行广州分行
+    payer: 中锦技术（广东）有限公司
+    print_date: 2026年5月9日
+    purpose: 业务（产品）种类对公收费
+    receipt_no: 0911-2852-5217-1100
+    timestamp: 2026-03-25-22.12.30.163072
+    usage: 业务（产品）种类对公收费
+    verify_code: Zh58c/Msmv0xCWOriD0vfxH5yso=
+  [Transaction]
+    date: 2026-03-25
+    description: 业务（产品）种类对公收费
+    amount: 1
+    currency: CNY
+    direction: expense
+    counterparty: 中国工商银行广州分行
+    reference_number: None
+    notes: 付款人:中锦技术（广东）有限公司 | 回单号:0911-2852-5217-1100
+
+  Page 2: NO OCR BLOCKS
+
+  Page 3: 3 receipts
+
+  --- Receipt 0 ---
+  [Raw fields extracted]
+    payee: 中锦技术（广东）有限公司
+    payer: 中国移动通信集团广东有限公司
+    receipt_no: 0911-2852-5233-1100
+  [Transaction]: None (date required)
+
+  --- Receipt 1 ---
+  [Raw fields extracted]
+    date: 2026年03月23日
+    notes: 付中锦技术广东有限公司（CMGD-202201926）（2110
+    payee: 广州高德广场支行
+    payer: 中国工商银行股份有限公司北京长安
+    postscript: 付中锦技术广东有限公司（CMGD-202201926）（2110用途：
+    print_date: 2026年5月9日
+    purpose: 付中锦技术广东有限公
+    timestamp: 2026-03-23-14.50.20.341014
+    usage: 付中锦技术广东有限公49075169
+    verify_code: dT13K4fyXqRY78SnoEkP9XwY6bg=
+  [Transaction]
+    date: 2026-03-23
+    description: 付中锦技术广东有限公 | 付中锦技术广东有限公49075169
+    amount: 0
+    currency: CNY
+    direction: expense
+    counterparty: 广州高德广场支行
+    reference_number: None
+    notes: 备注:付中锦技术广东有限公司（CMGD-202201926）（2110 | 附言:付中锦技术广东有限公司（CMGD-202201926）（2110用途： | 付款人:中国工商银行股份有限公司北京长安
+
+  --- Receipt 2 ---
+  [Raw fields extracted]
+    amount_text: ￥32.28元利息
+    date: 2026年03月21日
+    payee: 中锦技术（广东）有限公司
+    payer: 中国工商银行
+    print_date: 2026年5月9日
+    purpose: 用途
+    receipt_no: 0911-2852-5255-1100
+    timestamp: 2026-03-21-01.02.51.961579
+    verify_code: GUeO41mDNiIYRJVYNR2kMtQQ3a0=
+  [Transaction]
+    date: 2026-03-21
+    description: 银行回单
+    amount: 32.28
+    currency: CNY
+    direction: expense
+    counterparty: 中锦技术（广东）有限公司
+    reference_number: None
+    notes: 付款人:中国工商银行 | 回单号:0911-2852-5255-1100
+
+  Page 4: 2 receipts
+
+  --- Receipt 0 ---
+  [Raw fields extracted]
+    amount_text: ￥144.00元
+    date: 2026年03月19日
+    notes: 联通卡202601月份费用支付
+    payee: 中国联合网络通信有限公司广州市分
+    payer: 中锦技术（广东）有限公司
+    print_date: 2026年5月9日
+    purpose: 通信服务费通信服务费
+    receipt_no: 0910-5806-7613-1100
+    ref_no: 73945726
+    timestamp: 2026-03-19-12.25.28.788193
+    verify_code: 030gYyE1YdjzwBHfqk7yFJjFM00=
+  [Transaction]
+    date: 2026-03-19
+    description: 通信服务费通信服务费
+    amount: 144.00
+    currency: CNY
+    direction: expense
+    counterparty: 中国联合网络通信有限公司广州市分
+    reference_number: 73945726
+    notes: 备注:联通卡202601月份费用支付 | 付款人:中锦技术（广东）有限公司 | 回单号:0910-5806-7613-1100
+
+  --- Receipt 1 ---
+  [Raw fields extracted]
+    amount_text: ￥700.00元认证费
+    notes: 麒麟操作系统桌面工程师认证
+    payee: 广州市宏方网络科技有限公司
+    payer: 中锦技术（广东）有限公司
+    postscript: 麒麟操作系统桌面工程师认证指令编号：HQP927040259619提交
+    print_date: 2026年5月9日
+    purpose: 用途认证费
+    receipt_no: 0910-5806-5571-1100
+    timestamp: 2026-03-19-12.25.28.495940
+    usage: 认证费
+    verify_code: LF1CEtlzWWhKeXXF5t7OLznVRoc=
+  [Transaction]
+    date: 2026-03-19
+    description: 认证费 | 认证费
+    amount: 700.00
+    currency: CNY
+    direction: expense
+    counterparty: 广州市宏方网络科技有限公司
+    reference_number: None
+    notes: 备注:麒麟操作系统桌面工程师认证 | 附言:麒麟操作系统桌面工程师认证指令编号：HQP927040259619提交 | 付款人:中锦技术（广东）有限公司 | 回单号:0910-5806-5571-1100
+
+  Page 5: 2 receipts
+
+  --- Receipt 0 ---
+  [Raw fields extracted]
+    date: 2026年03月17日
+    payee: 中锦技术（广东）有限公司
+    payer: 博林中凯（北京）科技有限公司
+    postscript: 用途：采购结算单汇出行：0020000998汇出行名称：工行望京
+    print_date: 2026年5月9日
+    purpose: 业务（产品）种类汇划收报
+    receipt_no: 0911-2852-5309-1100
+    timestamp: 2026-03-17-15.22.17.554592
+    usage: 采购结算单汇出行：0020000998汇出行名称：工行望京
+    verify_code: DQy9jZG3asnxJnSwAYRE7HMd8aw=
+  [Transaction]
+    date: 2026-03-17
+    description: 汇划收报 | 采购结算单汇出行：0020000998汇出行名称：工行望京
+    amount: 0
+    currency: CNY
+    direction: expense
+    counterparty: 中锦技术（广东）有限公司
+    reference_number: None
+    notes: 附言:用途：采购结算单汇出行：0020000998汇出行名称：工行望京 | 付款人:博林中凯（北京）科技有限公司 | 回单号:0911-2852-5309-1100
+
+  --- Receipt 1 ---
+  [Raw fields extracted]
+    amount_text: ￥115,111.80元
+    date: 2026年03月15日
+    payee: 开户银行
+    payer: 中锦技术（广东）有限公司
+    print_date: 2026年5月9日
+    purpose: 工资
+    receipt_no: 0911-2852-5325-1100
+    timestamp: 2026-03-16-00.12.23.183797
+    usage: 00000000
+    verify_code: 79HzYQmpuR2uFdtVSs9e08jVIZY=
+  [Transaction]
+    date: 2026-03-15
+    description: 工资 | 00000000
+    amount: 115111.80
+    currency: CNY
+    direction: expense
+    counterparty: 开户银行
+    reference_number: None
+    notes: 付款人:中锦技术（广东）有限公司 | 回单号:0911-2852-5325-1100
+
+
+===== 中国工商银行企业网上银行363-2回单.pdf =====
+
+  Page 0: 2 receipts
+
+  --- Receipt 0 ---
+  [Raw fields extracted]
+    date: 2026年03月13日
+    notes: 指令编号：HQP927039647373提交人：0910004436300001.c
+    payee: 中锦技术（广东）有限公司
+    payer: 中锦技术（广东）有限公司
+    print_date: 2026年5月9日
+    purpose: 备用金
+    receipt_no: 0911-2852-5337-1100
+    timestamp: 2026-03-13-16.21.01.812503
+    verify_code: iAZ+f0VSzTdAbH7waXZV2aHIBEU=
+  [Transaction]
+    date: 2026-03-13
+    description: 备用金
+    amount: 0
+    currency: CNY
+    direction: expense
+    counterparty: 中锦技术（广东）有限公司
+    reference_number: None
+    notes: 备注:指令编号：HQP927039647373提交人：0910004436300001.c | 付款人:中锦技术（广东）有限公司 | 回单号:0911-2852-5337-1100
+
+  --- Receipt 1 ---
+  [Raw fields extracted]
+    amount_text: ￥100,000.00元
+    notes: 往来清理2603
+    payee: 广州市中锦技术服务有限公司
+    payer: 中锦技术（广东）有限公司
+    postscript: 往来清理2603指令编号：HQP927039648334提交人：0910004436
+    print_date: 2026年5月9日
+    purpose: 往来用途
+    receipt_no: 0911-2852-5355-1100
+    timestamp: 2026-03-13-16.21.01.554542
+    verify_code: BJ+u6HJYg1qfq7L9Y+6arC8ktMo=
+  [Transaction]
+    date: 2026-03-13
+    description: 往来
+    amount: 100000.00
+    currency: CNY
+    direction: expense
+    counterparty: 广州市中锦技术服务有限公司
+    reference_number: None
+    notes: 备注:往来清理2603 | 附言:往来清理2603指令编号：HQP927039648334提交人：0910004436 | 付款人:中锦技术（广东）有限公司 | 回单号:0911-2852-5355-1100
+
+  Page 1: 4 receipts
+
+  --- Receipt 0 ---
+  [Raw fields extracted]
+    payee: 中锦技术（广东）有限公司
+    payer: 中国移动通信集团广东有限公司
+    receipt_no: 0911-2852-5367-1100
+  [Transaction]: None (date required)
+
+  --- Receipt 1 ---
+  [Raw fields extracted]
+    date: 2026年03月13日
+    notes: 付中锦技术（广东）有限公司（单项合同CMGD-2
+    payee: 广州高德广场支行
+    payer: 中国工商银行股份有限公司北京长安
+    postscript: 付中锦技术（广东）有限公司（单项合同CMGD-2用途：付中
+    print_date: 2026年5月9日
+    purpose: 付中锦技术（广东）有
+    ref_no: 34563629
+    timestamp: 2026-03-13-11.49.57.127892
+    usage: 付中
+    verify_code: VgYBgso1BUEaxcSme2+TVHGb/3U=
+  [Transaction]
+    date: 2026-03-13
+    description: 付中锦技术（广东）有 | 付中
+    amount: 0
+    currency: CNY
+    direction: expense
+    counterparty: 广州高德广场支行
+    reference_number: 34563629
+    notes: 备注:付中锦技术（广东）有限公司（单项合同CMGD-2 | 附言:付中锦技术（广东）有限公司（单项合同CMGD-2用途：付中 | 付款人:中国工商银行股份有限公司北京长安
+
+  --- Receipt 2 ---
+  [Raw fields extracted]
+    payee: 中锦技术（广东）有限公司
+    payer: 中国移动通信集团广东有限公司
+    receipt_no: 0911-2852-5385-1100
+  [Transaction]: None (date required)
+
+  --- Receipt 3 ---
+  [Raw fields extracted]
+    amount_text: ￥261,485.09元
+    date: 2026年03月13日
+    notes: 付中锦技术（广东）有限公司（单项合同CMGD-2
+    payee: 开户银行
+    payer: 中国工商银行股份有限公司北京长安
+    postscript: 付中锦技术（广东）有限公司（单项合同CMGD-2用途：付中
+    print_date: 2026年5月9日
+    purpose: 付中锦技术（广东）有付中锦技术（广东）有
+    ref_no: 39347629
+    timestamp: 2026-03-13-11.49.28.355015
+    usage: 付中
+    verify_code: aUgYSNsZ1Gb9RIY9FpuCIbSNFYA=
+  [Transaction]
+    date: 2026-03-13
+    description: 付中锦技术（广东）有付中锦技术（广东）有 | 付中
+    amount: 261485.09
+    currency: CNY
+    direction: expense
+    counterparty: 开户银行
+    reference_number: 39347629
+    notes: 备注:付中锦技术（广东）有限公司（单项合同CMGD-2 | 附言:付中锦技术（广东）有限公司（单项合同CMGD-2用途：付中 | 付款人:中国工商银行股份有限公司北京长安
+
+  Page 2: NO OCR BLOCKS
+
+  Page 3: 4 receipts
+
+  --- Receipt 0 ---
+  [Raw fields extracted]
+    payee: 3602030811*********
+    payer: 中锦技术（广东）有限公司
+    receipt_no: 0911-2852-5399-1100
+  [Transaction]: None (date required)
+
+  --- Receipt 1 ---
+  [Raw fields extracted]
+    date: 2026年03月13日
+    notes: 13112679
+    payee: 中国工商银行
+    payer: 广州高德广场支行
+    print_date: 2026年5月9日
+    purpose: 业务（产品）种类银税业务
+    ref_no: 12679131
+    timestamp: 2026-03-13-11.21.02.308292
+    usage: 代理国库税收收缴
+    verify_code: 0kivsJ9RbyLP5dBWnfIYn3CA3cg=
+  [Transaction]
+    date: 2026-03-13
+    description: 银税业务 | 代理国库税收收缴
+    amount: 0
+    currency: CNY
+    direction: expense
+    counterparty: 中国工商银行
+    reference_number: 12679131
+    notes: 备注:13112679 | 付款人:广州高德广场支行
+
+  --- Receipt 2 ---
+  [Raw fields extracted]
+    payee: 3602030811*********
+    payer: 中锦技术（广东）有限公司
+    receipt_no: 0911-2852-5421-1100
+  [Transaction]: None (date required)
+
+  --- Receipt 3 ---
+  [Raw fields extracted]
+    amount_text: ￥1,571.26元
+    notes: 13038941
+    payee: 中国工商银行
+    payer: 广州高德广场支行
+    print_date: 2026年5月9日
+    purpose: 代理国库税收收缴代理国库税收收缴
+    ref_no: 备注：13038941
+    timestamp: 2026-03-13-11.16.45.152515
+    usage: 38941130
+    verify_code: ubj3cgsqcXCQcE+EdN//30n4c4=
+  [Transaction]
+    date: 2026-03-13
+    description: 代理国库税收收缴代理国库税收收缴 | 38941130
+    amount: 1571.26
+    currency: CNY
+    direction: expense
+    counterparty: 中国工商银行
+    reference_number: ：13038941
+    notes: 备注:13038941 | 付款人:广州高德广场支行
+
+  Page 4: 2 receipts
+
+  --- Receipt 0 ---
+  [Raw fields extracted]
+    amount_text: ￥270.00元
+    date: 2026年03月10日
+    notes: 保洁费
+    payee: 增力清洁服务（广州）有限公司
+    payer: 中锦技术（广东）有限公司
+    print_date: 2026年5月9日
+    purpose: 保洁费用途保洁费
+    receipt_no: 0910-1525-4655-1100
+    timestamp: 2026-03-10-11.21.47.996591
+    usage: 保洁费
+    verify_code: dUJDqQr9nPQ8aG+k/Vdk/gb1UWs=
+  [Transaction]
+    date: 2026-03-10
+    description: 保洁费保洁费 | 保洁费
+    amount: 270.00
+    currency: CNY
+    direction: expense
+    counterparty: 增力清洁服务（广州）有限公司
+    reference_number: None
+    notes: 备注:保洁费 | 付款人:中锦技术（广东）有限公司 | 回单号:0910-1525-4655-1100
+
+  --- Receipt 1 ---
+  [Raw fields extracted]
+    amount_text: ￥6,343.58元
+    notes: 天盈东塔1002单元3月物业费，及水电费
+    payee: 广州市启胜物业管理有限公司
+    payer: 中锦技术（广东）有限公司
+    print_date: 2026年5月9日
+    purpose: 办公场地费用办公场地费用
+    receipt_no: 0910-1524-9453-1100
+    timestamp: 2026-03-10-11.21.44.725673
+    usage: 94018758
+    verify_code: zgbl9kXbUEoFdF4zUze/pl9PDc4=
+  [Transaction]
+    date: 2026-03-10
+    description: 办公场地费用办公场地费用 | 94018758
+    amount: 6343.58
+    currency: CNY
+    direction: expense
+    counterparty: 广州市启胜物业管理有限公司
+    reference_number: None
+    notes: 备注:天盈东塔1002单元3月物业费，及水电费 | 付款人:中锦技术（广东）有限公司 | 回单号:0910-1524-9453-1100
+
+  Page 5: 2 receipts
+
+  --- Receipt 0 ---
+  [Raw fields extracted]
+    amount_text: ￥100.00元
+    date: 2026年03月10日
+    notes: 0910004436300002.c.3602
+    payee: 中国工商银行广州分行
+    payer: 中锦技术（广东）有限公司
+    print_date: 2026年5月9日
+    purpose: 用途
+    receipt_no: 0911-2852-5465-1100
+    timestamp: 2026-03-10-11.20.09.585348
+    verify_code: MqE7P1MVhZKHrw4r36KSE8naJ0M=
+  [Transaction]
+    date: 2026-03-10
+    description: 银行回单
+    amount: 100.00
+    currency: CNY
+    direction: expense
+    counterparty: 中国工商银行广州分行
+    reference_number: None
+    notes: 备注:0910004436300002.c.3602 | 付款人:中锦技术（广东）有限公司 | 回单号:0911-2852-5465-1100
+
+  --- Receipt 1 ---
+  [Raw fields extracted]
+    amount_text: ￥799.00元电信
+    payee: 中国电信股份有限公司广州分公司
+    payer: 中锦技术（广东）有限公司
+    print_date: 2026年5月9日
+    receipt_no: 0911-2845-4391-1100
+    timestamp: 2026-03-05-13.02.58.931469
+    usage: 36609019
+    verify_code: +A3olPYhSJkn5LG+M0E8/WbYBTg=
+  [Transaction]
+    date: 2026-03-05
+    description: 36609019
+    amount: 799.00
+    currency: CNY
+    direction: expense
+    counterparty: 中国电信股份有限公司广州分公司
+    reference_number: None
+    notes: 付款人:中锦技术（广东）有限公司 | 回单号:0911-2845-4391-1100
+
+  Page 6: NO OCR BLOCKS
+
+
