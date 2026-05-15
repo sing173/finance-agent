@@ -8,11 +8,45 @@ JSON-RPC 2.0 服务器，通过 stdio 与 Electron 通信
 import json
 import sys
 import os
+import logging
+import time
+import traceback
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-# 确保项目根目录在 sys.path 中，支持直接运行和模块运行
+
+def _setup_logging(log_dir: Path) -> logging.Logger:
+    """配置日志：写入文件，10MB × 3 个文件轮转。"""
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    logger = logging.getLogger("bridge")
+    logger.setLevel(logging.INFO)
+
+    handler = RotatingFileHandler(
+        log_dir / 'bridge.log',
+        maxBytes=10 * 1024 * 1024,
+        backupCount=3,
+        encoding='utf-8',
+    )
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(message)s",
+    ))
+    logger.handlers.clear()
+    logger.addHandler(handler)
+
+    return logger
+
+
+# 开发环境: logs/ 在 repo root；打包环境: %APPDATA%/FinanceAssistant/logs/
+# 必须在所有 import 之前初始化，确保 import 阶段的错误也能写入日志
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
+
+if getattr(sys, 'frozen', False):
+    _log = _setup_logging(Path(os.environ.get('APPDATA', Path.home().as_posix())) / 'FinanceAssistant' / 'logs')
+else:
+    _log = _setup_logging(Path(_project_root) / '..' / '..' / '..' / 'logs')
 
 from finance_agent_backend.tools import pdf_parser as _pdf_parser
 from finance_agent_backend.tools import cmb_parser as _cmb_parser
@@ -116,12 +150,16 @@ def handle_parse_pdf(params: dict) -> dict:
         return {"success": False, "error": "缺少 file_path 参数"}
 
     try:
+        _log.info("parse_pdf 开始: %s", file_path)
+
         # CMB Excel 交易流水
         if _is_xlsx_file(file_path):
+            _log.info("路由 → CMB Excel 解析器")
             return _parse_cmb_excel(file_path)
 
         # ICBC CSV 对账流水 - 特殊处理
         if _is_csv_file(file_path):
+            _log.info("路由 → ICBC CSV 解析器")
             return _parse_icbc_csv(file_path)
 
         # PDF 文件 - 自动检测银行类型和文档类型
@@ -129,6 +167,7 @@ def handle_parse_pdf(params: dict) -> dict:
             bank, doc_type = _detect_bank_from_pdf(file_path)
         else:
             doc_type = 'unknown'
+        _log.info("检测结果: bank=%s doc_type=%s", bank, doc_type)
 
         # 路由策略:
         #   receipt / 未知银行 / 工商但不明确 → 先试回单网格解析器(自带验证，失败返回空)
@@ -142,29 +181,48 @@ def handle_parse_pdf(params: dict) -> dict:
             or ('工商' in (bank or '') and doc_type != 'statement')
         )
         if try_receipt_first:
+            _log.info("路由 → ICBC 回单网格解析器")
             parser = _icbc_receipt_parser.ICBCReceiptGridParser()
+            start = time.time()
             result = parser.parse(file_path)
+            _log.info("ICBC 回单网格: %d 条, 耗时 %.1fs",
+                       len(result.transactions) if result else 0, time.time() - start)
 
         if result is None or not result.transactions:
             if '工商' in (bank or '') or bank == '未知银行':
+                _log.info("路由 → ICBC 流水解析器")
                 parser = _icbc_parser.ICBCParser()
                 result = parser.parse(file_path)
+                _log.info("ICBC 流水: %d 条", len(result.transactions) if result else 0)
         if result is None or not result.transactions:
             if '招商' in (bank or ''):
                 if doc_type == 'receipt':
+                    _log.info("路由 → 招行回单解析器")
                     parser = _cmb_receipt_parser.CMBReceiptParser()
                 else:
+                    cmb_type = _detect_cmb_pdf_type(file_path)
+                    _log.info("路由 → 招行 %s 解析器", cmb_type)
                     parser = (_cmb_table_parser.CMBTableParser()
-                              if _detect_cmb_pdf_type(file_path) == 'table'
+                              if cmb_type == 'table'
                               else _cmb_parser.CMBParser())
                 result = parser.parse(file_path)
+                _log.info("招行: %d 条", len(result.transactions) if result else 0)
         if result is None or not result.transactions:
             if '广发' in (bank or ''):
+                _log.info("路由 → 广发表格解析器")
                 parser = _gfb_table_parser.GFBTableParser()
                 result = parser.parse(file_path)
+                _log.info("广发: %d 条", len(result.transactions) if result else 0)
         if result is None or not result.transactions:
+            _log.info("路由 → 通用解析器")
             parser = _pdf_parser.BankStatementParser()
             result = parser.parse(file_path, bank)
+            _log.info("通用: %d 条", len(result.transactions) if result else 0)
+
+        _log.info("解析完成: %d 条交易, bank=%s, confidence=%.2f",
+                   len(result.transactions), result.bank, result.confidence)
+        if result.errors:
+            _log.warning("解析错误: %s", result.errors)
 
         transactions = []
         for t in result.transactions:
@@ -191,6 +249,7 @@ def handle_parse_pdf(params: dict) -> dict:
             "warnings": result.warnings,
         }
     except Exception as e:
+        _log.error("parse_pdf 异常: %s", traceback.format_exc())
         return {"success": False, "error": str(e)}
 
 
@@ -534,6 +593,8 @@ def main():
     # 强制 UTF-8：PyInstaller 打包后 PYTHONIOENCODING 可能不被 C bootloader 遵循
     sys.stdin.reconfigure(encoding="utf-8")
     sys.stdout.reconfigure(encoding="utf-8")
+
+    _log.info("Bridge 启动: Python %s", sys.version.split()[0])
     for line in sys.stdin:
         line = line.strip()
         if not line:
