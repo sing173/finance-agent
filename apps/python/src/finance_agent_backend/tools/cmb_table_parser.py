@@ -20,12 +20,18 @@ from decimal import Decimal, InvalidOperation
 from typing import List, Optional, Dict, Any, Tuple
 
 from ..models import Transaction, ParseResult
+from .shared_utils import (
+    BANK_CMB, parse_date_yyyymmdd, parse_amount,
+    extract_all_spans, cluster_by_y,
+    find_table_region, partition_spans,
+    find_nearby_number,
+)
 
 
 class CMBTableParser:
     """招商银行 账务明细清单（水平表格格式）解析器"""
 
-    BANK_NAME = '招商银行'
+    BANK_NAME = BANK_CMB
 
     COLUMNS = {
         'date':          (33, 60),
@@ -78,11 +84,11 @@ class CMBTableParser:
                                confidence=0, errors=['Empty PDF'])
 
         page = doc[0]
-        all_spans = _extract_all_spans(page)
+        all_spans = extract_all_spans(page)
         doc.close()
 
         # 步骤 4: 按 y 坐标将页面分为表头 / 表格 / 页脚三个区域
-        header_spans, table_spans, footer_spans = _partition_spans(all_spans)
+        header_spans, table_spans, footer_spans = _partition_spans_cmb(all_spans)
         # 步骤 5: 解析表头元数据
         meta = _parse_header_metadata(header_spans)
         opening_balance = meta.get('opening_balance')
@@ -111,7 +117,7 @@ class CMBTableParser:
         4. 最后按日期升序排序
         """
         spans = sorted(spans, key=lambda s: (s['y0'], s['x0']))
-        rows = _cluster_by_y(spans, gap=2.5)
+        rows = cluster_by_y(spans, gap=2.5)
         transactions, errors = [], []
         for row_spans in rows:
             try:
@@ -142,10 +148,10 @@ class CMBTableParser:
         if not date_str or not amount_str:
             return None
 
-        tx_date = _parse_date(date_str)
+        tx_date = parse_date_yyyymmdd(date_str)
         if not tx_date:
             return None
-        amount = _parse_amount(amount_str)
+        amount = parse_amount(amount_str)
         if amount is None:
             return None
 
@@ -159,7 +165,7 @@ class CMBTableParser:
 
         counterparty = cols.get('counterparty', '').strip() or None
         balance_str = cols.get('balance', '').strip()
-        balance = _parse_amount(balance_str) if balance_str else None
+        balance = parse_amount(balance_str) if balance_str else None
 
         return Transaction(
             date=tx_date, description=full_desc, amount=abs(amount),
@@ -208,113 +214,17 @@ class CMBTableParser:
 
 
 # ═══════════════════════════════════════════════════════════════
-# 通用 Span 提取 / 区域划分 / 聚类 / 元数据解析
+# CMB-specific wrappers around shared_utils (thin, bank-specific config only)
 # ═══════════════════════════════════════════════════════════════
 
-def _extract_all_spans(page: fitz.Page) -> List[dict]:
-    """从 PDF 页面提取所有文本 span
-
-    使用 PyMuPDF get_text('dict') 获取结构化文本数据，
-    遍历所有 block → line → span，提取每个 span 的：
-    - 坐标：x0, y0, x1, y1（左上右下）
-    - 内容：text（文本）
-    - 属性：size（字号）
-    """
-    td = page.get_text('dict')
-    spans = []
-    for block in td.get('blocks', []):
-        if 'lines' not in block:
-            continue
-        for line in block['lines']:
-            for span in line['spans']:
-                text = span['text'].strip()
-                if not text:
-                    continue
-                spans.append({
-                    'x0': span['bbox'][0], 'y0': span['bbox'][1],
-                    'x1': span['bbox'][2], 'y1': span['bbox'][3],
-                    'text': text, 'size': span.get('size', 0),
-                })
-    return spans
-
-
-def _partition_spans(spans: list) -> Tuple[list, list, list]:
-    """将页面所有 span 按 y 坐标分为三个区域
-
-    算法步骤：
-    1. 调用 _find_table_region() 定位表格区的 y 范围
-    2. 表头区：y0 < 表格起始 y - 5pt（表格上方区域）
-    3. 表格区：表格起始 y - 5pt ≤ y0 ≤ 表格结束 y + 5pt
-    4. 页脚区：y0 > 表格结束 y + 5pt（表格下方区域）
-
-    返回：(header_spans, table_spans, footer_spans)
-    """
-    table_start, table_end = _find_table_region(spans)
-    header = [s for s in spans if s['y0'] < table_start - 5]
-    table  = [s for s in spans if table_start - 5 <= s['y0'] <= table_end + 5]
-    footer = [s for s in spans if s['y0'] > table_end + 5]
-    return header, table, footer
-
-
-def _find_table_region(spans: list) -> Tuple[float, float]:
-    """通过列标题精确定位表格区域的 y 范围
-
-    算法步骤：
-    1. 搜索包含列标题关键词（"交易日期"、"Date"、"日期"）的 span
-    2. 若找到，取最小 y0 作为表格起始，起始 y + 40pt 作为结束
-    3. 若未找到，返回默认范围 (105.0, 165.0)
-
-    返回：(table_start_y, table_end_y)
-    """
+def _partition_spans_cmb(spans: list) -> Tuple[list, list, list]:
+    """CMB table partitioning: column titles match '交易日期'/'Date'/'日期'."""
     COL_TITLES = ['交易日期', 'Date', '日期']
-    y_list = [s['y0'] for s in spans
-              if any(k in s['text'] for k in COL_TITLES)]
-    if not y_list:
-        return 105.0, 165.0
-    return min(y_list) - 5, max(s['y1'] for s in spans)
-
-
-def _cluster_by_y(spans: list, gap: float = 2.0) -> List[list]:
-    """按 y 坐标将 span 聚类为行
-
-    算法步骤：
-    1. 按 y0 升序排序所有 span
-    2. 遍历排序后的 span，相邻两个 span 的 y0 差 ≤ gap(2pt) 视为同一行
-    3. 超过 gap 则开始新的一行
-    4. 返回行的列表，每行是该行内 span 的列表
-
-    参数：
-        gap: 判定同一行的最大 y 坐标差（单位：pt）
-
-    返回：[row1_spans, row2_spans, ...]
-    """
-    if not spans:
-        return []
-    sorted_spans = sorted(spans, key=lambda s: s['y0'])
-    clusters, current, current_y = [], [sorted_spans[0]], sorted_spans[0]['y0']
-    for s in sorted_spans[1:]:
-        if s['y0'] - current_y > gap:
-            clusters.append(current)
-            current, current_y = [s], s['y0']
-        else:
-            current.append(s)
-            current_y = max(current_y, s['y0'])
-    clusters.append(current)
-    return clusters
+    return partition_spans(spans, COL_TITLES, require_all=False)
 
 
 def _parse_header_metadata(header_spans: list) -> Dict[str, Any]:
-    """从表头区域提取账户元数据
-
-    算法步骤：
-    1. 按 (y0, x0) 排序所有表头 span
-    2. 遍历 span，匹配 "key: value" 或 "key："+换行+"value" 格式
-    3. 使用 HEADER_KEYS 映射将原始 key 转为标准字段名
-    4. 解析期初余额（上页余额）为 Decimal
-    5. 解析账单期间（按空格分割起止日期）
-
-    返回：{account_no, account_name, currency, bank_branch, period, opening_balance}
-    """
+    """Extract account metadata from CMB header spans."""
     meta: Dict[str, Any] = {}
     sorted_spans = sorted(header_spans, key=lambda s: (s['y0'], s['x0']))
     pending_key = None
@@ -343,7 +253,7 @@ def _parse_header_metadata(header_spans: list) -> Dict[str, Any]:
             continue
 
     if CMBTableParser.OPENING_BALANCE_KEY in meta:
-        meta['opening_balance'] = _parse_amount(meta.pop(CMBTableParser.OPENING_BALANCE_KEY))
+        meta['opening_balance'] = parse_amount(meta.pop(CMBTableParser.OPENING_BALANCE_KEY))
     if 'period' in meta:
         parts = meta['period'].split()
         if len(parts) >= 1:
@@ -354,89 +264,13 @@ def _parse_header_metadata(header_spans: list) -> Dict[str, Any]:
 
 
 def _extract_closing_balance(footer_spans: list) -> Optional[Decimal]:
-    """从页脚区域提取期末余额
-
-    算法步骤：
-    1. 按 (y0, x0) 排序页脚 span
-    2. 查找包含 "期末余额" 关键词的 span
-    3. 若该 span 内包含金额（正则匹配金额格式），直接提取
-    4. 否则在附近 ±5 个 span 范围内搜索同 y 坐标的金额文本
-    5. 返回 Decimal 余额值或 None
-    """
+    """Extract CMB closing balance from footer spans."""
     keyword = CMBTableParser.CLOSING_BALANCE_KEY
     sorted_spans = sorted(footer_spans, key=lambda s: (s['y0'], s['x0']))
     for i, s in enumerate(sorted_spans):
         if keyword in s['text']:
             m = re.search(r'(\d[\d,]*\.\d{2})', s['text'])
             if m:
-                return _parse_amount(m.group(1))
-            return _find_nearby_number(sorted_spans, i)
+                return parse_amount(m.group(1))
+            return find_nearby_number(sorted_spans, i)
     return None
-
-
-def _find_nearby_number(spans: list, ref_index: int, max_distance: int = 5) -> Optional[Decimal]:
-    """在参考 span 附近搜索金额数值
-
-    算法步骤：
-    1. 以 ref_index 位置的 y0 为基准
-    2. 向两侧扩展搜索 ±max_distance 个 span
-    3. 优先匹配 y 坐标差 < 3pt 的 span（同行优先）
-    4. 匹配格式为金额的文本（如 -1,234.56）
-    5. 返回距离最近的金额值（按 span 索引差排序）
-
-    参数：
-        ref_index: 参考 span 在列表中的索引
-        max_distance: 最大搜索距离（span 数量）
-
-    返回：Decimal 金额值或 None
-    """
-    ref_y = spans[ref_index]['y0']
-    candidates = []
-    for offset in range(1, max_distance + 1):
-        for idx in (ref_index + offset, ref_index - offset):
-            if 0 <= idx < len(spans):
-                s = spans[idx]
-                if abs(s['y0'] - ref_y) < 3:
-                    text = s['text'].strip()
-                    if re.match(r'^-?\d[\d,]*\.\d{2}$', text):
-                        candidates.append((abs(idx - ref_index), _parse_amount(text)))
-    if candidates:
-        candidates.sort(key=lambda x: x[0])
-        return candidates[0][1]
-    return None
-
-
-def _parse_date(text: str) -> Optional[datetime.date]:
-    """解析日期字符串为 date 对象
-
-    支持的格式：
-    - YYYYMMDD（无分隔符，如 "20260321"）
-    - YYYY-MM-DD（横线分隔，如 "2026-03-21"）
-
-    返回：date 对象或 None
-    """
-    text = text.strip()
-    m = re.match(r'^(\d{4})(\d{2})(\d{2})$', text)
-    if m:
-        return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
-    m = re.match(r'^(\d{4})-(\d{2})-(\d{2})$', text)
-    if m:
-        return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
-    return None
-
-
-def _parse_amount(text: str) -> Optional[Decimal]:
-    """解析金额字符串为 Decimal
-
-    处理逻辑：
-    1. 去除首尾空白、逗号千分位、空格
-    2. 移除首部加号（正数可能带 + 号）
-    3. 用 Decimal 精确解析，避免浮点误差
-    4. 解析失败返回 None
-    """
-    text = text.strip().replace(',', '').replace(' ', '')
-    text = re.sub(r'^\+', '', text)
-    try:
-        return Decimal(text)
-    except InvalidOperation:
-        return None

@@ -18,12 +18,13 @@ from decimal import Decimal
 from typing import List, Optional
 
 from ..models import Transaction, ParseResult
+from .shared_utils import BANK_CMB
 
 
 class CMBParser:
     """招商银行 PDF 银行流水解析器"""
 
-    BANK_NAME = '招商银行'
+    BANK_NAME = BANK_CMB
 
     def __init__(self):
         self.confidence = 1.0

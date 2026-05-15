@@ -22,12 +22,13 @@ from PIL import Image
 from rapidocr_onnxruntime import RapidOCR
 
 from ..models import Transaction, ParseResult
+from .shared_utils import BANK_ICBC, parse_amount_lenient
 
 
 class ICBCParser:
     """中国工商银行 OCR 流水解析器 (table-line grid + header detection)"""
 
-    BANK_NAME = "中国工商银行"
+    BANK_NAME = BANK_ICBC
 
     def __init__(self, dpi: int = 300):
         self.dpi = dpi
@@ -366,8 +367,5 @@ class ICBCParser:
 
     @staticmethod
     def _parse_amount(text: str) -> Decimal:
-        text = text.strip().replace(",", "").replace("，", "").replace(" ", "")
-        m = re.search(r"[\d,]+\.?\d*", text)
-        if m:
-            return Decimal(m.group().replace(",", ""))
-        return Decimal("0")
+        return parse_amount_lenient(text)
+
