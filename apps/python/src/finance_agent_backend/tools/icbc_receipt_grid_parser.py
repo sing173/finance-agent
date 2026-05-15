@@ -26,12 +26,13 @@ from PIL import Image
 from rapidocr_onnxruntime import RapidOCR
 
 from ..models import Transaction, ParseResult
+from .shared_utils import BANK_ICBC, parse_date_chinese, parse_timestamp_date, parse_amount_lenient
 
 
 class ICBCReceiptGridParser:
     """中国工商银行 OCR 回单解析器 (icbc_parser grid方案)"""
 
-    BANK_NAME = "中国工商银行"
+    BANK_NAME = BANK_ICBC
 
     # ── 固定列映射（基于第0页调试结论）────────────────────────
     # col 0-7 对应 V coords: [307, 391, 617, 629, 1246, 1327, 1565, 1792, 2185]
@@ -502,39 +503,12 @@ class ICBCReceiptGridParser:
 
     @staticmethod
     def _parse_date(text: str) -> Optional:
-        if not text:
-            return None
-        m = re.search(r"(\d{4})[年-](\d{1,2})[月-](\d{1,2})", text)
-        if m:
-            try:
-                return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
-            except ValueError:
-                pass
-        m = re.search(r"(\d{4})-(\d{2})-(\d{2})", text)
-        if m:
-            try:
-                return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
-            except ValueError:
-                pass
-        return None
+        return parse_date_chinese(text)
 
     @staticmethod
     def _parse_timestamp_date(ts: str) -> Optional:
-        m = re.match(r"(\d{4})-(\d{2})-(\d{2})", ts)
-        if m:
-            try:
-                return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
-            except ValueError:
-                pass
-        return None
+        return parse_timestamp_date(ts)
 
     @staticmethod
     def _parse_amount(text: str) -> Decimal:
-        if not text:
-            return Decimal("0")
-        text = text.replace("￥", "").replace("元", "").strip()
-        text = text.replace(",", "").replace("，", "").replace(" ", "")
-        m = re.search(r"[\d,]+\.?\d*", text)
-        if m:
-            return Decimal(m.group().replace(",", ""))
-        return Decimal("0")
+        return parse_amount_lenient(text)

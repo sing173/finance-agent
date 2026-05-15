@@ -24,12 +24,13 @@ from decimal import Decimal, InvalidOperation
 from typing import List, Optional, Dict, Any
 
 from ..models import Transaction, ParseResult
+from .shared_utils import BANK_ICBC, parse_date_iso, parse_amount
 
 
 class ICBCCSVParser:
     """工商银行 CSV 对账流水解析器"""
 
-    BANK_NAME = '工商银行'
+    BANK_NAME = BANK_ICBC
 
     # CSV 列名
     COLUMNS = [
@@ -94,6 +95,14 @@ class ICBCCSVParser:
                 cleaned = {k: self._clean(v) for k, v in row.items()}
                 rows.append(cleaned)
         return rows
+
+    @staticmethod
+    def _parse_date(text: str) -> Optional[datetime.date]:
+        return parse_date_iso(text)
+
+    @staticmethod
+    def _parse_amount(text: str) -> Optional[Decimal]:
+        return parse_amount(text)
 
     def _parse_rows(self, rows: List[Dict[str, str]]) -> tuple[List[Transaction], List[str]]:
         """解析所有数据行"""
@@ -177,22 +186,3 @@ class ICBCCSVParser:
             return ''
         return val.strip().replace('\t', '').replace('\r', '').replace('\n', '')
 
-    @staticmethod
-    def _parse_date(text: str) -> Optional[datetime.date]:
-        """解析日期 YYYY-MM-DD"""
-        text = text.strip()
-        m = __import__('re').match(r'^(\d{4})-(\d{2})-(\d{2})$', text)
-        if m:
-            return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
-        return None
-
-    @staticmethod
-    def _parse_amount(text: str) -> Optional[Decimal]:
-        """解析金额"""
-        text = text.strip().replace(',', '').replace(' ', '')
-        if not text:
-            return None
-        try:
-            return Decimal(text)
-        except (InvalidOperation, Exception):
-            return None

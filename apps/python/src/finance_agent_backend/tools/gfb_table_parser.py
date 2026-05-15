@@ -12,19 +12,25 @@
 - 本期余额放在页脚区
 - 标题关键字：广发银行活期对公对账单
 """
-import fitz
 import re
-from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import List, Optional, Dict, Any, Tuple
 
 from ..models import Transaction, ParseResult
+from .shared_utils import (
+    BANK_GFB, parse_date_yyyymmdd, parse_amount,
+    extract_all_spans, cluster_by_y,
+    find_table_region, partition_spans,
+    find_nearby_number, find_nearby_value,
+    find_balance_in_spans, extract_balance_from_footer,
+    normalize_key, lookup_header_key,
+)
 
 
 class GFBTableParser:
     """广发银行 活期对公对账单（水平表格格式）解析器"""
 
-    BANK_NAME = '广发银行'
+    BANK_NAME = BANK_GFB
 
     # 表格列 x 坐标分区（基于 span 实测位置调整）
     # 每个列区间内不重叠：date[15,63] biz_type[65,113] bill_no[113,178]
@@ -85,16 +91,16 @@ class GFBTableParser:
                                confidence=0, errors=['Empty PDF'])
 
         page = doc[0]
-        all_spans = _extract_all_spans(page)
+        all_spans = extract_all_spans(page)
         doc.close()
 
         # 步骤 4: 按 y 坐标将页面分为表头 / 表格 / 页脚三个区域
-        header_spans, table_spans, footer_spans = _partition_spans(all_spans)
+        header_spans, table_spans, footer_spans = _partition_spans_gfb(all_spans)
         # 步骤 5: 解析表头元数据（传入 self 以使用子类 HEADER_KEYS）
         meta = _parse_header_metadata(self, header_spans, table_spans)
         opening_balance = meta.get('opening_balance')
         # 步骤 6: 从页脚提取本期余额
-        closing_balance = _extract_closing_balance(self, footer_spans)
+        closing_balance = _extract_closing_balance_gfb(self, footer_spans)
         # 步骤 7: 解析表格数据行
         transactions, errors = self._parse_table_rows(table_spans)
 
@@ -119,7 +125,7 @@ class GFBTableParser:
         4. 最后按日期升序排序
         """
         spans = sorted(spans, key=lambda s: (s['y0'], s['x0']))
-        rows = _cluster_by_y(spans, gap=2.5)
+        rows = cluster_by_y(spans, gap=2.5)
         transactions, errors = [], []
         for row_spans in rows:
             try:
@@ -154,7 +160,7 @@ class GFBTableParser:
         if not date_str:
             return None
 
-        tx_date = _parse_date(date_str)
+        tx_date = parse_date_yyyymmdd(date_str)
         if not tx_date:
             return None
 
@@ -162,8 +168,8 @@ class GFBTableParser:
         expense_str = cols.get('expense', '').strip()
         income_str = cols.get('income', '').strip()
 
-        expense = _parse_amount(expense_str) if expense_str else Decimal('0')
-        income = _parse_amount(income_str) if income_str else Decimal('0')
+        expense = parse_amount(expense_str) if expense_str else Decimal('0')
+        income = parse_amount(income_str) if income_str else Decimal('0')
 
         if expense is None or income is None:
             return None
@@ -179,7 +185,7 @@ class GFBTableParser:
         bill_no = cols.get('bill_no', '').strip()
         counterparty = cols.get('counterparty', '').strip() or None
         balance_str = cols.get('balance', '').strip()
-        balance = _parse_amount(balance_str) if balance_str else None
+        balance = parse_amount(balance_str) if balance_str else None
 
         desc = biz_type if biz_type else '银行交易'
         if bill_no:
@@ -245,99 +251,18 @@ class GFBTableParser:
 
 
 # ═══════════════════════════════════════════════════════════════
-# 通用 Span 提取 / 区域划分 / 聚类 / 元数据解析
+# GFB-specific wrappers around shared_utils (thin, bank-specific config only)
 # ═══════════════════════════════════════════════════════════════
 
-def _extract_all_spans(page: fitz.Page) -> List[dict]:
-    """从 PDF 页面提取所有文本 span
-
-    使用 PyMuPDF get_text('dict') 获取结构化文本数据，
-    遍历所有 block → line → span，提取每个 span 的：
-    - 坐标：x0, y0, x1, y1（左上右下）
-    - 内容：text（文本）
-    - 属性：size（字号）
-    """
-    td = page.get_text('dict')
-    spans = []
-    for block in td.get('blocks', []):
-        if 'lines' not in block:
-            continue
-        for line in block['lines']:
-            for span in line['spans']:
-                text = span['text'].strip()
-                if not text:
-                    continue
-                spans.append({
-                    'x0': span['bbox'][0], 'y0': span['bbox'][1],
-                    'x1': span['bbox'][2], 'y1': span['bbox'][3],
-                    'text': text, 'size': span.get('size', 0),
-                })
-    return spans
-
-
-def _partition_spans(spans: list) -> Tuple[list, list, list]:
-    """将 spans 按 y 坐标分为表头 / 表格 / 页脚三个区域。
-
-    通过"交易日期"或"Date"列标题动态定位表格区。
-    """
-    table_start, table_end = _find_table_region(spans)
-    header = [s for s in spans if s['y0'] < table_start - 5]
-    table  = [s for s in spans if table_start - 5 <= s['y0'] <= table_end + 5]
-    footer = [s for s in spans if s['y0'] > table_end + 5]
-    return header, table, footer
-
-
-def _find_table_region(spans: list) -> Tuple[float, float]:
-    """通过**表格列标题**精确定位表格区域的 y 范围。
-
-    同时包含 "交易日期" 和 "类型" 两个关键字，避免误匹配账户信息区的日期。
-    """
+def _partition_spans_gfb(spans: list) -> Tuple[list, list, list]:
+    """GFB table partitioning: requires both '交易日期' and '交易类型' in same span."""
     COL_TITLES = ['交易日期', '交易类型']
-    y_list = [s['y0'] for s in spans
-              if all(k in s['text'] for k in COL_TITLES)]
-    if not y_list:
-        y_list2 = [s['y0'] for s in spans if '交易日期' in s['text']]
-        if y_list2:
-            return min(y_list2) - 5, max(s['y1'] for s in spans)
-        return 105.0, 165.0
-    return min(y_list) - 5, max(s['y1'] for s in spans)
-
-
-def _cluster_by_y(spans: list, gap: float = 2.0) -> List[list]:
-    """按 y 坐标将 span 聚类为行
-
-    算法步骤：
-    1. 按 y0 升序排序所有 span
-    2. 遍历排序后的 span，相邻两个 span 的 y0 差 ≤ gap(2pt) 视为同一行
-    3. 超过 gap 则开始新的一行
-    4. 返回行的列表，每行是该行内 span 的列表
-
-    参数：
-        gap: 判定同一行的最大 y 坐标差（单位：pt）
-
-    返回：[row1_spans, row2_spans, ...]
-    """
-    if not spans:
-        return []
-    sorted_spans = sorted(spans, key=lambda s: s['y0'])
-    clusters, current, current_y = [], [sorted_spans[0]], sorted_spans[0]['y0']
-    for s in sorted_spans[1:]:
-        if s['y0'] - current_y > gap:
-            clusters.append(current)
-            current, current_y = [s], s['y0']
-        else:
-            current.append(s)
-            current_y = max(current_y, s['y0'])
-    clusters.append(current)
-    return clusters
+    return partition_spans(spans, COL_TITLES, require_all=True)
 
 
 def _parse_header_metadata(parser, header_spans: list,
                            table_spans: list = None) -> Dict[str, Any]:
-    """从表头区域提取账户信息，使用子类提供的 HEADER_KEYS 映射。
-
-    table_spans: 表格区 spans（用于在表格头部行中查找上期余额等字段）。
-    """
+    """Extract account metadata from GFB header spans."""
     meta: Dict[str, Any] = {}
     sorted_spans = sorted(header_spans, key=lambda s: (s['y0'], s['x0']))
     pending_key = None
@@ -348,7 +273,7 @@ def _parse_header_metadata(parser, header_spans: list,
             continue
 
         if pending_key:
-            mapped_key = _lookup_header_key(parser, pending_key)
+            mapped_key = lookup_header_key(parser.HEADER_KEYS, pending_key)
             if mapped_key:
                 meta[mapped_key] = text
             pending_key = None
@@ -356,29 +281,26 @@ def _parse_header_metadata(parser, header_spans: list,
 
         m = re.match(r'^(.+?)[:：](.*)$', text)
         if m:
-            raw_key = _normalize_key(m.group(1).strip())
+            raw_key = normalize_key(m.group(1).strip())
             val = m.group(2).strip()
             if val:
-                mapped_key = _lookup_header_key(parser, raw_key)
+                mapped_key = lookup_header_key(parser.HEADER_KEYS, raw_key)
                 if mapped_key:
                     meta[mapped_key] = val
             else:
-                if _lookup_header_key(parser, raw_key):
+                if lookup_header_key(parser.HEADER_KEYS, raw_key):
                     pending_key = raw_key
             continue
 
-    # 若表头区未找到上期余额，在表格区中搜索
+    # Try table_spans for opening balance if not found in header
     if parser.OPENING_BALANCE_KEY not in meta and table_spans:
-        ob_val = _find_balance_in_spans(
-            table_spans, parser.OPENING_BALANCE_KEY)
+        ob_val = find_balance_in_spans(table_spans, parser.OPENING_BALANCE_KEY)
         if ob_val is not None:
             meta['opening_balance'] = ob_val
 
-    # 解析余额字段
     if parser.OPENING_BALANCE_KEY in meta:
-        meta['opening_balance'] = _parse_amount(meta.pop(parser.OPENING_BALANCE_KEY))
+        meta['opening_balance'] = parse_amount(meta.pop(parser.OPENING_BALANCE_KEY))
 
-    # 解析账单期间
     if 'period' in meta:
         parts = meta['period'].split()
         if len(parts) >= 1:
@@ -389,115 +311,6 @@ def _parse_header_metadata(parser, header_spans: list,
     return meta
 
 
-def _find_balance_in_spans(spans: list, keyword: str) -> Optional[str]:
-    """在 spans 中搜索关键字及其关联数值 span。"""
-    sorted_spans = sorted(spans, key=lambda s: (s['y0'], s['x0']))
-    for i, s in enumerate(sorted_spans):
-        if keyword in s['text']:
-            m = re.search(r'(\d[\d,]*\.\d{2})', s['text'])
-            if m:
-                return m.group(1)
-            return _find_nearby_value(sorted_spans, i)
-    return None
-
-
-def _find_nearby_value(spans: list, ref_index: int,
-                       max_distance: int = 5) -> Optional[str]:
-    """在参考 span 附近查找数值文本（返回原始字符串）。"""
-    ref_y = spans[ref_index]['y0']
-    for offset in range(1, max_distance + 1):
-        for idx in (ref_index + offset, ref_index - offset):
-            if 0 <= idx < len(spans):
-                s = spans[idx]
-                if abs(s['y0'] - ref_y) < 3:
-                    text = s['text'].strip()
-                    if re.match(r'^-?\d[\d,]*\.\d{2}$', text):
-                        return text
-    return None
-
-
-def _normalize_key(key: str) -> str:
-    """规范化 key：统一冒号、移除 NBSP、合并空格。"""
-    key = key.replace('\xa0', ' ').replace(' ', '')
-    key = key.replace('：', '').replace(':', '')
-    return key
-
-
-def _lookup_header_key(parser, raw_key: str) -> Optional[str]:
-    """在 HEADER_KEYS 中查找 key（支持含 NBSP 的变体）。"""
-    norm = _normalize_key(raw_key)
-    for k, v in parser.HEADER_KEYS.items():
-        if _normalize_key(k) == norm:
-            return v
-    return None
-
-
-def _extract_closing_balance(parser, footer_spans: list) -> Optional[Decimal]:
-    """从页脚区域提取本期余额。"""
-    keyword = parser.CLOSING_BALANCE_KEY
-    sorted_spans = sorted(footer_spans, key=lambda s: (s['y0'], s['x0']))
-    for i, s in enumerate(sorted_spans):
-        if keyword in s['text']:
-            m = re.search(r'(\d[\d,]*\.\d{2})', s['text'])
-            if m:
-                return _parse_amount(m.group(1))
-            return _find_nearby_number(sorted_spans, i)
-    return None
-
-
-def _find_nearby_number(spans: list, ref_index: int, max_distance: int = 5) -> Optional[Decimal]:
-    """在参考 span 附近（同 y 行优先，距离最近次之）查找数值。"""
-    ref_y = spans[ref_index]['y0']
-    candidates = []
-    for offset in range(1, max_distance + 1):
-        for idx in (ref_index + offset, ref_index - offset):
-            if 0 <= idx < len(spans):
-                s = spans[idx]
-                if abs(s['y0'] - ref_y) < 3:
-                    text = s['text'].strip()
-                    if re.match(r'^-?\d[\d,]*\.\d{2}$', text):
-                        candidates.append((abs(idx - ref_index), _parse_amount(text)))
-    if candidates:
-        candidates.sort(key=lambda x: x[0])
-        return candidates[0][1]
-    return None
-
-
-# ═══════════════════════════════════════════════════════════════
-# 日期 / 金额 工具函数
-# ═══════════════════════════════════════════════════════════════
-
-def _parse_date(text: str) -> Optional[datetime.date]:
-    """解析日期字符串为 date 对象
-
-    支持的格式：
-    - YYYYMMDD（无分隔符，如 "20260321"）
-    - YYYY-MM-DD（横线分隔，如 "2026-03-21"）
-
-    返回：date 对象或 None
-    """
-    text = text.strip()
-    m = re.match(r'^(\d{4})(\d{2})(\d{2})$', text)
-    if m:
-        return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
-    m = re.match(r'^(\d{4})-(\d{2})-(\d{2})$', text)
-    if m:
-        return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
-    return None
-
-
-def _parse_amount(text: str) -> Optional[Decimal]:
-    """解析金额字符串为 Decimal
-
-    处理逻辑：
-    1. 去除首尾空白、逗号千分位、空格
-    2. 移除首部加号（正数可能带 + 号）
-    3. 用 Decimal 精确解析，避免浮点误差
-    4. 解析失败返回 None
-    """
-    text = text.strip().replace(',', '').replace(' ', '')
-    text = re.sub(r'^\+', '', text)
-    try:
-        return Decimal(text)
-    except InvalidOperation:
-        return None
+def _extract_closing_balance_gfb(parser, footer_spans: list) -> Optional[Decimal]:
+    """Extract GFB closing balance from footer spans."""
+    return extract_balance_from_footer(footer_spans, parser.CLOSING_BALANCE_KEY)
