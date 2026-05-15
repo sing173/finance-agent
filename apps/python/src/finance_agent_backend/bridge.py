@@ -531,6 +531,9 @@ def handle_request(request: dict) -> dict:
 
 def main():
     """主循环：逐行读取 stdin，解析 JSON-RPC，写入 stdout"""
+    # 强制 UTF-8：PyInstaller 打包后 PYTHONIOENCODING 可能不被 C bootloader 遵循
+    sys.stdin.reconfigure(encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8")
     for line in sys.stdin:
         line = line.strip()
         if not line:
