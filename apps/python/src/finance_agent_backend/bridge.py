@@ -472,8 +472,12 @@ def handle_ocr_pdf(params: dict) -> dict:
 
 
 def _get_config_dir() -> str:
-    """获取 config 目录的绝对路径。"""
-    return os.path.join(_project_root, 'finance_agent_backend', 'config')
+    """获取 config 目录的绝对路径。打包后用 sys._MEIPASS，开发用 _project_root。"""
+    if getattr(sys, 'frozen', False):
+        base = sys._MEIPASS
+    else:
+        base = _project_root
+    return os.path.join(base, 'finance_agent_backend', 'config')
 
 
 def _load_built_in_subjects() -> dict:

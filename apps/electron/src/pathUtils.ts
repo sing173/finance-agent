@@ -1,4 +1,5 @@
 import * as path from 'path';
+import * as fs from 'fs';
 
 // 安全获取 process.resourcesPath（Electron 打包后才有）
 function getResourcesPath(): string | undefined {
@@ -48,6 +49,10 @@ export function getPythonSpawnConfig(): { cmd: string; args: string[]; cwd: stri
     if (resourcesPath) {
       const ext = process.platform === 'win32' ? '.exe' : '';
       const exePath = path.join(resourcesPath, 'python', 'bridge' + ext);
+      if (!fs.existsSync(exePath)) {
+        console.error(`[PathUtils] bridge executable not found: ${exePath}`);
+        throw new Error(`bridge executable not found: ${exePath}`);
+      }
       console.log('[PathUtils] Packaged mode, using:', exePath);
       return { cmd: exePath, args: [], cwd: path.dirname(exePath) };
     }

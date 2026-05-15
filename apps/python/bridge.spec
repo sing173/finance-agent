@@ -18,11 +18,20 @@ if _rapidocr_root.exists():
          "rapidocr_onnxruntime/models"),
     ]
 
+# config 文件 — PyInstaller 不会自动收集 JSON 配置文件
+_config_src = Path(os.path.join(SPECPATH, "src", "finance_agent_backend", "config"))
+_config_datas = []
+if _config_src.exists():
+    for fname in ('subjects.json', 'subject_mapping.json', 'account_mapping.json'):
+        src = _config_src / fname
+        if src.exists():
+            _config_datas.append((str(src), "finance_agent_backend/config"))
+
 a = Analysis(
     ['src/finance_agent_backend/bridge.py'],
     pathex=[],
     binaries=[],
-    datas=_rapidocr_datas,
+    datas=_rapidocr_datas + _config_datas,
     hiddenimports=[
         'nanobot',
         'pymupdf',

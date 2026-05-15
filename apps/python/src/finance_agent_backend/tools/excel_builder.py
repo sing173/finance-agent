@@ -2,6 +2,7 @@
 import calendar
 import json
 import os
+import sys
 from datetime import date
 from decimal import Decimal
 from typing import Dict, List, Optional
@@ -154,8 +155,12 @@ class ExcelBuilder:
     # ------------------------------------------------------------------ #
 
     def _load_default_config(self, filename: str) -> dict:
-        """加载 config 目录下的默认配置文件。"""
-        config_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config')
+        """加载 config 目录下的默认配置文件。打包后使用 sys._MEIPASS。"""
+        if getattr(sys, 'frozen', False):
+            base = sys._MEIPASS
+        else:
+            base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        config_dir = os.path.join(base, 'finance_agent_backend', 'config')
         config_path = os.path.join(config_dir, filename)
         with open(config_path, 'r', encoding='utf-8') as f:
             return json.load(f)
