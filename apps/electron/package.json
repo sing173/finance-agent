@@ -48,9 +48,8 @@
           ]
         }
       ],
-      "certificateFile": "cert/finance-assistant-test.pfx",
-      "certificatePassword": "FinanceAssistant123!",
-      "signDlls": true
+      "signDlls": false,
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,

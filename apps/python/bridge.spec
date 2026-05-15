@@ -4,7 +4,7 @@ from pathlib import Path
 
 # rapidocr_onnxruntime 模型文件 — PyInstaller 不会自动收集 .onnx 文件
 _rapidocr_root = Path(
-    os.path.join(os.path.dirname(__file__), ".venv", "Lib", "site-packages", "rapidocr_onnxruntime")
+    os.path.join(SPECPATH, ".venv", "Lib", "site-packages", "rapidocr_onnxruntime")
 )
 _rapidocr_datas = []
 if _rapidocr_root.exists():
