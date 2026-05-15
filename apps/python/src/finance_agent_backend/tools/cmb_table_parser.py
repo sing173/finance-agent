@@ -24,7 +24,7 @@ from .shared_utils import (
     BANK_CMB, parse_date_yyyymmdd, parse_amount,
     extract_all_spans, cluster_by_y,
     find_table_region, partition_spans,
-    find_nearby_number,
+    extract_balance_from_footer,
 )
 
 
@@ -265,12 +265,4 @@ def _parse_header_metadata(header_spans: list) -> Dict[str, Any]:
 
 def _extract_closing_balance(footer_spans: list) -> Optional[Decimal]:
     """Extract CMB closing balance from footer spans."""
-    keyword = CMBTableParser.CLOSING_BALANCE_KEY
-    sorted_spans = sorted(footer_spans, key=lambda s: (s['y0'], s['x0']))
-    for i, s in enumerate(sorted_spans):
-        if keyword in s['text']:
-            m = re.search(r'(\d[\d,]*\.\d{2})', s['text'])
-            if m:
-                return parse_amount(m.group(1))
-            return find_nearby_number(sorted_spans, i)
-    return None
+    return extract_balance_from_footer(footer_spans, CMBTableParser.CLOSING_BALANCE_KEY)

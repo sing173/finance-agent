@@ -21,7 +21,6 @@ from .shared_utils import (
     BANK_GFB, parse_date_yyyymmdd, parse_amount,
     extract_all_spans, cluster_by_y,
     find_table_region, partition_spans,
-    find_nearby_number, find_nearby_value,
     find_balance_in_spans, extract_balance_from_footer,
     normalize_key, lookup_header_key,
 )

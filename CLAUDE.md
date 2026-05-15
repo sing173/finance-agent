@@ -13,7 +13,7 @@ The application is a multi-process desktop app:
 
 **Note**: This project does NOT implement reconciliation (对账) functionality. Focus is on bank statement PDF/CSV/Excel parsing, OCR-based receipt extraction, and Excel/voucher export.
 
-**Status**: v0.1.0 completed (demo phase). Starting v0.2.0 productization.
+**Status**: v0.1.0 completed (demo phase). Starting v0.2.0 productization.111
 
 ---
 
@@ -375,3 +375,19 @@ User selects file
 - Project README: `README.md` (Chinese)
 - Test documentation: `apps/electron/tests/README.md`
 - Packaging guide: `docs/packaging-path-resolution.md`
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in the GitHub repository [sing173/finance-agent](https://github.com/sing173/finance-agent). Skills `to-issues`, `triage`, `to-prd`, and `qa` use the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`) are used with default names — no custom mapping. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: `CONTEXT.md` at the repo root covers domain language and architecture; `docs/adr/` holds architectural decision records. See `docs/agents/domain.md`.
