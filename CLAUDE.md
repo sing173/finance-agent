@@ -13,7 +13,7 @@ The application is a multi-process desktop app:
 
 **Note**: This project does NOT implement reconciliation (对账) functionality. Focus is on bank statement PDF/CSV/Excel parsing, OCR-based receipt extraction, and Excel/voucher export.
 
-**Status**: v0.1.0 completed (demo phase). Starting v0.2.0 productization.111
+**Status**: v0.1.0 completed (demo phase). Starting v0.2.0 productization.
 
 ---
 
