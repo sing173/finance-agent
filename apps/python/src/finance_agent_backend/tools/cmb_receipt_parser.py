@@ -11,13 +11,14 @@ from typing import Dict, List, Optional
 
 import fitz
 
-from finance_agent_backend.models import ParseResult, Transaction
+from ..models import ParseResult, Transaction
+from .shared_utils import BANK_CMB, extract_all_spans
 
 
 class CMBReceiptParser:
     """招商银行回单解析器。"""
 
-    BANK_NAME = "招商银行"
+    BANK_NAME = BANK_CMB
 
     FIELD_MAP = {
         "交易日期": "trade_date",
@@ -78,7 +79,7 @@ class CMBReceiptParser:
 
         for page_num in range(doc.page_count):
             page = doc[page_num]
-            spans = _extract_all_spans(page)
+            spans = extract_all_spans(page)
             if not spans:
                 continue
 
@@ -103,28 +104,6 @@ class CMBReceiptParser:
             confidence=self.confidence if all_transactions else 0,
             errors=errors,
         )
-
-
-def _extract_all_spans(page: fitz.Page) -> List[dict]:
-    spans = []
-    d = page.get_text("dict")
-    for block in d.get("blocks", []):
-        if "lines" not in block:
-            continue
-        for line in block["lines"]:
-            for span in line["spans"]:
-                text = span["text"].strip()
-                if not text:
-                    continue
-                spans.append({
-                    "x0": span["bbox"][0],
-                    "y0": span["bbox"][1],
-                    "x1": span["bbox"][2],
-                    "y1": span["bbox"][3],
-                    "text": text,
-                    "size": span["size"],
-                })
-    return spans
 
 
 def _split_receipts(spans: List[dict]) -> List[List[dict]]:

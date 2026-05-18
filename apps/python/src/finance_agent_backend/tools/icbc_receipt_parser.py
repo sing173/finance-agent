@@ -22,12 +22,13 @@ from PIL import Image
 from rapidocr_onnxruntime import RapidOCR
 
 from ..models import Transaction, ParseResult
+from .shared_utils import BANK_ICBC, parse_date_chinese, parse_timestamp_date, parse_amount_lenient
 
 
 class ICBCReceiptParser:
     """中国工商银行 OCR 回单解析器 (form-based label anchoring)"""
 
-    BANK_NAME = "中国工商银行"
+    BANK_NAME = BANK_ICBC
 
     # ── label definitions ────────────────────────────────────────
     # (keyword, target_field, inline_separator, value_regex)
@@ -532,44 +533,12 @@ class ICBCReceiptParser:
 
     @staticmethod
     def _parse_date(text: str) -> Optional:
-        """Parse Chinese date format: 2026年03月26日 or 2026-03-26"""
-        if not text:
-            return None
-        m = re.search(r"(\d{4})[年-](\d{1,2})[月-](\d{1,2})", text)
-        if m:
-            try:
-                return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
-            except ValueError:
-                pass
-        m = re.search(r"(\d{4})-(\d{2})-(\d{2})", text)
-        if m:
-            try:
-                return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
-            except ValueError:
-                pass
-        return None
+        return parse_date_chinese(text)
 
     @staticmethod
     def _parse_timestamp_date(ts: str) -> Optional:
-        """Parse timestamp like 2026-03-26-19.33.30.354123 → date"""
-        m = re.match(r"(\d{4})-(\d{2})-(\d{2})", ts)
-        if m:
-            try:
-                return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
-            except ValueError:
-                pass
-        return None
+        return parse_timestamp_date(ts)
 
     @staticmethod
     def _parse_amount(text: str) -> Decimal:
-        """Parse amount from text like '￥0.22元' or '10,261.00'"""
-        if not text:
-            return Decimal("0")
-        # Remove ￥ and 元
-        text = text.replace("￥", "").replace("元", "").strip()
-        # Remove commas and spaces
-        text = text.replace(",", "").replace("，", "").replace(" ", "")
-        m = re.search(r"[\d,]+\.?\d*", text)
-        if m:
-            return Decimal(m.group().replace(",", ""))
-        return Decimal("0")
+        return parse_amount_lenient(text)

@@ -25,12 +25,13 @@ from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional, Tuple
 
 from ..models import ParseResult, Transaction
+from .shared_utils import BANK_CMB, parse_date_flexible, parse_amount_clean
 
 
 class CMBExcelParser:
     """招商银行交易流水 Excel 解析器"""
 
-    BANK_NAME = "招商银行"
+    BANK_NAME = BANK_CMB
 
     # 标题行标识关键字（用于定位标题行）
     HEADER_KEYWORDS = ["起息日", "借方金额", "贷方金额"]
@@ -250,26 +251,11 @@ class CMBExcelParser:
 
     @staticmethod
     def _parse_date(text: str) -> Optional[date]:
-        text = text.strip()
-        for fmt in ["%Y-%m-%d", "%Y%m%d"]:
-            try:
-                return datetime.strptime(text, fmt).date()
-            except ValueError:
-                continue
-        m = re.search(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日", text)
-        if m:
-            return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
-        return None
+        return parse_date_flexible(text)
 
     @staticmethod
     def _parse_amount(text: str) -> Optional[Decimal]:
-        text = text.strip().replace(",", "").replace(" ", "").replace("￥", "").replace("CNY", "").replace("cny", "")
-        if not text:
-            return None
-        try:
-            return Decimal(text)
-        except (InvalidOperation, Exception):
-            return None
+        return parse_amount_clean(text)
 
     @staticmethod
     def _find_neighbor_number(ws, row: int, col: int) -> Optional[str]:
