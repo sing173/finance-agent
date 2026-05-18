@@ -389,12 +389,14 @@ function App() {
   // ====== 切换模式（互斥） ======
   const switchMode = useCallback((newMode: 'single' | 'batch') => {
     setMode(newMode);
+    setOverrideModalOpen(false);
     if (newMode === 'single') {
       setBatchResult(null);
       setBatchDetected({});
       setBatchFiles([]);
       setCurrentBatchIndex(0);
       setBatchSingleFilePath(null);
+      setBatchParsing(false);
     } else {
       setCurrentResult(null);
       setCurrentStep(0);
@@ -537,7 +539,7 @@ function App() {
     setBatchParsing(false);
     setLoading(false);
     setCurrentBatchIndex(0);
-  }, [batchFiles, batchDetected, openBatchOverride]);
+  }, [batchFiles, batchDetected]);
 
   // ====== 批量：重试单个失败文件 ======
   const handleBatchRetry = useCallback((filePaths: string[]) => {
@@ -776,6 +778,7 @@ function App() {
                 files={batchFiles}
                 detected={batchDetected}
                 onFilesChange={setBatchFiles}
+                onDetectedChange={setBatchDetected}
                 onDetect={handleBatchDetect}
               />
 

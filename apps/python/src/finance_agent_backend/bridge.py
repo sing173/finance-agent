@@ -582,6 +582,14 @@ def handle_detect_banks(params: dict) -> dict:
     file_paths = params.get("file_paths", [])
     results = []
     for fp in file_paths:
+        if not os.path.exists(fp):
+            results.append({
+                "file_path": fp,
+                "bank": "未知银行",
+                "doc_type": "unknown",
+                "status": "failed",
+            })
+            continue
         try:
             bank, doc_type = _detect_bank_from_pdf(fp)
             results.append({

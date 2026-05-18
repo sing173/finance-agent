@@ -23,6 +23,7 @@ interface BatchFileSelectorProps {
   files: SelectedFile[];
   detected: Record<string, DetectResult | null>;
   onFilesChange: (files: SelectedFile[]) => void;
+  onDetectedChange: (detected: Record<string, DetectResult | null>) => void;
   onDetect: (filePaths: string[]) => void;
 }
 
@@ -30,6 +31,7 @@ export function BatchFileSelector({
   files,
   detected,
   onFilesChange,
+  onDetectedChange,
   onDetect,
 }: BatchFileSelectorProps) {
   const [maxFiles, setMaxFiles] = useState(5);
@@ -46,8 +48,8 @@ export function BatchFileSelector({
 
   const handleAddFiles = async () => {
     try {
-      const filePaths = await (window as any).electronAPI?.selectFile?.('pdf');
-      if (!filePaths) return;
+      const filePaths = await (window as any).electronAPI?.selectFile?.('pdf', true);
+      if (!filePaths || !filePaths.length) return;
 
       const newFiles: SelectedFile[] = (filePaths as string[]).map((fp: string) => ({
         path: fp,
@@ -70,14 +72,14 @@ export function BatchFileSelector({
 
   const handleRemove = (path: string) => {
     onFilesChange(files.filter((f) => f.path !== path));
-    // 也清理 detected 中对应的条目
-    const newDetected = { ...detected };
-    delete newDetected[path];
-    onFilesChange(files.filter((f) => f.path !== path));
+    const next = { ...detected };
+    delete next[path];
+    onDetectedChange(next);
   };
 
   const handleClear = () => {
     onFilesChange([]);
+    onDetectedChange({});
   };
 
   const handleDetect = () => {

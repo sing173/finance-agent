@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ocrPDF: (params: any) => ipcRenderer.invoke('ocr_pdf', params),
   chat: (msg: string, sessionKey?: string) =>
     ipcRenderer.invoke('chat', { message: msg, session_key: sessionKey }),
-  selectFile: (filter: string) => ipcRenderer.invoke('select_file', { filter }),
+  selectFile: (filter: string, allowMulti?: boolean) => ipcRenderer.invoke('select_file', { filter, allowMulti: !!allowMulti }),
   saveFileDialog: (params?: any) => ipcRenderer.invoke('save_file_dialog', params),
 
   // 监听 Python 进程状态变化

@@ -15,14 +15,16 @@ export function setupIpcHandlers() {
     return pythonProcess.isAlive() ? 'online' : 'offline';
   });
 
-  // 打开文件选择对话框，返回绝对路径
-  // params.filter: 'pdf' | 'xlsx' | undefined（默认 PDF）
+  // 打开文件选择对话框
+  // params.filter: 'pdf' | 'xlsx' | 'all' | undefined（默认 PDF）
+  // params.allowMulti: 是否允许多选（默认 false）
   ipcMain.handle('select_file', async (event: any, params: any) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return null;
 
     let filters: any;
     const f = params?.filter?.toLowerCase();
+    const allowMulti = params?.allowMulti || false;
 
     // 默认 PDF
     filters = [
@@ -33,15 +35,22 @@ export function setupIpcHandlers() {
       { name: 'All Files', extensions: ['*'] },
     ];
 
-    const { filePaths } = await dialog.showOpenDialog(win, {
-      properties: ['openFile'],
+    const dialogOpts: any = {
       filters,
-    });
+    };
+
+    if (allowMulti) {
+      dialogOpts.properties = ['openFile', 'multiSelections'];
+    } else {
+      dialogOpts.properties = ['openFile'];
+    }
+
+    const { filePaths } = await dialog.showOpenDialog(win, dialogOpts);
 
     if (filePaths.length > 0) {
-      return filePaths[0];
+      return allowMulti ? filePaths : filePaths[0];
     }
-    return null;
+    return allowMulti ? [] : null;
   });
 
   ipcMain.handle('parse_pdf', async (event: any, params: any) => {
@@ -84,6 +93,16 @@ export function setupIpcHandlers() {
     return pythonProcess.call('ocr_pdf', params);
   });
 
+  // ========== 文件上传方案新增 RPC ==========
+
+  ipcMain.handle('detect-banks', async (event: any, params: any) => {
+    return await pythonProcess.call('detect_banks', params);
+  });
+
+  ipcMain.handle('detect-supported-banks', async () => {
+    return await pythonProcess.call('detect_supported_banks', {});
+  });
+
   // 保存文件对话框：返回用户选择的保存路径，取消返回 null
   ipcMain.handle('save_file_dialog', async (event: any, params: any) => {
     const win = BrowserWindow.fromWebContents(event.sender);
@@ -106,13 +125,3 @@ export function setupIpcHandlers() {
 
   // TODO: 后续添加 chat 等处理器
 }
-
-// ========== 文件上传方案新增 RPC ==========
-
-ipcMain.handle('detect-banks', async (_, params: any) => {
-  return await pythonProcess.call('detect_banks', params);
-});
-
-ipcMain.handle('detect-supported-banks', async () => {
-  return await pythonProcess.call('detect_supported_banks', {});
-});
