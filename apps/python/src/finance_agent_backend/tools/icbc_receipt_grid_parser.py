@@ -27,9 +27,10 @@ from rapidocr_onnxruntime import RapidOCR
 
 from ..models import Transaction, ParseResult
 from .shared_utils import BANK_ICBC, parse_date_chinese, parse_timestamp_date, parse_amount_lenient
+from .base_parser import BaseStatementParser
 
 
-class ICBCReceiptGridParser:
+class ICBCReceiptGridParser(BaseStatementParser):
     """中国工商银行 OCR 回单解析器 (icbc_parser grid方案)"""
 
     BANK_NAME = BANK_ICBC

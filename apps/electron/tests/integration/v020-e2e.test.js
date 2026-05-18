@@ -134,7 +134,7 @@ async function runTests() {
     // 1b. detect_banks — 空列表
     console.log('[1b/7] detect_banks（空列表）...');
     {
-      const r = await pythonProcess.call('detect_banks', { file_paths: [] });
+      const r = await pythonProcess.call('detect_banks', { filePaths: [] });
       assert(r.success === true, 'success 应为 true');
       assert(Array.isArray(r.results), 'results 应为数组');
       assert(r.results.length === 0, `空列表应返回 0 个结果，实际 ${r.results.length}`);
@@ -144,7 +144,7 @@ async function runTests() {
     // 1c. detect_banks — 不存在的文件
     console.log('[1c/7] detect_banks（不存在的文件）...');
     {
-      const r = await pythonProcess.call('detect_banks', { file_paths: ['/nonexistent/file.pdf'] });
+      const r = await pythonProcess.call('detect_banks', { filePaths: ['/nonexistent/file.pdf'] });
       assert(r.success === true, 'success 应为 true');
       assert(r.results.length === 1, '应返回 1 个结果');
       assert(r.results[0].status === 'failed', `不存在的文件应 status=failed，实际 ${r.results[0].status}`);
@@ -154,20 +154,20 @@ async function runTests() {
     // 1d. detect_banks — 有效 PDF
     console.log('[1d/7] detect_banks（有效 PDF）...');
     {
-      const r = await pythonProcess.call('detect_banks', { file_paths: [TEST_PDF_1] });
+      const r = await pythonProcess.call('detect_banks', { filePaths: [TEST_PDF_1] });
       assert(r.success === true, 'success 应为 true');
       assert(r.results.length === 1, '应返回 1 个结果');
       assert(r.results[0].status === 'ok', `有效 PDF 应 status=ok，实际 ${r.results[0].status}`);
       assert(r.results[0].bank, '应返回 bank');
-      assert(r.results[0].doc_type, '应返回 doc_type');
-      console.log(`  检测到: ${r.results[0].bank} · ${r.results[0].doc_type} ✅\n`);
+      assert(r.results[0].docType, '应返回 docType');
+      console.log(`  检测到: ${r.results[0].bank} · ${r.results[0].docType} ✅\n`);
     }
 
     // 1e. detect_banks — 混合列表（有效 + 无效）
     console.log('[1e/7] detect_banks（混合列表）...');
     {
       const r = await pythonProcess.call('detect_banks', {
-        file_paths: [TEST_PDF_1, '/nonexistent/ghost.pdf', TEST_PDF_2],
+        filePaths: [TEST_PDF_1, '/nonexistent/ghost.pdf', TEST_PDF_2],
       });
       assert(r.success === true, 'success 应为 true');
       assert(r.results.length === 3, `应返回 3 个结果，实际 ${r.results.length}`);
@@ -187,7 +187,7 @@ async function runTests() {
     // 注：测试 PDF 是纯文本，parse_pdf 通用解析器返回 0 笔属正常行为
     console.log('[2a/7] parse_pdf（通道 + 结构验证）...');
     {
-      const r = await pythonProcess.call('parse_pdf', { file_path: TEST_PDF_1 });
+      const r = await pythonProcess.call('parse_pdf', { filePath: TEST_PDF_1 });
       assert(typeof r === 'object', '应返回对象');
       assert('success' in r, '应含 success 字段');
       assert(typeof r.bank === 'string', '应含 bank 字段');
@@ -224,14 +224,14 @@ async function runTests() {
     let batchDetectResult;
     {
       batchDetectResult = await pythonProcess.call('detect_banks', {
-        file_paths: [TEST_PDF_1, TEST_PDF_2],
+        filePaths: [TEST_PDF_1, TEST_PDF_2],
       });
       assert(batchDetectResult.success === true, 'detect 应成功');
       assert(batchDetectResult.results.length === 2, `应返回 2 个结果，实际 ${batchDetectResult.results.length}`);
       const allOk = batchDetectResult.results.every(r => r.status === 'ok');
       assert(allOk, '所有文件应检测成功');
       batchDetectResult.results.forEach(r => {
-        console.log(`    ${path.basename(r.file_path)} → ${r.bank} · ${r.doc_type}`);
+        console.log(`    ${path.basename(r.filePath)} → ${r.bank} · ${r.docType}`);
       });
       console.log('  ✅ 全部检测成功\n');
     }
@@ -247,8 +247,8 @@ async function runTests() {
       let successCount = 0;
 
       for (const file of batchFiles) {
-        const detectInfo = batchDetectResult.results.find(r => r.file_path === file.path);
-        const params = { file_path: file.path };
+        const detectInfo = batchDetectResult.results.find(r => r.filePath === file.path);
+        const params = { filePath: file.path };
         if (detectInfo?.bank) params.bank = detectInfo.bank;
 
         const r = await pythonProcess.call('parse_pdf', params);
@@ -306,8 +306,8 @@ async function runTests() {
     console.log('[4b/7] parse_pdf 参数验证（回归）...');
     {
       const r = await pythonProcess.call('parse_pdf', {});
-      assert(r.success === false, '无 file_path 应失败');
-      assert(r.error && r.error.includes('file_path'), `错误信息应含 file_path: ${r.error}`);
+      assert(r.success === false, '无 filePath 应失败');
+      assert(r.error && r.error.includes('filePath'), `错误信息应含 filePath: ${r.error}`);
       console.log(`  ✓ 错误提示: "${r.error}"\n`);
     }
 

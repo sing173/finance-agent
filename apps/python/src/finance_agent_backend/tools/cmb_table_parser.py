@@ -26,9 +26,10 @@ from .shared_utils import (
     find_table_region, partition_spans,
     extract_balance_from_footer,
 )
+from .base_parser import BaseStatementParser
 
 
-class CMBTableParser:
+class CMBTableParser(BaseStatementParser):
     """招商银行 账务明细清单（水平表格格式）解析器"""
 
     BANK_NAME = BANK_CMB

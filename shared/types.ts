@@ -29,16 +29,21 @@ export interface HealthResult {
 
 /** PDF 解析 */
 export interface ParsePDFParams {
-  file_path: string;
+  filePath: string;
   bank?: string; // 可选：自动识别银行
+  docType?: string; // 可选：手动指定文档类型（statement / receipt）
+  forceOcr?: boolean; // 可选：强制 OCR
 }
 export interface ParsePDFResult {
   success: boolean;
   transactions: Transaction[];
   bank: string;
-  statement_date: string;
+  statementDate: string;
+  openingBalance?: number;
+  closingBalance?: number;
   confidence: number;
   errors: string[];
+  warnings: string[];
 }
 
 /** 交易记录 */
@@ -76,9 +81,9 @@ export interface ChatStreamParams extends ChatParams {
 
 /** 批量检测单个文件的返回 */
 export interface DetectFileResult {
-  file_path: string;
+  filePath: string;
   bank: string;
-  doc_type: string;
+  docType: string;
   status: 'ok' | 'failed';
 }
 
@@ -95,7 +100,7 @@ export interface BatchFileResult {
   bank: string;
   docType: string;
   statementDate?: string;
-  status: 'success' | 'failed' | 'cancelled';
+  status: 'pending' | 'success' | 'failed' | 'cancelled';
   transactions?: Transaction[];
   error?: string;
   transactionCount: number;

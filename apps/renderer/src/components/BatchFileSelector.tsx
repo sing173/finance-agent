@@ -1,105 +1,79 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button, message, Tooltip, Space, Tag } from 'antd';
 import { Typography } from 'antd';
 const { Text } = Typography;
 import { PlusOutlined, CloseOutlined, DeleteOutlined } from '@ant-design/icons';
-
-interface SelectedFile {
-  path: string;
-  name: string;
-  status: 'pending' | 'detected' | 'failed';
-  bank: string;
-  docType: string;
-}
-
-interface DetectResult {
-  file_path: string;
-  bank: string;
-  doc_type: string;
-  status: 'ok' | 'failed';
-}
+import type { BatchFileResult } from '@shared/types';
 
 interface BatchFileSelectorProps {
-  files: SelectedFile[];
-  detected: Record<string, DetectResult | null>;
-  onFilesChange: (files: SelectedFile[]) => void;
-  onDetectedChange: (detected: Record<string, DetectResult | null>) => void;
-  onDetect: (filePaths: string[]) => void;
+  files: BatchFileResult[];
+  onAddFiles: (filePaths: string[]) => void;
+  onRemoveFile: (filePath: string) => void;
+  onClear: () => void;
+  onDetectAndParse: () => void;
+  isParsing: boolean;
+  maxFiles?: number;
 }
 
 export function BatchFileSelector({
   files,
-  detected,
-  onFilesChange,
-  onDetectedChange,
-  onDetect,
+  onAddFiles,
+  onRemoveFile,
+  onClear,
+  onDetectAndParse,
+  isParsing,
+  maxFiles = 5,
 }: BatchFileSelectorProps) {
-  const [maxFiles, setMaxFiles] = useState(5);
+  const [localMaxFiles, setLocalMaxFiles] = useState(maxFiles);
 
   // 加载 batch_config.json
   useEffect(() => {
     fetch('/batch_config.json')
       .then((r) => r.json())
-      .then((data) => setMaxFiles(data.maxBatchFiles || 5))
-      .catch(() => setMaxFiles(5));
-  }, []);
+      .then((data) => setLocalMaxFiles(data.maxBatchFiles || maxFiles))
+      .catch(() => setLocalMaxFiles(maxFiles));
+  }, [maxFiles]);
 
-  const atLimit = files.length >= maxFiles;
+  const atLimit = files.length >= localMaxFiles;
 
-  const handleAddFiles = async () => {
+  const handleAddFiles = useCallback(async () => {
     try {
       const filePaths = await (window as any).electronAPI?.selectFile?.('pdf', true);
       if (!filePaths || !filePaths.length) return;
 
-      const newFiles: SelectedFile[] = (filePaths as string[]).map((fp: string) => ({
-        path: fp,
-        name: fp.split(/[/\\]/).pop() || fp,
-        status: 'pending' as const,
-        bank: '',
-        docType: '',
-      }));
-
-      const merged = [...files, ...newFiles];
-      if (merged.length > maxFiles) {
-        message.warning(`最多只能添加 ${maxFiles} 个文件`);
+      const merged = [...files];
+      for (const fp of filePaths) {
+        if (!merged.some((f) => f.filePath === fp)) {
+          merged.push({
+            filePath: fp,
+            fileName: fp.split(/[/\\]/).pop() || fp,
+            bank: '',
+            docType: '',
+            status: 'pending',
+            transactionCount: 0,
+          });
+        }
+      }
+      if (merged.length > localMaxFiles) {
+        message.warning(`最多只能添加 ${localMaxFiles} 个文件`);
         return;
       }
-      onFilesChange(merged);
+      onAddFiles(merged.map((f) => f.filePath));
     } catch (err: any) {
       message.error('文件选择失败：' + err.message);
     }
-  };
+  }, [files, onAddFiles, localMaxFiles]);
 
-  const handleRemove = (path: string) => {
-    onFilesChange(files.filter((f) => f.path !== path));
-    const next = { ...detected };
-    delete next[path];
-    onDetectedChange(next);
+  const getStatusLabel = (file: BatchFileResult) => {
+    if (file.status === 'success') return `${file.bank} · ${file.docType}`;
+    if (file.status === 'failed') return '解析失败';
+    return '待检测';
   };
-
-  const handleClear = () => {
-    onFilesChange([]);
-    onDetectedChange({});
-  };
-
-  const handleDetect = () => {
-    if (files.length === 0) return;
-    onDetect(files.map((f) => f.path));
-  };
-
-  const getStatusLabel = (file: SelectedFile) => {
-    const d = detected[file.path];
-    if (!d) return file.status === 'pending' ? '待检测' : '—';
-    if (d.status === 'ok') return `${d.bank} · ${d.doc_type}`;
-    return '无法识别';
-  };
-
-  const isDetected = (file: SelectedFile) => !!detected[file.path];
 
   return (
     <div style={{ marginBottom: 16 }}>
       <Space style={{ marginBottom: 12 }}>
-        <Tooltip title={atLimit ? `最多 ${maxFiles} 个文件` : ''}>
+        <Tooltip title={atLimit ? `最多 ${localMaxFiles} 个文件` : ''}>
           <Button
             icon={<PlusOutlined />}
             onClick={handleAddFiles}
@@ -112,14 +86,16 @@ export function BatchFileSelector({
           <>
             <Button
               type="primary"
-              onClick={handleDetect}
-              disabled={!files.some((f) => !isDetected(f))}
+              onClick={onDetectAndParse}
+              disabled={isParsing}
+              loading={isParsing}
             >
-              识别文件
+              识别并解析（{files.length}）
             </Button>
             <Button
               icon={<CloseOutlined />}
-              onClick={handleClear}
+              onClick={onClear}
+              disabled={isParsing}
             >
               清空列表
             </Button>
@@ -138,12 +114,10 @@ export function BatchFileSelector({
           }}
         >
           {files.map((file) => {
-            const d = detected[file.path];
-            const hasError = d?.status === 'failed';
-
+            const hasError = file.status === 'failed';
             return (
               <div
-                key={file.path}
+                key={file.filePath}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -154,17 +128,17 @@ export function BatchFileSelector({
               >
                 <Space size={8}>
                   <Text
-                    ellipsis={{ tooltip: file.name }}
+                    ellipsis={{ tooltip: file.fileName }}
                     style={{ maxWidth: 280 }}
                   >
-                    {file.name}
+                    {file.fileName}
                   </Text>
-                  {isDetected(file) && (
+                  {file.status !== 'pending' && (
                     <Tag color={hasError ? 'error' : 'blue'}>
                       {getStatusLabel(file)}
                     </Tag>
                   )}
-                  {!isDetected(file) && (
+                  {file.status === 'pending' && (
                     <Text type="secondary" style={{ fontSize: 12 }}>
                       待检测
                     </Text>
@@ -175,7 +149,8 @@ export function BatchFileSelector({
                   size="small"
                   danger
                   icon={<DeleteOutlined />}
-                  onClick={() => handleRemove(file.path)}
+                  onClick={() => onRemoveFile(file.filePath)}
+                  disabled={isParsing}
                 />
               </div>
             );

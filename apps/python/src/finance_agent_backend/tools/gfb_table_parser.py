@@ -24,9 +24,10 @@ from .shared_utils import (
     find_balance_in_spans, extract_balance_from_footer,
     normalize_key, lookup_header_key,
 )
+from .base_parser import BaseStatementParser
 
 
-class GFBTableParser:
+class GFBTableParser(BaseStatementParser):
     """广发银行 活期对公对账单（水平表格格式）解析器"""
 
     BANK_NAME = BANK_GFB

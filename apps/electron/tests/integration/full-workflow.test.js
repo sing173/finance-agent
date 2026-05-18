@@ -106,7 +106,7 @@ async function runFullWorkflow() {
 
     console.log('=== 阶段 4: PDF 解析 ===\n');
     const parse = await pythonProcess.call('parse_pdf', {
-      file_path: TEST_PDF_PATH,
+      filePath: TEST_PDF_PATH,
       bank: '测试银行',
     });
     console.log('  交易数:', parse.transactions.length);

@@ -7,7 +7,8 @@ import { ResultCard } from './components/ResultCard';
 import { ManualOverrideModal } from './components/ManualOverrideModal';
 import { BatchFileSelector } from './components/BatchFileSelector';
 import { BatchResultPanel } from './components/BatchResultPanel';
-import type { BatchFileResult, BatchResult } from '@shared/types';
+import { useBatchOrchestrator } from './hooks/useBatchOrchestrator';
+import type { BatchResult } from '@shared/types';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
@@ -51,14 +52,21 @@ function App() {
   const [currentStep, setCurrentStep] = useState(0);
   const [processingTimeMs, setProcessingTimeMs] = useState(0);
 
-  // ====== 批量模式专用 state ======
-  const [currentBatchIndex, setCurrentBatchIndex] = useState(0);
-  const [batchDetected, setBatchDetected] = useState<Record<string, any>>({});
-  const [batchSingleFilePath, setBatchSingleFilePath] = useState<string | null>(null);
-  const [batchFiles, setBatchFiles] = useState<
-    { path: string; name: string; status: 'pending' | 'detected' | 'failed'; bank: string; docType: string }[]
-  >([]);
-  const [batchParsing, setBatchParsing] = useState(false);
+  // ====== 批量编排 ======
+  const batch = useBatchOrchestrator({
+    onComplete: (result) => {
+      setBatchResult(result);
+      if (result.failedCount > 0) {
+        const failedPaths = result.files
+          .filter((f) => f.status === 'failed')
+          .map((f) => f.filePath);
+        openBatchOverride(failedPaths);
+      }
+    },
+  });
+
+  // 单文件 fallback 用：记录最近一次通过文件选择打开的文件
+  const [batchSingleFilePath] = useState<string | null>(null);
 
   // ====== 凭证导出 ======
   const [voucherModalOpen, setVoucherModalOpen] = useState(false);
@@ -152,9 +160,9 @@ function App() {
 
     try {
       message.info(`正在解析（${bank} · ${docType}）...`);
-      const params: any = { file_path: filePath, bank };
-      if (docType) params.doc_type = docType;
-      if (forceOcr) params.force_ocr = true;
+      const params: any = { filePath, bank };
+      if (docType) params.docType = docType;
+      if (forceOcr) params.forceOcr = true;
 
       const result = await window.electronAPI.parsePdf(params);
       setCurrentStep(1);
@@ -200,94 +208,13 @@ function App() {
     setOverrideContext({
       fileCount: filePaths.length,
       onConfirm: (bank: string, docType: string, forceOcr: boolean) => {
-        handleBatchParseFailedFiles(filePaths, bank, docType, forceOcr);
+        batch.retryFailedFiles(filePaths, bank, docType, forceOcr);
       },
     });
     setOverrideModalOpen(true);
-  }, []);
+  }, [batch]);
 
-  // ====== 批量：解析失败文件（手动配置后） ======
-  const handleBatchParseFailedFiles = useCallback(async (
-    filePaths: string[],
-    bank: string,
-    docType: string,
-    forceOcr: boolean,
-  ) => {
-    setOverrideModalOpen(false);
-    setLoading(true);
-
-    for (let i = 0; i < filePaths.length; i++) {
-      const fp = filePaths[i];
-      setCurrentBatchIndex(i + 1);
-
-      try {
-        const params: any = { file_path: fp, bank };
-        if (docType) params.doc_type = docType;
-        if (forceOcr) params.force_ocr = true;
-
-        const result = await window.electronAPI.parsePdf(params);
-        const existing = batchResult?.files || [];
-
-        if (result.success) {
-          const newFile: BatchFileResult = {
-            filePath: fp,
-            fileName: fp.split(/[/\\]/).pop() || fp,
-            bank: result.bank || bank,
-            docType: result.doc_type || docType,
-            statementDate: result.statement_date,
-            status: 'success',
-            transactions: result.transactions,
-            transactionCount: result.transactions?.length || 0,
-          };
-          setBatchResult({
-            files: [...existing, newFile],
-            totalFiles: (batchResult?.totalFiles || 0),
-            successCount: (batchResult?.successCount || 0) + 1,
-            failedCount: batchResult?.failedCount || 0,
-            totalTransactions: (batchResult?.totalTransactions || 0) + (result.transactions?.length || 0),
-          });
-        } else {
-          const newFile: BatchFileResult = {
-            filePath: fp,
-            fileName: fp.split(/[/\\]/).pop() || fp,
-            bank,
-            docType,
-            status: 'failed',
-            error: result.error,
-            transactionCount: 0,
-          };
-          setBatchResult({
-            files: [...existing, newFile],
-            totalFiles: (batchResult?.totalFiles || 0),
-            successCount: batchResult?.successCount || 0,
-            failedCount: (batchResult?.failedCount || 0) + 1,
-            totalTransactions: batchResult?.totalTransactions || 0,
-          });
-        }
-      } catch (err: any) {
-        const existing = batchResult?.files || [];
-        const newFile: BatchFileResult = {
-          filePath: fp,
-          fileName: fp.split(/[/\\]/).pop() || fp,
-          bank,
-          docType,
-          status: 'failed',
-          error: err.message,
-          transactionCount: 0,
-        };
-        setBatchResult({
-          files: [...existing, newFile],
-          totalFiles: (batchResult?.totalFiles || 0),
-          successCount: batchResult?.successCount || 0,
-          failedCount: (batchResult?.failedCount || 0) + 1,
-          totalTransactions: batchResult?.totalTransactions || 0,
-        });
-      }
-    }
-
-    setLoading(false);
-    setCurrentBatchIndex(0);
-  }, [batchResult]);
+  // ====== 批量：解析失败文件 → 委托给 orchestrator ======
 
   // ====== 导出 Excel ======
   const handleExportExcel = useCallback(async () => {
@@ -392,34 +319,26 @@ function App() {
     setOverrideModalOpen(false);
     if (newMode === 'single') {
       setBatchResult(null);
-      setBatchDetected({});
-      setBatchFiles([]);
-      setCurrentBatchIndex(0);
-      setBatchSingleFilePath(null);
-      setBatchParsing(false);
+      batch.clearFiles();
     } else {
       setCurrentResult(null);
       setCurrentStep(0);
       setProcessingTimeMs(0);
       setVoucherModalOpen(false);
+      batch.clearFiles();
     }
-  }, []);
+  }, [batch]);
 
   // ====== 单文件模式有解析结果时的导出按钮 ======
   const singleFileHasResult = currentResult?.success && currentResult?.transactions?.length > 0;
-  // （batchHasSuccess 已移除 — 由 BatchResultPanel 内部处理导出）
 
   // ====== 匹配数 ======
   const matchedCount = currentResult?.transactions?.length || 0;
 
   // ====== 单文件结果卡片 handlers ======
   const handleSingleRedetect = useCallback(async () => {
-    // 重新选择文件
     const filePath = await window.electronAPI.selectFile('all');
-    if (filePath) {
-      setBatchSingleFilePath(filePath);
-      await handleFileSelected(filePath);
-    }
+    if (filePath) await handleFileSelected(filePath);
   }, [handleFileSelected]);
 
   const handleSingleModifyConfig = useCallback(() => {
@@ -430,118 +349,23 @@ function App() {
     setCurrentResult(null);
     setCurrentStep(0);
     setProcessingTimeMs(0);
-    setBatchSingleFilePath(null);
   }, []);
 
-  // ====== 批量：检测文件 ======
-  const handleBatchDetect = useCallback(async (filePaths: string[]) => {
-    try {
-      const result = await window.electronAPI.detectBanks(filePaths);
-      if (result?.success && result.results) {
-        const detected: Record<string, any> = {};
-        result.results.forEach((r: any) => { detected[r.file_path] = r; });
-        setBatchDetected(detected);
-      }
-    } catch (err: any) {
-      message.error('检测失败：' + err.message);
-    }
-  }, []);
+  // ====== 批量：addFiles / detectAndParse / clear ======
+  const handleBatchAddFiles = useCallback((filePaths: string[]) => {
+    batch.addFiles(filePaths);
+  }, [batch]);
 
-  // ====== 批量：开始解析所有文件 ======
-  const handleBatchStartParse = useCallback(async () => {
-    if (batchFiles.length === 0) return;
+  const handleBatchDetectAndParse = useCallback(() => {
+    batch.detectAndParse();
+  }, [batch]);
 
-    setBatchParsing(true);
-    setLoading(true);
-    setCurrentStep(0);
-    setBatchResult({
-      files: [],
-      totalFiles: batchFiles.length,
-      successCount: 0,
-      failedCount: 0,
-      totalTransactions: 0,
-    });
+  const handleBatchClear = useCallback(() => {
+    batch.clearFiles();
+    setBatchResult(null);
+  }, [batch]);
 
-    for (let i = 0; i < batchFiles.length; i++) {
-      const file = batchFiles[i];
-      setCurrentBatchIndex(i + 1);
-      const startTime = Date.now();
-
-      try {
-        const detectInfo = batchDetected[file.path];
-        const params: any = { file_path: file.path };
-        if (detectInfo?.bank) params.bank = detectInfo.bank;
-
-        const result = await window.electronAPI.parsePdf(params);
-        setProcessingTimeMs(Date.now() - startTime);
-
-        if (result.success) {
-          const newFile: BatchFileResult = {
-            filePath: file.path,
-            fileName: file.name,
-            bank: result.bank || detectInfo?.bank || '未知',
-            docType: result.doc_type || detectInfo?.doc_type || 'unknown',
-            statementDate: result.statement_date,
-            status: 'success',
-            transactions: result.transactions,
-            transactionCount: result.transactions?.length || 0,
-          };
-          setBatchResult((prev: BatchResult | null) => ({
-            ...prev!,
-            files: [...prev!.files, newFile],
-            successCount: prev!.successCount + 1,
-            totalTransactions: prev!.totalTransactions + (result.transactions?.length || 0),
-          }));
-          // 同步更新 batchFiles 状态
-          setBatchFiles((prev) => prev.map(f =>
-            f.path === file.path ? { ...f, status: 'detected' as const, bank: newFile.bank, docType: newFile.docType } : f
-          ));
-        } else {
-          const newFile: BatchFileResult = {
-            filePath: file.path,
-            fileName: file.name,
-            bank: detectInfo?.bank || '未知',
-            docType: detectInfo?.doc_type || 'unknown',
-            status: 'failed',
-            error: result.error,
-            transactionCount: 0,
-          };
-          setBatchResult((prev: BatchResult | null) => ({
-            ...prev!,
-            files: [...prev!.files, newFile],
-            failedCount: prev!.failedCount + 1,
-          }));
-          setBatchFiles((prev) => prev.map(f =>
-            f.path === file.path ? { ...f, status: 'failed' as const } : f
-          ));
-        }
-      } catch (err: any) {
-        const newFile: BatchFileResult = {
-          filePath: file.path,
-          fileName: file.name,
-          bank: batchDetected[file.path]?.bank || '未知',
-          docType: batchDetected[file.path]?.doc_type || 'unknown',
-          status: 'failed',
-          error: err.message,
-          transactionCount: 0,
-        };
-        setBatchResult((prev: BatchResult | null) => ({
-          ...prev!,
-          files: [...prev!.files, newFile],
-          failedCount: prev!.failedCount + 1,
-        }));
-        setBatchFiles((prev) => prev.map(f =>
-          f.path === file.path ? { ...f, status: 'failed' as const } : f
-        ));
-      }
-    }
-
-    setBatchParsing(false);
-    setLoading(false);
-    setCurrentBatchIndex(0);
-  }, [batchFiles, batchDetected]);
-
-  // ====== 批量：重试单个失败文件 ======
+  // ====== 批量：重试单个失败文件 → 直接打开 fallback ======
   const handleBatchRetry = useCallback((filePaths: string[]) => {
     openBatchOverride(filePaths);
   }, [openBatchOverride]);
@@ -556,7 +380,7 @@ function App() {
       success: true,
       transactions: file.transactions || [],
       bank: file.bank,
-      statement_date: file.statementDate,
+      statementDate: file.statementDate,
       confidence: 1,
       errors: [],
       warnings: [],
@@ -721,10 +545,10 @@ function App() {
               {currentResult && !loading && (
                 <ResultCard
                   bank={currentResult.bank || '未知'}
-                  docType={currentResult.doc_type || currentResult._docType || '未知'}
+                  docType={currentResult.docType || currentResult._docType || '未知'}
                   isManual={!!(currentResult as any)._isManual}
                   transactionCount={matchedCount}
-                  statementDate={currentResult.statement_date}
+                  statementDate={currentResult.statementDate}
                   error={currentResult.success ? undefined : currentResult.error}
                   onRedetect={handleSingleRedetect}
                   onModifyConfig={handleSingleModifyConfig}
@@ -775,23 +599,13 @@ function App() {
           {mode === 'batch' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <BatchFileSelector
-                files={batchFiles}
-                detected={batchDetected}
-                onFilesChange={setBatchFiles}
-                onDetectedChange={setBatchDetected}
-                onDetect={handleBatchDetect}
+                files={batch.files}
+                onAddFiles={handleBatchAddFiles}
+                onRemoveFile={batch.removeFile}
+                onClear={handleBatchClear}
+                onDetectAndParse={handleBatchDetectAndParse}
+                isParsing={batch.isParsing}
               />
-
-              {/* 开始解析按钮 */}
-              {batchFiles.length > 0 && !batchParsing && !batchResult && (
-                <Button
-                  type="primary"
-                  size="large"
-                  onClick={handleBatchStartParse}
-                >
-                  开始解析（{batchFiles.length} 个文件）
-                </Button>
-              )}
 
               {batchResult && (
                 <BatchResultPanel
@@ -804,8 +618,8 @@ function App() {
               )}
 
               {/* 批量解析进度 */}
-              {batchParsing && currentBatchIndex > 0 && (
-                <Card title={`正在解析 ${currentBatchIndex}/${batchResult?.totalFiles || batchFiles.length}`}>
+              {batch.isParsing && batch.currentIndex > 0 && batch.result && (
+                <Card title={`正在解析 ${batch.currentIndex}/${batch.result.totalFiles}`}>
                   <ProgressSteps currentStep={currentStep} processingTime={processingTimeMs} />
                 </Card>
               )}

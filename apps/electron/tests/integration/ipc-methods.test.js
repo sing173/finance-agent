@@ -74,7 +74,7 @@ async function runTests() {
     // Test: parse_pdf - 参数缺失
     console.log('[3/6] 测试 parse_pdf（参数验证）...');
     const parseErr = await pythonProcess.call('parse_pdf', {});
-    if (!parseErr.success && parseErr.error.includes('file_path')) {
+    if (!parseErr.success && parseErr.error.includes('filePath')) {
       console.log(`  ✅ 错误提示: "${parseErr.error}"\n`);
     } else {
       throw new Error('parse_pdf 参数验证失败');

@@ -46,7 +46,7 @@ async function runTests() {
 
     // Test 2: detect_banks with empty list
     console.log('[3/3] 测试 detect_banks（空列表）...');
-    const emptyResult = await pythonProcess.call('detect_banks', { file_paths: [] });
+    const emptyResult = await pythonProcess.call('detect_banks', { filePaths: [] });
     if (emptyResult.success && Array.isArray(emptyResult.results) && emptyResult.results.length === 0) {
       console.log('  空列表返回空结果 ✅');
     } else {
@@ -55,7 +55,7 @@ async function runTests() {
 
     // Test 3: detect_banks with nonexistent file
     console.log('[3b/3] 测试 detect_banks（不存在的文件）...');
-    const badResult = await pythonProcess.call('detect_banks', { file_paths: ['/nonexistent/file.pdf'] });
+    const badResult = await pythonProcess.call('detect_banks', { filePaths: ['/nonexistent/file.pdf'] });
     if (badResult.success && badResult.results[0]?.status === 'failed') {
       console.log('  不存在的文件返回 status=failed ✅');
     } else {

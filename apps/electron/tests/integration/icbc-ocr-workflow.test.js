@@ -151,7 +151,7 @@ async function runTests() {
     for (const pdfPath of availableReceipts) {
       const fname = path.basename(pdfPath);
       const start = Date.now();
-      const result = await pythonProcess.call('parse_pdf', { file_path: pdfPath });
+      const result = await pythonProcess.call('parse_pdf', { filePath: pdfPath });
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
 
       assert(result.success, `${fname} 解析应成功: ${result.error || ''}`);
@@ -159,7 +159,7 @@ async function runTests() {
       assert(result.transactions.length >= 1, `${fname} 至少 1 笔交易`);
       assert(result.confidence >= 0.5, `${fname} 置信度 >= 0.5, 实际: ${result.confidence}`);
 
-      console.log(`  ✓ ${fname}: ${result.transactions.length} 笔回单, 日期 ${result.statement_date}, ${elapsed}s`);
+      console.log(`  ✓ ${fname}: ${result.transactions.length} 笔回单, 日期 ${result.statementDate}, ${elapsed}s`);
       validateReceipts(result.transactions, fname);
       console.log();
       allTransactions.push(...result.transactions);
@@ -171,7 +171,7 @@ async function runTests() {
       for (const pdfPath of availableStatements) {
         const fname = path.basename(pdfPath);
         const start = Date.now();
-        const result = await pythonProcess.call('parse_pdf', { file_path: pdfPath });
+        const result = await pythonProcess.call('parse_pdf', { filePath: pdfPath });
         const elapsed = ((Date.now() - start) / 1000).toFixed(1);
 
         assert(result.success, `${fname} 解析应成功: ${result.error || ''}`);
@@ -179,7 +179,7 @@ async function runTests() {
         assert(result.transactions.length >= 1, `${fname} 至少 1 笔交易`);
         assert(result.confidence >= 0.5, `${fname} 置信度 >= 0.5, 实际: ${result.confidence}`);
 
-        console.log(`  ✓ ${fname}: ${result.transactions.length} 笔交易, 日期 ${result.statement_date}, ${elapsed}s`);
+        console.log(`  ✓ ${fname}: ${result.transactions.length} 笔交易, 日期 ${result.statementDate}, ${elapsed}s`);
         validateStatements(result.transactions, fname);
         console.log();
         allTransactions.push(...result.transactions);

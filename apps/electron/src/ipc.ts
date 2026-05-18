@@ -55,9 +55,9 @@ export function setupIpcHandlers() {
 
   ipcMain.handle('parse_pdf', async (event: any, params: any) => {
     // 如果传入的是相对路径或文件名，尝试解析为绝对路径
-    if (params.file_path && !path.isAbsolute(params.file_path)) {
-      const absolutePath = path.resolve(params.file_path);
-      params.file_path = absolutePath;
+    if (params.filePath && !path.isAbsolute(params.filePath)) {
+      const absolutePath = path.resolve(params.filePath);
+      params.filePath = absolutePath;
     }
     return pythonProcess.call('parse_pdf', params);
   });

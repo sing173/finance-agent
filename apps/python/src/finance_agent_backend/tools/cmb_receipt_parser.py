@@ -13,9 +13,10 @@ import fitz
 
 from ..models import ParseResult, Transaction
 from .shared_utils import BANK_CMB, extract_all_spans
+from .base_parser import BaseStatementParser
 
 
-class CMBReceiptParser:
+class CMBReceiptParser(BaseStatementParser):
     """招商银行回单解析器。"""
 
     BANK_NAME = BANK_CMB
