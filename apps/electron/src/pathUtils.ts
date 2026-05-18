@@ -33,14 +33,8 @@ function isElectronPackaged(): boolean {
 export function getPythonSpawnConfig(): { cmd: string; args: string[]; cwd: string } {
   // 1. 环境变量优先
   if (process.env.PYTHON_CMD) {
-    const cmd = process.env.PYTHON_CMD;
-    if (cmd.endsWith('.exe') || path.isAbsolute(cmd)) {
-      const cwd = path.dirname(cmd);
-      return { cmd, args: [], cwd };
-    } else {
-      const scriptPath = path.resolve(__dirname, '..', '..', 'python', 'src', 'finance_agent_backend', 'bridge.py');
-      return { cmd, args: [scriptPath], cwd: path.dirname(scriptPath) };
-    }
+    const scriptPath = path.resolve(__dirname, '..', '..', 'python', 'src', 'finance_agent_backend', 'bridge.py');
+    return { cmd: process.env.PYTHON_CMD, args: [scriptPath], cwd: path.dirname(scriptPath) };
   }
 
   // 2. 打包环境：使用 resources/python/bridge(.exe)

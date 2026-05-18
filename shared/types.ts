@@ -71,3 +71,41 @@ export interface ChatResult {
 export interface ChatStreamParams extends ChatParams {
   on_chunk: (chunk: string) => void;
 }
+
+// ========== 文件上传方案新增类型 ==========
+
+/** 批量检测单个文件的返回 */
+export interface DetectFileResult {
+  file_path: string;
+  bank: string;
+  doc_type: string;
+  status: 'ok' | 'failed';
+}
+
+/** 批量检测结果 */
+export interface DetectBanksResult {
+  success: boolean;
+  results: DetectFileResult[];
+}
+
+/** 批量解析单个文件的结果 */
+export interface BatchFileResult {
+  filePath: string;
+  fileName: string;
+  bank: string;
+  docType: string;
+  statementDate?: string;
+  status: 'success' | 'failed' | 'cancelled';
+  transactions?: Transaction[];
+  error?: string;
+  transactionCount: number;
+}
+
+/** 批量解析总体结果 */
+export interface BatchResult {
+  files: BatchFileResult[];
+  totalFiles: number;
+  successCount: number;
+  failedCount: number;
+  totalTransactions: number;
+}

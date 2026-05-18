@@ -106,3 +106,13 @@ export function setupIpcHandlers() {
 
   // TODO: 后续添加 chat 等处理器
 }
+
+// ========== 文件上传方案新增 RPC ==========
+
+ipcMain.handle('detect-banks', async (_, params: any) => {
+  return await pythonProcess.call('detect_banks', params);
+});
+
+ipcMain.handle('detect-supported-banks', async () => {
+  return await pythonProcess.call('detect_supported_banks', {});
+});

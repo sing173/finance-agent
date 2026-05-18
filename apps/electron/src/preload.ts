@@ -21,5 +21,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 主动查询 Python 进程状态
   getPythonStatus: () => ipcRenderer.invoke('get-python-status'),
+
+  // ========== 文件上传方案新增 RPC ==========
+
+  detectBanks: (filePaths: string[]) => ipcRenderer.invoke('detect-banks', { file_paths: filePaths }),
+  detectSupportedBanks: () => ipcRenderer.invoke('detect-supported-banks'),
 });
 

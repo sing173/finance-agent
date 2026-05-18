@@ -65,6 +65,15 @@ from finance_agent_backend.models import Transaction
 # 方法注册表
 METHODS = {}  # type: dict
 
+# 银行关键字（模块级常量，供 detect_banks / detect_supported_banks / _detect_bank_from_pdf 共享）
+BANK_KEYWORDS = {
+    '招商银行': ['招商银行', 'China Merchants Bank'],
+    '工商银行': ['工商银行', 'ICBC'],
+    '中国银行': ['中国银行', 'Bank of China'],
+    '建设银行': ['建设银行', 'China Construction Bank'],
+    '广发银行': ['广发银行', '广东发展银行', 'CGB'],
+}
+
 
 def register_method(name: str):
     """装饰器：注册 RPC 方法"""
@@ -94,14 +103,6 @@ def _detect_bank_from_pdf(file_path: str) -> tuple:
          （不在检测阶段 OCR，避免与解析器重复加载 ONNX 模型）
     """
     import fitz
-
-    BANK_KEYWORDS = {
-        '招商银行': ['招商银行', 'China Merchants Bank'],
-        '工商银行': ['工商银行', 'ICBC'],
-        '中国银行': ['中国银行', 'Bank of China'],
-        '建设银行': ['建设银行', 'China Construction Bank'],
-        '广发银行': ['广发银行', '广东发展银行', 'CGB'],
-    }
 
     def _classify(sample: str) -> tuple:
         bank = '未知银行'
@@ -567,6 +568,36 @@ def handle_get_subjects_info(params: dict) -> dict:
         return {"success": True, "count": len(data), "loaded": True}
     except Exception as e:
         return {"success": False, "count": 0, "loaded": False, "error": str(e)}
+
+
+@register_method("detect_supported_banks")
+def handle_detect_supported_banks(params: dict) -> dict:
+    """动态返回当前支持的银行列表（从 BANK_KEYWORDS 自动生成）"""
+    return {"success": True, "banks": list(BANK_KEYWORDS.keys())}
+
+
+@register_method("detect_banks")
+def handle_detect_banks(params: dict) -> dict:
+    """批量检测文件银行类型。前端先过滤扩展名，后端只接收 .pdf 文件。"""
+    file_paths = params.get("file_paths", [])
+    results = []
+    for fp in file_paths:
+        try:
+            bank, doc_type = _detect_bank_from_pdf(fp)
+            results.append({
+                "file_path": fp,
+                "bank": bank,
+                "doc_type": doc_type,
+                "status": "ok",
+            })
+        except Exception:
+            results.append({
+                "file_path": fp,
+                "bank": "未知银行",
+                "doc_type": "unknown",
+                "status": "failed",
+            })
+    return {"success": True, "results": results}
 
 
 def handle_request(request: dict) -> dict:
