@@ -310,14 +310,6 @@ function App() {
     }
   }, []);
 
-  // ====== 单文件结果卡片 handlers ======
-  const handleSingleReselectFile = useCallback(() => {
-    setBatchResult(null);
-    setDetectState('idle');
-    setDetectInfo({ bank: '', docType: '' });
-    setCurrentFilePath(null);
-  }, []);
-
   // ====== 单文件：确认解析按钮（检测阶段） ======
   const handleSingleConfirmParse = useCallback(() => {
     if (currentFilePath) {
@@ -474,7 +466,6 @@ function App() {
                   error={detectUnknown ? '未能自动识别银行类型' : undefined}
                   onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
                   onModifyConfig={openSingleOverride}
-                  onReselectFile={handleSingleReselectFile}
                   onConfirmParse={handleSingleConfirmParse}
                 />
               )}
@@ -514,7 +505,6 @@ function App() {
                         </Text>
                       </Space>
                       <Space>
-                        <Button onClick={handleSingleReselectFile}>重新选择文件</Button>
                         <Button
                           style={{ background: '#52c41a', color: '#fff', borderColor: '#52c41a' }}
                           loading={loading}
@@ -536,7 +526,6 @@ function App() {
                       error={currentResult.error || '解析失败'}
                       onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
                       onModifyConfig={openSingleOverride}
-                      onReselectFile={handleSingleReselectFile}
                     />
                   )}
 
