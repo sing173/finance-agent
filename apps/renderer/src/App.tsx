@@ -562,11 +562,6 @@ function App() {
                 totalCount={batch.totalCount}
               />
 
-              {/* 批量解析进度 */}
-              {batch.isParsing && batch.currentIndex > 0 && batch.totalCount > 0 && (
-                <Card title={`正在解析 ${batch.currentIndex}/${batch.totalCount}`} />
-              )}
-
               {batchResult && (
                 <BatchResultPanel
                   files={batchResult.files}
