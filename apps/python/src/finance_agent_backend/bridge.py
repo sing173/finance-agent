@@ -166,7 +166,8 @@ def handle_generate_voucher_excel(params: dict) -> dict:
 
 @register_method("parse_csv")
 def handle_parse_csv(params: dict) -> dict:
-    """解析 ICBC CSV 对账流水（快捷方法）"""
+    """[DEPRECATED] 使用 parse_pdf 代替。保留此方法仅做向后兼容。"""
+    _log.warning("parse_csv 已废弃，请使用 parse_pdf")
     file_path = params.get("filePath")
     if not file_path:
         return {"success": False, "error": "缺少 filePath 参数"}
@@ -189,28 +190,9 @@ def handle_ocr_pdf(params: dict) -> dict:
         return {"success": True, **result}
     except Exception as e:
         return {"success": False, "error": str(e)}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
 
 
 
-def _parse_cmb_excel(file_path: str) -> dict:
-    """解析招行 Excel 交易流水，返回与 parse_pdf 兼容的结果 (lazy import)"""
-    try:
-        from finance_agent_backend.tools import cmb_excel_parser
-        parser = cmb_excel_parser.CMBExcelParser()
-        result = parser.parse(file_path)
-        transactions = [t.to_dict() for t in result.transactions]
-        return {
-            "success": True, "transactions": transactions,
-            "bank": result.bank,
-            "statementDate": result.statement_date.isoformat() if result.statement_date else None,
-            "openingBalance": float(result.opening_balance) if result.opening_balance else None,
-            "closingBalance": float(result.closing_balance) if result.closing_balance else None,
-            "confidence": result.confidence, "errors": result.errors, "warnings": result.warnings,
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
 
 
 def _parse_icbc_csv(file_path: str) -> dict:

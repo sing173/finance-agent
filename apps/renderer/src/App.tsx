@@ -24,7 +24,6 @@ declare global {
       importSubjects: (params: any) => Promise<any>;
       getSubjectsInfo: () => Promise<any>;
       ocrPDF: (params: any) => Promise<any>;
-      chat: (msg: string, sessionKey?: string) => Promise<any>;
       selectFile: (filter?: string, allowMulti?: boolean) => Promise<string[] | string | null>;
       saveFileDialog: (params?: any) => Promise<string | null>;
       detectBanks: (filePaths: string[]) => Promise<any>;
@@ -450,97 +449,47 @@ function App() {
           {mode === 'single' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-              {/* 检测阶段：展示结果 + [确认解析] / [修改配置] */}
+              {/* 检测中 */}
               {detectState === 'detecting' && (
                 <Card title="检测中">
                   <Text type="secondary">正在识别银行类型...</Text>
                 </Card>
               )}
 
-              {(detectState === 'detected' || detectState === 'unknown') && (
+              {/* 检测完成 / 解析中 / 解析结果 — 同一卡片贯穿全流程 */}
+              {(detectState === 'detected' || detectState === 'unknown' || loading || currentResult) && (
                 <ResultCard
-                  bank={detectInfo.bank || '未知'}
-                  docType={detectInfo.docType || '未知'}
-                  isManual={false}
-                  transactionCount={0}
-                  statementDate={undefined}
+                  key={currentFilePath || undefined}
+                  phase={
+                    loading
+                      ? 'parsing'
+                      : currentResult
+                      ? currentResult.success
+                        ? 'success'
+                        : 'failed'
+                      : 'detect'
+                  }
+                  bank={currentResult?.bank || detectInfo.bank || '未知'}
+                  docType={currentResult?.docType || detectInfo.docType || 'unknown'}
+                  transactionCount={currentResult?.transactions?.length || 0}
+                  statementDate={currentResult?.statementDate}
+                  error={currentResult?.error}
                   detectUnknown={detectUnknown}
-                  loading={loading}
                   onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
                   onModifyConfig={openSingleOverride}
-                  onConfirmParse={handleSingleConfirmParse}
+                  onStartParse={handleSingleConfirmParse}
+                  onExportVoucher={handleOpenVoucherModal}
                 />
               )}
 
-              {/* 解析结果展示 */}
-              {currentResult && (
-                <>
-                  {/* 解析成功 */}
-                  {currentResult.success && currentResult.transactions?.length > 0 && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '12px 16px',
-                        background: '#fafafa',
-                        borderRadius: 8,
-                      }}
-                    >
-                      <Space size={16}>
-                        <Text>
-                          {currentResult.bank || detectInfo.bank || '未知'}
-                        </Text>
-                        <Text type="secondary">|</Text>
-                        <Text>
-                          {currentResult.docType || detectInfo.docType || '未知'}
-                        </Text>
-                        {currentResult.statementDate && (
-                          <>
-                            <Text type="secondary">|</Text>
-                            <Text>{currentResult.statementDate}</Text>
-                          </>
-                        )}
-                        <Text type="secondary">|</Text>
-                        <Text>
-                          <Text strong>{currentResult.transactions?.length || 0}</Text> 笔交易
-                        </Text>
-                      </Space>
-                      <Space>
-                        <Button
-                          style={{ background: '#52c41a', color: '#fff', borderColor: '#52c41a' }}
-                          loading={loading}
-                          onClick={handleOpenVoucherModal}
-                        >
-                          导出凭证
-                        </Button>
-                      </Space>
-                    </div>
-                  )}
-
-                  {/* 解析失败 */}
-                  {(!currentResult.success || !currentResult.transactions?.length) && (
-                    <ResultCard
-                      bank={currentResult.bank || detectInfo.bank || '未知'}
-                      docType={currentResult.docType || detectInfo.docType || '未知'}
-                      isManual={false}
-                      transactionCount={0}
-                      error={currentResult.error || '解析失败'}
-                      onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
-                      onModifyConfig={openSingleOverride}
-                    />
-                  )}
-
-                  {/* 交易列表 */}
-                  {currentResult.success && currentResult.transactions?.length > 0 && (
-                    <Card title="交易列表">
-                      <TransactionTable
-                        transactions={currentResult.transactions}
-                        loading={loading}
-                      />
-                    </Card>
-                  )}
-                </>
+              {/* 交易列表 */}
+              {currentResult?.success && currentResult.transactions?.length > 0 && (
+                <Card title="交易列表">
+                  <TransactionTable
+                    transactions={currentResult.transactions}
+                    loading={loading}
+                  />
+                </Card>
               )}
 
             </div>
