@@ -465,17 +465,11 @@ function App() {
                   transactionCount={0}
                   statementDate={undefined}
                   detectUnknown={detectUnknown}
+                  loading={loading}
                   onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
                   onModifyConfig={openSingleOverride}
                   onConfirmParse={handleSingleConfirmParse}
                 />
-              )}
-
-              {/* 解析进行中 */}
-              {loading && !currentResult && (
-                <Card title="正在解析...">
-                  <Text type="secondary">正在解析文件，请稍候...</Text>
-                </Card>
               )}
 
               {/* 解析结果展示 */}

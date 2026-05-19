@@ -50,14 +50,13 @@ export function TransactionTable({ transactions, loading, onEdit, onDelete }: Tr
       dataIndex: 'direction',
       key: 'direction',
       render: (dir: string) => (
-        <Tag color={dir === 'income' ? 'green' : dir === 'expense' ? 'red' : 'blue'}>
-          {dir === 'income' ? '收入' : dir === 'expense' ? '支出' : '转账'}
+        <Tag color={dir === 'income' ? 'green' : 'red'}>
+          {dir === 'income' ? '收入' : '支出'}
         </Tag>
       ),
       filters: [
         { text: '收入', value: 'income' },
         { text: '支出', value: 'expense' },
-        { text: '转账', value: 'transfer' },
       ],
       onFilter: (value: boolean | React.Key, record: Transaction) => record.direction === value,
       width: 100,
