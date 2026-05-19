@@ -2,7 +2,6 @@ import { Layout, Typography, Button, Card, message, Space, Modal, Form, Input } 
 import { useState, useEffect, useCallback } from 'react';
 import { FileDropZone } from './components/FileDropZone';
 import { TransactionTable } from './components/TransactionTable';
-import { ProgressSteps } from './components/ProgressSteps';
 import { ResultCard } from './components/ResultCard';
 import { ManualOverrideModal } from './components/ManualOverrideModal';
 import { BatchFileSelector } from './components/BatchFileSelector';
@@ -56,10 +55,8 @@ function App() {
   const [detectInfo, setDetectInfo] = useState<{ bank: string; docType: string }>({ bank: '', docType: '' });
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
 
-  // ====== 加载 & 进度 ======
+  // ====== 加载 ======
   const [loading, setLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [processingTimeMs, setProcessingTimeMs] = useState(0);
 
   // ====== 批量编排 ======
   const batch = useBatchOrchestrator({
@@ -129,15 +126,11 @@ function App() {
       // 单文件模式
       setMode('single');
       setBatchResult(null);
-      setCurrentStep(0);
-      setProcessingTimeMs(0);
       handleSingleFileDetect(filePaths[0]);
     } else {
       // 批量模式
       setMode('batch');
       setCurrentResult(null);
-      setCurrentStep(0);
-      setProcessingTimeMs(0);
       setVoucherModalOpen(false);
       batch.clearFiles();
       batch.addFiles(filePaths);
@@ -179,8 +172,6 @@ function App() {
   const handleSingleFileParse = useCallback(async (filePath: string, bank: string, docType: string, forceOcr: boolean) => {
     if (!filePath) return;
     setLoading(true);
-    setCurrentStep(0);
-    const startTime = Date.now();
     setOverrideModalOpen(false);
 
     try {
@@ -193,8 +184,6 @@ function App() {
       if (forceOcr) params.forceOcr = true;
 
       const result = await window.electronAPI.parsePdf(params);
-      setCurrentStep(1);
-      setProcessingTimeMs(Date.now() - startTime);
 
       if (result.success) {
         setCurrentResult(result);
@@ -257,7 +246,6 @@ function App() {
       return;
     }
 
-    setCurrentStep(1);
     setLoading(true);
     try {
       const outputPath = `bank_statement_${Date.now()}.xlsx`;
@@ -265,7 +253,6 @@ function App() {
         transactions: txns,
         output_path: outputPath,
       });
-      setCurrentStep(2);
       if (result.success) {
         message.success(`Excel 已导出: ${result.excel_path}`);
       } else {
@@ -352,8 +339,6 @@ function App() {
     setDetectState('idle');
     setDetectInfo({ bank: '', docType: '' });
     setCurrentFilePath(null);
-    setCurrentStep(0);
-    setProcessingTimeMs(0);
   }, []);
 
   // ====== 单文件：确认解析按钮（检测阶段） ======
@@ -540,12 +525,6 @@ function App() {
                         </Space>
                       </Card>
 
-                      {(loading || currentStep > 0) && (
-                        <Card title="处理进度">
-                          <ProgressSteps currentStep={currentStep} processingTime={processingTimeMs} />
-                        </Card>
-                      )}
-
                       <Card title="交易列表">
                         <TransactionTable
                           transactions={currentResult.transactions}
@@ -558,9 +537,6 @@ function App() {
                   {/* 解析失败 */}
                   {(!currentResult.success || !currentResult.transactions?.length) && (
                     <>
-                      <Card title="处理进度">
-                        <ProgressSteps currentStep={currentStep} processingTime={processingTimeMs} />
-                      </Card>
                       <ResultCard
                         bank={currentResult.bank || detectInfo.bank || '未知'}
                         docType={currentResult.docType || detectInfo.docType || '未知'}
@@ -576,12 +552,6 @@ function App() {
                 </>
               )}
 
-              {/* 解析进行中 */}
-              {loading && detectState === 'detected' && !currentResult && (
-                <Card title="处理进度">
-                  <ProgressSteps currentStep={currentStep} processingTime={processingTimeMs} />
-                </Card>
-              )}
             </div>
           )}
 
@@ -605,9 +575,7 @@ function App() {
 
               {/* 批量解析进度 */}
               {batch.isParsing && batch.currentIndex > 0 && batch.totalCount > 0 && (
-                <Card title={`正在解析 ${batch.currentIndex}/${batch.totalCount}`}>
-                  <ProgressSteps currentStep={currentStep} processingTime={processingTimeMs} />
-                </Card>
+                <Card title={`正在解析 ${batch.currentIndex}/${batch.totalCount}`} />
               )}
 
               {batchResult && (
