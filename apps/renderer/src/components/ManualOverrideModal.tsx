@@ -4,6 +4,7 @@ import { Modal, Select, Checkbox, Button, Space } from 'antd';
 interface ManualOverrideModalProps {
   open: boolean;
   fileCount: number; // 1 = 单文件, >1 = 批量
+  isPdfOnly: boolean; // 仅当所有文件都是 PDF 时显示 OCR 选项
   initialBank?: string;
   initialDocType?: string;
   initialOcr?: boolean;
@@ -14,6 +15,7 @@ interface ManualOverrideModalProps {
 export function ManualOverrideModal({
   open,
   fileCount,
+  isPdfOnly,
   initialBank,
   initialDocType,
   initialOcr = false,
@@ -65,7 +67,6 @@ export function ManualOverrideModal({
     title = '请手动选择';
   }
 
-  const isPdfOnly = fileCount > 0; // 批量模式下由上层控制只传 PDF
 
   return (
     <Modal

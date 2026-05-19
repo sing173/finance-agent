@@ -38,6 +38,7 @@ declare global {
 
 type OverrideContext = {
   fileCount: number;
+  isPdfOnly: boolean;
   onConfirm: (bank: string, docType: string, forceOcr: boolean) => void;
 };
 
@@ -152,7 +153,7 @@ function App() {
 
     try {
       const ext = filePath.toLowerCase().split('.').pop();
-      const fileType = ext === 'csv' ? 'CSV' : 'PDF';
+      const fileType = ext === 'csv' ? 'CSV' : ext === 'xlsx' ? 'Excel' : 'PDF';
       message.info(`正在检测${fileType}文件...`);
 
       const result = await window.electronAPI.detectBanks([filePath]);
@@ -183,8 +184,11 @@ function App() {
     setOverrideModalOpen(false);
 
     try {
-      message.info(`正在解析（${bank} · ${docType}）...`);
-      const params: any = { filePath, bank };
+      // 未知银行时传 '未知银行'，让后端走 generic BankStatementParser fallback
+      const effectiveBank = (bank === '未知' || bank === '未知银行' || !bank) ? undefined : bank;
+      message.info(`正在解析${effectiveBank ? `（${effectiveBank} · ${docType}）` : '...'}...`);
+      const params: any = { filePath };
+      if (effectiveBank) params.bank = effectiveBank;
       if (docType) params.docType = docType;
       if (forceOcr) params.forceOcr = true;
 
@@ -216,23 +220,28 @@ function App() {
 
   // ====== 打开单文件 fallback 模态框 ======
   const openSingleOverride = useCallback(() => {
+    const ext = currentFilePath?.toLowerCase().split('.').pop();
+    const isPdfOnly = ext === 'pdf';
     setOverrideInitialBank(detectInfo.bank || '');
     setOverrideInitialDocType(detectInfo.docType || '');
     setOverrideInitialOcr(false);
     setOverrideContext({
       fileCount: 1,
+      isPdfOnly,
       onConfirm: handleSingleOverrideConfirm,
     });
     setOverrideModalOpen(true);
-  }, [detectInfo, handleSingleOverrideConfirm]);
+  }, [detectInfo, handleSingleOverrideConfirm, currentFilePath]);
 
   // ====== 打开批量 fallback 模态框 ======
   const openBatchOverride = useCallback((filePaths: string[]) => {
+    const allPdf = filePaths.every(fp => fp.toLowerCase().endsWith('.pdf'));
     setOverrideInitialBank('');
     setOverrideInitialDocType('');
     setOverrideInitialOcr(false);
     setOverrideContext({
       fileCount: filePaths.length,
+      isPdfOnly: allPdf,
       onConfirm: (bank: string, docType: string, forceOcr: boolean) => {
         batch.retryFailedFiles(filePaths, bank, docType, forceOcr);
       },
@@ -380,11 +389,14 @@ function App() {
     const file = batch.files.find((f) => f.filePath === filePath);
     if (!file) return;
 
+    const ext = file.filePath.toLowerCase().split('.').pop();
+    const isPdfOnly = ext === 'pdf';
     setOverrideInitialBank(file.bank || '');
     setOverrideInitialDocType(file.docType || '');
     setOverrideInitialOcr(false);
     setOverrideContext({
       fileCount: 1,
+      isPdfOnly,
       onConfirm: (bank: string, docType: string, _forceOcr: boolean) => {
         // 只更新检测值，不触发解析
         batch.updateFile(filePath, { bank, docType, error: undefined });
@@ -571,7 +583,7 @@ function App() {
                   onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
                   onModifyConfig={openSingleOverride}
                   onReselectFile={handleSingleReselectFile}
-                  onConfirmParse={detectState === 'detected' ? handleSingleConfirmParse : undefined}
+                  onConfirmParse={handleSingleConfirmParse}
                 />
               )}
 
@@ -657,6 +669,8 @@ function App() {
                 isDetecting={batch.isDetecting}
                 isParsing={batch.isParsing}
                 detectDone={batch.detectDone}
+                currentIndex={batch.currentIndex}
+                totalCount={batch.totalCount}
               />
 
               {/* 批量解析进度 */}
@@ -688,6 +702,7 @@ function App() {
         <ManualOverrideModal
           open={overrideModalOpen}
           fileCount={overrideContext.fileCount}
+          isPdfOnly={overrideContext.isPdfOnly}
           initialBank={overrideInitialBank}
           initialDocType={overrideInitialDocType}
           initialOcr={overrideInitialOcr}

@@ -1,4 +1,5 @@
-import { Button, Space, Typography, Tag, message, Tooltip } from 'antd';
+import { useState, useEffect } from 'react';
+import { Button, Space, Typography, Tag, message, Tooltip, Spin } from 'antd';
 import { PlusOutlined, CloseOutlined, DeleteOutlined, EditOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import type { BatchFileResult } from '@shared/types';
 
@@ -7,18 +8,22 @@ interface BatchFileSelectorProps {
   onAddFiles: (filePaths: string[]) => void;
   onRemoveFile: (filePath: string) => void;
   onClear: () => void;
-  /** 触发检测（只检测，不解析） */
+  /** Detect banks (no parse) */
   onDetect: () => void;
-  /** 触发批量解析（基于已检测结果） */
+  /** Parse all files based on detected results */
   onStartParse: () => void;
-  /** 修改单个文件的检测配置（不解析） */
+  /** Modify a single file's detection config (no parse) */
   onModifyConfig: (filePath: string) => void;
-  /** 是否正在检测 */
+  /** Currently detecting banks */
   isDetecting: boolean;
-  /** 是否正在解析 */
+  /** Currently parsing files */
   isParsing: boolean;
-  /** 检测是否已完成（files 有内容且不在检测中） */
+  /** Detection done (files added and not detecting) */
   detectDone: boolean;
+  /** Current parsing index (1-based), 0 means not parsing */
+  currentIndex?: number;
+  /** Total file count */
+  totalCount?: number;
 }
 
 export function BatchFileSelector({
@@ -32,12 +37,24 @@ export function BatchFileSelector({
   isDetecting,
   isParsing,
   detectDone,
+  currentIndex = 0,
+  totalCount = 0,
 }: BatchFileSelectorProps) {
-  const atLimit = files.length >= 5;
+  const [maxFiles, setMaxFiles] = useState(5);
+
+  // Load batch config dynamically
+  useEffect(() => {
+    fetch('/batch_config.json')
+      .then((r) => r.json())
+      .then((data) => setMaxFiles(data.maxBatchFiles || 5))
+      .catch(() => setMaxFiles(5));
+  }, []);
+
+  const atLimit = files.length >= maxFiles;
 
   const handleAddFiles = async () => {
     if (atLimit) {
-      message.warning('最多只能添加 5 个文件');
+      message.warning(`最多只能添加 ${maxFiles} 个文件`);
       return;
     }
     try {
@@ -56,10 +73,15 @@ export function BatchFileSelector({
     return <Tag>待检测</Tag>;
   };
 
+  // Parsing progress text
+  const parsingProgress = isParsing && totalCount > 0
+    ? `正在解析 ${currentIndex}/${totalCount}`
+    : null;
+
   return (
     <div style={{ marginBottom: 16 }}>
       <Space style={{ marginBottom: 12 }}>
-        <Tooltip title={atLimit ? '最多 5 个文件' : ''}>
+        <Tooltip title={atLimit ? `最多 ${maxFiles} 个文件` : ''}>
           <Button
             icon={<PlusOutlined />}
             onClick={handleAddFiles}
@@ -101,6 +123,15 @@ export function BatchFileSelector({
         )}
       </Space>
 
+      {isParsing && parsingProgress && (
+        <div style={{ marginBottom: 8 }}>
+          <Typography.Text type="secondary">
+            <Spin size="small" style={{ marginRight: 8 }} />
+            {parsingProgress}
+          </Typography.Text>
+        </div>
+      )}
+
       {files.length > 0 && (
         <div
           style={{
@@ -113,6 +144,7 @@ export function BatchFileSelector({
         >
           {files.map((file) => {
             const hasError = file.status === 'failed';
+            const isCurrentParsing = isParsing && file.status === 'pending' && files.indexOf(file) === currentIndex - 1;
             return (
               <div
                 key={file.filePath}
@@ -122,10 +154,12 @@ export function BatchFileSelector({
                   justifyContent: 'space-between',
                   padding: '6px 8px',
                   borderBottom: '1px solid #f0f0f0',
-                  ...(hasError ? { background: '#fff2f0' } : {}),
+                  background: isCurrentParsing ? '#e6f7ff' : hasError ? '#fff2f0' : undefined,
+                  transition: 'background 0.2s',
                 }}
               >
                 <Space size={8}>
+                  {isParsing && isCurrentParsing && <Spin size="small" />}
                   <Typography.Text
                     ellipsis={{ tooltip: file.fileName }}
                     style={{ maxWidth: 260 }}

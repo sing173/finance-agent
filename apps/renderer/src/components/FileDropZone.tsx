@@ -23,20 +23,29 @@ export function FileDropZone({ onFilesSelected }: FileDropZoneProps) {
     <Card
       title="上传交易流水文件"
       hoverable
-      style={{ height: '100%', cursor: 'pointer' }}
-      onClick={handleSelectFile}
-    >
-      <div style={{
+      style={{
+        height: '100%',
+        cursor: 'pointer',
+        border: '2px dashed #1677ff33',
+        transition: 'border-color 0.2s',
+      }}
+      bodyStyle={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 120,
-        color: '#999',
-      }}>
-        <InboxOutlined style={{ fontSize: 40, color: '#1677ff', marginBottom: 12 }} />
-        <span style={{ fontSize: 14 }}>点击此区域选择文件（PDF / CSV / Excel）</span>
-      </div>
+        minHeight: 140,
+        padding: '24px 16px',
+      }}
+      onClick={handleSelectFile}
+    >
+      <InboxOutlined style={{ fontSize: 48, color: '#1677ff', marginBottom: 12 }} />
+      <span style={{ fontSize: 15, fontWeight: 500, color: '#333' }}>
+        点击此区域选择文件
+      </span>
+      <span style={{ fontSize: 13, color: '#999', marginTop: 4 }}>
+        支持 PDF / CSV / Excel，可多选
+      </span>
     </Card>
   );
 }
