@@ -10,10 +10,12 @@ interface UseBatchOrchestratorOptions {
 interface BatchOrchestrator {
   files: BatchFileResult[];
   isParsing: boolean;
+  isDetecting: boolean;
   currentIndex: number;
   totalCount: number;
   successCount: number;
   failedCount: number;
+  detectDone: boolean;
   result: BatchResult | null;
 
   addFiles: (filePaths: string[]) => void;
@@ -45,6 +47,8 @@ export function useBatchOrchestrator(
   const totalCount = files.length;
   const successCount = files.filter((f) => f.status === 'success').length;
   const failedCount = files.filter((f) => f.status === 'failed').length;
+  const isDetecting = phase === 'detecting';
+  const detectDone = totalCount > 0 && phase === 'idle';
 
   const result: BatchResult | null = totalCount > 0
     ? {
@@ -91,8 +95,8 @@ export function useBatchOrchestrator(
   }, []);
 
   const detectOnly = useCallback(async () => {
-    if (isParsing || files.length === 0) return;
-    setIsParsing(true);
+    if (phase !== 'idle' || files.length === 0) return;
+    setPhase('detecting');
     try {
       const detectResp = await (window as any).electronAPI?.detectBanks?.(
         files.map((f) => f.filePath),
@@ -130,12 +134,13 @@ export function useBatchOrchestrator(
     } catch (err: any) {
       message.error('检测失败：' + err.message);
     } finally {
-      setIsParsing(false);
+      setPhase('idle');
     }
-  }, [files, isParsing]);
+  }, [files, phase]);
 
   const parseOnly = useCallback(async () => {
-    if (isParsing || files.length === 0) return;
+    if (phase !== 'idle' || files.length === 0) return;
+    setPhase('parsing');
     setIsParsing(true);
     setCurrentIndex(0);
 
@@ -197,10 +202,11 @@ export function useBatchOrchestrator(
         totalTransactions: results.reduce((s, f) => s + f.transactionCount, 0),
       });
     } finally {
+      setPhase('idle');
       setIsParsing(false);
       setCurrentIndex(0);
     }
-  }, [files, isParsing]);
+  }, [files, phase]);
 
   const retryFailedFiles = useCallback(async (
     filePaths: string[],
@@ -208,6 +214,10 @@ export function useBatchOrchestrator(
     docType: string,
     forceOcr: boolean,
   ) => {
+    setPhase('parsing');
+    setIsParsing(true);
+    setCurrentIndex(0);
+
     for (let i = 0; i < filePaths.length; i++) {
       const fp = filePaths[i];
       setCurrentIndex(i + 1);
@@ -271,6 +281,8 @@ export function useBatchOrchestrator(
         );
       }
     }
+    setPhase('idle');
+    setIsParsing(false);
     setCurrentIndex(0);
   }, []);
 
@@ -279,10 +291,12 @@ export function useBatchOrchestrator(
   return {
     files,
     isParsing,
+    isDetecting,
     currentIndex,
     totalCount,
     successCount,
     failedCount,
+    detectDone,
     result,
 
     addFiles,

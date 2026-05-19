@@ -141,7 +141,7 @@ function App() {
       batch.clearFiles();
       batch.addFiles(filePaths);
     }
-  }, [batch]);
+  }, [batch.clearFiles, batch.addFiles]);
 
   // ====== 单文件：检测银行 ======
   const handleSingleFileDetect = useCallback(async (filePath: string) => {
@@ -238,7 +238,7 @@ function App() {
       },
     });
     setOverrideModalOpen(true);
-  }, [batch]);
+  }, [batch.retryFailedFiles]);
 
   // ====== 导出 Excel ======
   const handleExportExcel = useCallback(async () => {
@@ -351,7 +351,7 @@ function App() {
       setVoucherModalOpen(false);
       batch.clearFiles();
     }
-  }, [batch]);
+  }, [batch.clearFiles]);
 
   // ====== 单文件结果卡片 handlers ======
   const handleSingleReselectFile = useCallback(() => {
@@ -373,7 +373,7 @@ function App() {
   // ====== 批量：开始解析 ======
   const handleBatchStartParse = useCallback(() => {
     batch.parseOnly();
-  }, [batch]);
+  }, [batch.parseOnly]);
 
   // ====== 批量：修改单文件配置（不解析） ======
   const handleBatchModifyConfig = useCallback((filePath: string) => {
@@ -391,21 +391,21 @@ function App() {
       },
     });
     setOverrideModalOpen(true);
-  }, [batch]);
+  }, [batch.files, batch.updateFile]);
 
   // ====== 批量：addFiles / detectOnly / parse / clear ======
   const handleBatchAddFiles = useCallback((filePaths: string[]) => {
     batch.addFiles(filePaths);
-  }, [batch]);
+  }, [batch.addFiles]);
 
   const handleBatchDetectOnly = useCallback(() => {
     batch.detectOnly();
-  }, [batch]);
+  }, [batch.detectOnly]);
 
   const handleBatchClear = useCallback(() => {
     batch.clearFiles();
     setBatchResult(null);
-  }, [batch]);
+  }, [batch.clearFiles]);
 
   // ====== 批量：重试单个失败文件 ======
   const handleBatchRetry = useCallback((filePaths: string[]) => {
@@ -654,9 +654,9 @@ function App() {
                 onDetect={handleBatchDetectOnly}
                 onStartParse={handleBatchStartParse}
                 onModifyConfig={handleBatchModifyConfig}
-                isDetecting={batch.isParsing && batch.totalCount === 0}
-                isParsing={batch.isParsing && batch.totalCount > 0}
-                detectDone={batch.totalCount > 0 && !batch.isParsing}
+                isDetecting={batch.isDetecting}
+                isParsing={batch.isParsing}
+                detectDone={batch.detectDone}
               />
 
               {/* 批量解析进度 */}
