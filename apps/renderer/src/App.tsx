@@ -97,7 +97,7 @@ function App() {
     }).catch(() => setBackendStatus('离线'));
 
     window.electronAPI.onPythonStatus?.((status: string) => {
-      if (status === 'offline') { setBackendStatus('离线'); setCurrentResult(null); }
+      if (status === 'offline') { setBackendStatus('离线'); }
       else if (status === 'online') setBackendStatus('正常（已恢复）');
       else if (status === 'error') setBackendStatus('错误');
     });
@@ -130,7 +130,6 @@ function App() {
     } else {
       // 批量模式
       setMode('batch');
-      setCurrentResult(null);
       setVoucherModalOpen(false);
       batch.clearFiles();
       batch.addFiles(filePaths);
@@ -140,7 +139,7 @@ function App() {
   // ====== 单文件：检测银行 ======
   const handleSingleFileDetect = useCallback(async (filePath: string) => {
     setCurrentFilePath(filePath);
-    setCurrentResult(null);
+    setBatchResult(null);
     setDetectState('detecting');
     setDetectInfo({ bank: '', docType: '' });
 
@@ -238,47 +237,25 @@ function App() {
     setOverrideModalOpen(true);
   }, [batch.retryFailedFiles]);
 
-  // ====== 导出 Excel ======
-  const handleExportExcel = useCallback(async () => {
-    const txns = mode === 'single' ? currentResult?.transactions : undefined;
-    if (!txns?.length) {
-      message.warning('没有可导出的交易数据');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const outputPath = `bank_statement_${Date.now()}.xlsx`;
-      const result = await window.electronAPI.generateExcel({
-        transactions: txns,
-        output_path: outputPath,
-      });
-      if (result.success) {
-        message.success(`Excel 已导出: ${result.excel_path}`);
-      } else {
-        message.error(`导出失败：${result.error}`);
-      }
-    } catch (error: unknown) {
-      message.error(`导出出错：${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [mode, currentResult]);
-
-  // ====== 导出凭证（单文件） ======
+  // ====== 导出凭证（单文件 + 批量共用） ======
   const handleOpenVoucherModal = useCallback(() => {
-    if (!period && currentResult?.transactions?.length) {
-      const dates: string[] = currentResult.transactions.map((t: any) => t.date as string);
+    const txns = mode === 'single'
+      ? (currentResult?.transactions || [])
+      : (batchResult?.files.flatMap((f) => f.status === 'success' ? (f.transactions || []) : []) || []);
+    if (!period && txns?.length) {
+      const dates: string[] = txns.map((t: any) => t.date as string);
       dates.sort();
       const earliest = dates[0];
       const [y, m] = earliest.split('-');
       setPeriod(`${y}年${Number(m)}月`);
     }
     setVoucherModalOpen(true);
-  }, [currentResult, period]);
+  }, [mode, currentResult, batchResult, period]);
 
   const handleExportVoucher = useCallback(async () => {
-    const txns = mode === 'single' ? currentResult?.transactions : undefined;
+    const txns = mode === 'single'
+      ? (currentResult?.transactions || [])
+      : (batchResult?.files.flatMap((f) => f.status === 'success' ? (f.transactions || []) : []) || []);
     if (!txns?.length) {
       message.warning('没有可导出的交易数据');
       return;
@@ -310,7 +287,7 @@ function App() {
     } finally {
       setVoucherLoading(false);
     }
-  }, [mode, currentResult, period]);
+  }, [mode, currentResult, batchResult, period]);
 
   // ====== 导入科目表 ======
   const handleImportSubjects = useCallback(async () => {
@@ -335,7 +312,7 @@ function App() {
 
   // ====== 单文件结果卡片 handlers ======
   const handleSingleReselectFile = useCallback(() => {
-    setCurrentResult(null);
+    setBatchResult(null);
     setDetectState('idle');
     setDetectInfo({ bank: '', docType: '' });
     setCurrentFilePath(null);
@@ -510,16 +487,12 @@ function App() {
                     <>
                       <Card title="导出">
                         <Space>
-                          <Button type="primary" loading={loading} onClick={handleExportExcel}>
-                            导出 Excel（流水表）
-                          </Button>
                           <Button
-                            type="primary"
-                            style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                            style={{ background: '#52c41a', color: '#fff', borderColor: '#52c41a' }}
                             loading={loading}
                             onClick={handleOpenVoucherModal}
                           >
-                            导出凭证（精斗云）
+                            导出凭证
                           </Button>
                           <Button onClick={handleSingleReselectFile}>重新选择文件</Button>
                         </Space>
