@@ -484,43 +484,70 @@ function App() {
                 <>
                   {/* 解析成功 */}
                   {currentResult.success && currentResult.transactions?.length > 0 && (
-                    <>
-                      <Card title="导出">
-                        <Space>
-                          <Button
-                            style={{ background: '#52c41a', color: '#fff', borderColor: '#52c41a' }}
-                            loading={loading}
-                            onClick={handleOpenVoucherModal}
-                          >
-                            导出凭证
-                          </Button>
-                          <Button onClick={handleSingleReselectFile}>重新选择文件</Button>
-                        </Space>
-                      </Card>
-
-                      <Card title="交易列表">
-                        <TransactionTable
-                          transactions={currentResult.transactions}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 16px',
+                        background: '#fafafa',
+                        borderRadius: 8,
+                      }}
+                    >
+                      <Space size={16}>
+                        <Text>
+                          {currentResult.bank || detectInfo.bank || '未知'}
+                        </Text>
+                        <Text type="secondary">|</Text>
+                        <Text>
+                          {currentResult.docType || detectInfo.docType || '未知'}
+                        </Text>
+                        {currentResult.statementDate && (
+                          <>
+                            <Text type="secondary">|</Text>
+                            <Text>{currentResult.statementDate}</Text>
+                          </>
+                        )}
+                        <Text type="secondary">|</Text>
+                        <Text>
+                          <Text strong>{currentResult.transactions?.length || 0}</Text> 笔交易
+                        </Text>
+                      </Space>
+                      <Space>
+                        <Button onClick={handleSingleReselectFile}>重新选择文件</Button>
+                        <Button
+                          style={{ background: '#52c41a', color: '#fff', borderColor: '#52c41a' }}
                           loading={loading}
-                        />
-                      </Card>
-                    </>
+                          onClick={handleOpenVoucherModal}
+                        >
+                          导出凭证
+                        </Button>
+                      </Space>
+                    </div>
                   )}
 
                   {/* 解析失败 */}
                   {(!currentResult.success || !currentResult.transactions?.length) && (
-                    <>
-                      <ResultCard
-                        bank={currentResult.bank || detectInfo.bank || '未知'}
-                        docType={currentResult.docType || detectInfo.docType || '未知'}
-                        isManual={false}
-                        transactionCount={0}
-                        error={currentResult.error || '解析失败'}
-                        onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
-                        onModifyConfig={openSingleOverride}
-                        onReselectFile={handleSingleReselectFile}
+                    <ResultCard
+                      bank={currentResult.bank || detectInfo.bank || '未知'}
+                      docType={currentResult.docType || detectInfo.docType || '未知'}
+                      isManual={false}
+                      transactionCount={0}
+                      error={currentResult.error || '解析失败'}
+                      onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
+                      onModifyConfig={openSingleOverride}
+                      onReselectFile={handleSingleReselectFile}
+                    />
+                  )}
+
+                  {/* 交易列表 */}
+                  {currentResult.success && currentResult.transactions?.length > 0 && (
+                    <Card title="交易列表">
+                      <TransactionTable
+                        transactions={currentResult.transactions}
+                        loading={loading}
                       />
-                    </>
+                    </Card>
                   )}
                 </>
               )}
