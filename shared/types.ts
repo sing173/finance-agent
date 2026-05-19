@@ -53,7 +53,7 @@ export interface Transaction {
   amount: number; // 单位：元，正数为收入，负数为支出
   currency: string; // "CNY"
   balance?: number;
-  direction: "income" | "expense" | "transfer";
+  direction: "income" | "expense";
   counterparty?: string;
   reference_number?: string;
   notes?: string | null;

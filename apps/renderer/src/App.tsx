@@ -56,7 +56,8 @@ function App() {
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
 
   // ====== 加载 ======
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);  // 单文件解析
+  const [connecting, setConnecting] = useState(false);  // 测试连接
 
   // ====== 批量编排 ======
   const batch = useBatchOrchestrator({
@@ -105,7 +106,7 @@ function App() {
 
   // ====== 连接测试 ======
   const testConnection = useCallback(async () => {
-    setLoading(true);
+    setConnecting(true);
     try {
       const result = await window.electronAPI.health();
       setBackendStatus(`正常 (v${result.version})`);
@@ -114,7 +115,7 @@ function App() {
       setBackendStatus(`离线: ${error instanceof Error ? error.message : String(error)}`);
       message.error('后端连接失败');
     } finally {
-      setLoading(false);
+      setConnecting(false);
     }
   }, []);
 
@@ -422,7 +423,7 @@ function App() {
                 <Text strong>{backendStatus}</Text>
               </div>
               <Space style={{ marginBottom: 16 }}>
-                <Button type="primary" loading={loading} onClick={testConnection}>
+                <Button type="primary" loading={connecting} onClick={testConnection}>
                   测试连接
                 </Button>
                 <Button loading={importSubjectsLoading} onClick={handleImportSubjects}>
@@ -468,6 +469,13 @@ function App() {
                   onModifyConfig={openSingleOverride}
                   onConfirmParse={handleSingleConfirmParse}
                 />
+              )}
+
+              {/* 解析进行中 */}
+              {loading && !currentResult && (
+                <Card title="正在解析...">
+                  <Text type="secondary">正在解析文件，请稍候...</Text>
+                </Card>
               )}
 
               {/* 解析结果展示 */}

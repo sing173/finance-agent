@@ -115,19 +115,7 @@ def handle_generate_excel(params: dict) -> dict:
         return {"success": False, "error": "缺少 transactions 参数"}
 
     try:
-        from datetime import datetime
-        from decimal import Decimal
-        transactions = []
-        for t in transactions_data:
-            transactions.append(Transaction(
-                date=datetime.strptime(t['date'], '%Y-%m-%d').date(),
-                description=t.get('description', ''),
-                amount=Decimal(str(t.get('amount', 0))),
-                currency=t.get('currency', 'CNY'),
-                direction=t.get('direction', 'expense'),
-                counterparty=t.get('counterparty'),
-                reference_number=t.get('reference_number'),
-            ))
+        transactions = [Transaction.from_dict(t) for t in transactions_data]
 
         builder = _excel_builder.ExcelBuilder()
         excel_path = builder.build(transactions, output_path)
@@ -157,23 +145,7 @@ def handle_generate_voucher_excel(params: dict) -> dict:
         return {"success": False, "error": "缺少 transactions 参数"}
 
     try:
-        from datetime import datetime
-        from decimal import Decimal
-
-        transactions = []
-        for t in transactions_data:
-            transactions.append(Transaction(
-                date=datetime.strptime(t['date'], '%Y-%m-%d').date(),
-                description=t.get('description', ''),
-                amount=Decimal(str(t.get('amount', 0))),
-                currency=t.get('currency', 'CNY'),
-                direction=t.get('direction', 'expense'),
-                counterparty=t.get('counterparty'),
-                reference_number=t.get('reference_number'),
-                notes=t.get('notes'),
-                account_number=t.get('account_number'),
-                account_name=t.get('account_name'),
-            ))
+        transactions = [Transaction.from_dict(t) for t in transactions_data]
 
         # 加载内置科目（config/subjects.json）
         subjects = _load_built_in_subjects()
@@ -228,20 +200,7 @@ def _parse_cmb_excel(file_path: str) -> dict:
         from finance_agent_backend.tools import cmb_excel_parser
         parser = cmb_excel_parser.CMBExcelParser()
         result = parser.parse(file_path)
-        transactions = []
-        for t in result.transactions:
-            transactions.append({
-                "date": t.date.isoformat(),
-                "description": t.description,
-                "amount": float(t.amount),
-                "currency": t.currency,
-                "direction": t.direction,
-                "counterparty": t.counterparty,
-                "reference_number": t.reference_number,
-                "notes": t.notes,
-                "account_number": t.account_number,
-                "account_name": t.account_name,
-            })
+        transactions = [t.to_dict() for t in result.transactions]
         return {
             "success": True, "transactions": transactions,
             "bank": result.bank,
@@ -260,20 +219,7 @@ def _parse_icbc_csv(file_path: str) -> dict:
         from finance_agent_backend.tools import icbc_csv_parser
         parser = icbc_csv_parser.ICBCCSVParser()
         result = parser.parse(file_path)
-        transactions = []
-        for t in result.transactions:
-            transactions.append({
-                "date": t.date.isoformat(),
-                "description": t.description,
-                "amount": float(t.amount),
-                "currency": t.currency,
-                "direction": t.direction,
-                "counterparty": t.counterparty,
-                "reference_number": t.reference_number,
-                "notes": t.notes,
-                "account_number": t.account_number,
-                "account_name": t.account_name,
-            })
+        transactions = [t.to_dict() for t in result.transactions]
         return {
             "success": True, "transactions": transactions,
             "bank": result.bank,
