@@ -69,7 +69,7 @@ export function BatchFileSelector({
   const getStatusTag = (file: BatchFileResult) => {
     if (file.status === 'success') return <Tag color="green">解析成功</Tag>;
     if (file.status === 'failed') return <Tag color="red">解析失败</Tag>;
-    if (file.bank && file.bank !== '未知') return <Tag color="blue">已检测</Tag>;
+    if (file.bank && file.bank !== '未知') return <Tag color={file.isManual ? 'purple' : 'blue'}>{file.isManual ? '已设置' : '已检测'}</Tag>;
     return <Tag>待检测</Tag>;
   };
 

@@ -7,9 +7,6 @@ let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
   const preloadPath = path.resolve(__dirname, 'preload.js');
-  console.log('[main] __dirname:', __dirname);
-  console.log('[main] preloadPath:', preloadPath);
-  console.log('[main] preload exists:', require('fs').existsSync(preloadPath));
 
   mainWindow = new BrowserWindow({
     width: 1200,

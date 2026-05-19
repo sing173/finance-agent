@@ -52,7 +52,7 @@ function App() {
 
   // ====== 单文件检测阶段 ======
   const [detectState, setDetectState] = useState<DetectState>('idle');
-  const [detectInfo, setDetectInfo] = useState<{ bank: string; docType: string }>({ bank: '', docType: '' });
+  const [detectInfo, setDetectInfo] = useState<{ bank: string; docType: string; isManual: boolean }>({ bank: '', docType: '', isManual: false });
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
 
   // ====== 加载 ======
@@ -143,7 +143,7 @@ function App() {
     setCurrentResult(null);
     setBatchResult(null);
     setDetectState('detecting');
-    setDetectInfo({ bank: '', docType: '' });
+    setDetectInfo({ bank: '', docType: '', isManual: false });
 
     try {
       const ext = filePath.toLowerCase().split('.').pop();
@@ -154,16 +154,16 @@ function App() {
       const detected = result?.results?.[0];
 
       if (detected && detected.status === 'ok' && detected.bank && detected.bank !== '未知银行') {
-        setDetectInfo({ bank: detected.bank, docType: detected.docType || 'unknown' });
+        setDetectInfo({ bank: detected.bank, docType: detected.docType || 'unknown', isManual: false });
         setDetectState('detected');
         message.success(`检测到：${detected.bank} · ${detected.docType || 'unknown'}`);
       } else {
-        setDetectInfo({ bank: '未知', docType: 'unknown' });
+        setDetectInfo({ bank: '未知', docType: 'unknown', isManual: false });
         setDetectState('unknown');
         message.warning('未能自动识别银行类型');
       }
     } catch (error: unknown) {
-      setDetectInfo({ bank: '未知', docType: 'unknown' });
+      setDetectInfo({ bank: '未知', docType: 'unknown', isManual: false });
       setDetectState('unknown');
       message.error('检测失败：' + (error instanceof Error ? error.message : String(error)));
     }
@@ -189,7 +189,7 @@ function App() {
       if (result.success) {
         setCurrentResult(result);
         setDetectState('detected');
-        setDetectInfo({ bank: result.bank || bank, docType: result.docType || docType });
+        setDetectInfo({ bank: result.bank || bank, docType: result.docType || docType, isManual: false });
         message.success(`解析成功，共 ${result.transactions?.length || 0} 笔交易`);
       } else {
         message.error(`解析失败：${result.error}`);
@@ -203,7 +203,7 @@ function App() {
 
   // ====== 单文件：从 fallback 手动设置配置（不解析） ======
   const handleSingleOverrideConfirm = useCallback((bank: string, docType: string, _forceOcr: boolean) => {
-    setDetectInfo({ bank, docType });
+    setDetectInfo({ bank, docType, isManual: true });
     setDetectState('detected');
     setOverrideModalOpen(false);
   }, []);
@@ -233,9 +233,10 @@ function App() {
       fileCount: filePaths.length,
       isPdfOnly: allPdf,
       onConfirm: (bank: string, docType: string, _forceOcr: boolean) => {
+        setOverrideModalOpen(false);
         // 只更新检测值，不触发解析
         for (const fp of filePaths) {
-          batch.updateFile(fp, { bank, docType, error: undefined });
+          batch.updateFile(fp, { bank, docType, error: undefined, isManual: true });
         }
       },
     });
@@ -289,8 +290,9 @@ function App() {
       fileCount: 1,
       isPdfOnly,
       onConfirm: (bank: string, docType: string, _forceOcr: boolean) => {
+        setOverrideModalOpen(false);
         // 只更新检测值，不触发解析
-        batch.updateFile(filePath, { bank, docType, error: undefined });
+        batch.updateFile(filePath, { bank, docType, error: undefined, isManual: true });
       },
     });
     setOverrideModalOpen(true);
@@ -399,6 +401,7 @@ function App() {
                   statementDate={currentResult?.statementDate}
                   error={currentResult?.error}
                   detectUnknown={detectUnknown}
+                  isManual={detectInfo.isManual}
                   onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
                   onModifyConfig={openSingleOverride}
                   onStartParse={handleSingleConfirmParse}

@@ -101,6 +101,7 @@ export interface BatchFileResult {
   docType: string;
   statementDate?: string;
   status: 'pending' | 'success' | 'failed' | 'cancelled';
+  isManual?: boolean;
   transactions?: Transaction[];
   error?: string;
   transactionCount: number;

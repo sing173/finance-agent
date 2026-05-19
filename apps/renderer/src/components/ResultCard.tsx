@@ -12,6 +12,7 @@ interface ResultCardProps {
   statementDate?: string;
   error?: string;
   detectUnknown?: boolean;
+  isManual?: boolean;
   onRedetect: () => void;
   onModifyConfig: () => void;
   onStartParse: () => void;
@@ -29,6 +30,7 @@ export function ResultCard({
   statementDate,
   error,
   detectUnknown,
+  isManual = false,
   onRedetect,
   onModifyConfig,
   onStartParse,
@@ -40,15 +42,6 @@ export function ResultCard({
   const beforeParse = phase === 'detect' || phase === 'parsing';
   const afterParse = phase === 'success' || phase === 'failed';
 
-  const tagColor = isParsing
-    ? 'processing'
-    : detectUnknown
-    ? 'warning'
-    : isSuccess
-    ? 'success'
-    : isFailed
-    ? 'error'
-    : 'blue';
   const tagText = isParsing
     ? '解析中...'
     : detectUnknown
@@ -57,7 +50,20 @@ export function ResultCard({
     ? '解析成功'
     : isFailed
     ? '解析失败'
+    : isManual
+    ? '已设置'
     : '已检测';
+  const tagColor = isParsing
+    ? 'processing'
+    : detectUnknown
+    ? 'warning'
+    : isSuccess
+    ? 'success'
+    : isFailed
+    ? 'error'
+    : isManual
+    ? 'purple'
+    : 'blue';
 
   const borderColor = isParsing
     ? '#1677ff'
