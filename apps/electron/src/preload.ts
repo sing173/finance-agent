@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   health: () => ipcRenderer.invoke('health'),
@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ocrPDF: (params: any) => ipcRenderer.invoke('ocr_pdf', params),
   selectFile: (filter: string, allowMulti?: boolean) => ipcRenderer.invoke('select_file', { filter, allowMulti: !!allowMulti }),
   saveFileDialog: (params?: any) => ipcRenderer.invoke('save_file_dialog', params),
+
+  // 拖拽文件 → 获取真实路径
+  getFilePath: (file: File) => webUtils.getPathForFile(file),
 
   // 监听 Python 进程状态变化
   onPythonStatus: (callback: (status: string) => void) => {

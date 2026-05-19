@@ -29,6 +29,7 @@ declare global {
       saveFileDialog: (params?: any) => Promise<string | null>;
       detectBanks: (filePaths: string[]) => Promise<any>;
       detectSupportedBanks: () => Promise<any>;
+      getFilePath: (file: File) => string;
       onPythonStatus: (callback: (status: string) => void) => void;
       getPythonStatus: () => Promise<string>;
     };
