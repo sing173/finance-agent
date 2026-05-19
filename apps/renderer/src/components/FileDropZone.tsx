@@ -24,7 +24,7 @@ export function FileDropZone({ onFilesSelected }: FileDropZoneProps) {
       title="上传交易流水文件"
       hoverable
       style={{
-        height: '100%',
+        height: 200,
         cursor: 'pointer',
         border: '2px dashed #1677ff33',
         transition: 'border-color 0.2s',
@@ -34,7 +34,6 @@ export function FileDropZone({ onFilesSelected }: FileDropZoneProps) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 140,
         padding: '24px 16px',
       }}
       onClick={handleSelectFile}

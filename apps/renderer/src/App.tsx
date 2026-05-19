@@ -553,12 +553,9 @@ function App() {
             </Card>
 
             {/* 统一文件选择入口 */}
-            <Card
-              title={mode === 'single' ? '单文件解析' : '批量解析'}
-              style={{ flex: 1, minWidth: 400 }}
-            >
+            <div style={{ flex: 1, minWidth: 400 }}>
               <FileDropZone onFilesSelected={handleFilesSelected} />
-            </Card>
+            </div>
           </div>
 
           {/* ====== 单文件模式视图 ====== */}
