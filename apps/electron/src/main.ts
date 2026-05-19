@@ -6,11 +6,16 @@ import { setupIpcHandlers } from './ipc';
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
+  const preloadPath = path.resolve(__dirname, 'preload.js');
+  console.log('[main] __dirname:', __dirname);
+  console.log('[main] preloadPath:', preloadPath);
+  console.log('[main] preload exists:', require('fs').existsSync(preloadPath));
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: path.resolve(__dirname, 'preload.js'),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
     },

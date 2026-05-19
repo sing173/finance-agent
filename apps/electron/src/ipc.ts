@@ -38,8 +38,6 @@ const HANDLERS: HandlerDef[] = [
   { channel: 'get-python-status',       method: null,                  expose: false },
 ];
 
-// Channels that need access to event.sender (BrowserWindow)
-const EVENT_CHANNELS = new Set(['select_file', 'save_file_dialog', 'parse_pdf', 'get_file_path']);
 
 export function setupIpcHandlers() {
   for (const h of HANDLERS) {
@@ -101,6 +99,4 @@ export function setupIpcHandlers() {
   app.on('before-quit', () => {});
 }
 
-// Expose registry for preload type generation
-export const EXPOSED_CHANNELS = HANDLERS.filter(h => h.expose).map(h => h.channel);
 

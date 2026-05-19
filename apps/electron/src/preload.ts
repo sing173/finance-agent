@@ -1,17 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { EXPOSED_CHANNELS } from './ipc';
-
-// Dev-mode assertion: preload and ipc.ts registry must agree on exposed channels
-console.log('[preload] script loaded');  // DEBUG
-if (process.env.NODE_ENV !== 'production') {
-  const defined = ['health', 'parsePDF', 'parsePdf', 'generateExcel', 'generateVoucher',
-    'importSubjects', 'getSubjectsInfo', 'ocrPDF', 'selectFile', 'saveFileDialog',
-    'detectBanks', 'detectSupportedBanks'];
-  const missing = EXPOSED_CHANNELS.filter(c => !defined.includes(c));
-  if (missing.length > 0) {
-    console.warn('[preload] Channels in ipc.ts registry but missing from preload type:', missing);
-  }
-}
 
 contextBridge.exposeInMainWorld('electronAPI', {
   health: () => ipcRenderer.invoke('health'),
@@ -35,7 +22,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ========== 文件上传方案新增 RPC ==========
 
-  detectBanks: (filePaths: string[]) => ipcRenderer.invoke('detect-banks', { filePaths }),
-  detectSupportedBanks: () => ipcRenderer.invoke('detect-supported-banks'),
+  detectBanks: (filePaths: string[]) => ipcRenderer.invoke('detect_banks', { file_paths: filePaths }),
+  detectSupportedBanks: () => ipcRenderer.invoke('detect_supported_banks'),
 });
 
