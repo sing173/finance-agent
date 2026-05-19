@@ -201,12 +201,12 @@ function App() {
     }
   }, []);
 
-  // ====== 单文件：从 fallback 确认解析 ======
-  const handleSingleOverrideConfirm = useCallback((bank: string, docType: string, forceOcr: boolean) => {
-    if (currentFilePath) {
-      handleSingleFileParse(currentFilePath, bank, docType, forceOcr);
-    }
-  }, [currentFilePath, handleSingleFileParse]);
+  // ====== 单文件：从 fallback 手动设置配置（不解析） ======
+  const handleSingleOverrideConfirm = useCallback((bank: string, docType: string, _forceOcr: boolean) => {
+    setDetectInfo({ bank, docType });
+    setDetectState('detected');
+    setOverrideModalOpen(false);
+  }, []);
 
   // ====== 打开单文件 fallback 模态框 ======
   const openSingleOverride = useCallback(() => {
@@ -232,12 +232,15 @@ function App() {
     setOverrideContext({
       fileCount: filePaths.length,
       isPdfOnly: allPdf,
-      onConfirm: (bank: string, docType: string, forceOcr: boolean) => {
-        batch.retryFailedFiles(filePaths, bank, docType, forceOcr);
+      onConfirm: (bank: string, docType: string, _forceOcr: boolean) => {
+        // 只更新检测值，不触发解析
+        for (const fp of filePaths) {
+          batch.updateFile(fp, { bank, docType, error: undefined });
+        }
       },
     });
     setOverrideModalOpen(true);
-  }, [batch.retryFailedFiles]);
+  }, [batch.updateFile]);
 
   // ====== 导入科目表 ======
   const handleImportSubjects = useCallback(async () => {

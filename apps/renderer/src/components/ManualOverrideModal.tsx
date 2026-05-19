@@ -83,7 +83,7 @@ export function ManualOverrideModal({
           disabled={!bank}
           onClick={handleConfirm}
         >
-          解析
+          确定
         </Button>,
       ]}
       width={480}
