@@ -158,9 +158,10 @@ class ExcelBuilder:
         """加载 config 目录下的默认配置文件。打包后使用 sys._MEIPASS。"""
         if getattr(sys, 'frozen', False):
             base = sys._MEIPASS
+            config_dir = os.path.join(base, 'finance_agent_backend', 'config')
         else:
             base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        config_dir = os.path.join(base, 'finance_agent_backend', 'config')
+            config_dir = os.path.join(base, 'config')
         config_path = os.path.join(config_dir, filename)
         with open(config_path, 'r', encoding='utf-8') as f:
             return json.load(f)
