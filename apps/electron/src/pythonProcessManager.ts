@@ -1,6 +1,52 @@
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
-import { getPythonSpawnConfig } from './pathUtils';
+import * as path from 'path';
+import * as fs from 'fs';
+
+function getResourcesPath(): string | undefined {
+  try {
+    return (process as any).resourcesPath;
+  } catch {
+    return undefined;
+  }
+}
+
+function isElectronPackaged(): boolean {
+  try {
+    const { app } = require('electron');
+    return app.isPackaged === true;
+  } catch {
+    return false;
+  }
+}
+
+function getPythonSpawnConfig(): { cmd: string; args: string[]; cwd: string } {
+  if (process.env.PYTHON_CMD) {
+    const scriptPath = path.resolve(__dirname, '..', '..', 'python', 'src', 'finance_agent_backend', 'bridge.py');
+    return { cmd: process.env.PYTHON_CMD, args: [scriptPath], cwd: path.dirname(scriptPath) };
+  }
+  if (isElectronPackaged()) {
+    const resourcesPath = getResourcesPath();
+    if (resourcesPath) {
+      const ext = process.platform === 'win32' ? '.exe' : '';
+      const exePath = path.join(resourcesPath, 'python', 'bridge' + ext);
+      if (!fs.existsSync(exePath)) {
+        console.error(`[PathUtils] bridge executable not found: ${exePath}`);
+        throw new Error(`bridge executable not found: ${exePath}`);
+      }
+      console.log('[PathUtils] Packaged mode, using:', exePath);
+      return { cmd: exePath, args: [], cwd: path.dirname(exePath) };
+    }
+    console.warn('[PathUtils] Packaged mode but resourcesPath unavailable, falling back to dev mode');
+  }
+  const isWindows = process.platform === 'win32';
+  const venvBinDir = isWindows ? 'Scripts' : 'bin';
+  const pythonExe = isWindows ? 'python.exe' : 'python3';
+  const venvPython = path.resolve(__dirname, '..', '..', 'python', '.venv', venvBinDir, pythonExe);
+  const scriptPath = path.resolve(__dirname, '..', '..', 'python', 'src', 'finance_agent_backend', 'bridge.py');
+  console.log('[PathUtils] Dev mode, using:', venvPython, scriptPath);
+  return { cmd: venvPython, args: [scriptPath], cwd: path.dirname(scriptPath) };
+}
 
 export class PythonProcessManager extends EventEmitter {
   private process: ChildProcess | null = null;

@@ -139,6 +139,7 @@ function App() {
   // ====== 单文件：检测银行 ======
   const handleSingleFileDetect = useCallback(async (filePath: string) => {
     setCurrentFilePath(filePath);
+    setCurrentResult(null);
     setBatchResult(null);
     setDetectState('detecting');
     setDetectInfo({ bank: '', docType: '' });

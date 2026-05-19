@@ -1,4 +1,16 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { EXPOSED_CHANNELS } from './ipc';
+
+// Dev-mode assertion: preload and ipc.ts registry must agree on exposed channels
+if (process.env.NODE_ENV !== 'production') {
+  const defined = ['health', 'parsePDF', 'parsePdf', 'generateExcel', 'generateVoucher',
+    'importSubjects', 'getSubjectsInfo', 'ocrPDF', 'selectFile', 'saveFileDialog',
+    'detectBanks', 'detectSupportedBanks'];
+  const missing = EXPOSED_CHANNELS.filter(c => !defined.includes(c));
+  if (missing.length > 0) {
+    console.warn('[preload] Channels in ipc.ts registry but missing from preload type:', missing);
+  }
+}
 
 contextBridge.exposeInMainWorld('electronAPI', {
   health: () => ipcRenderer.invoke('health'),
