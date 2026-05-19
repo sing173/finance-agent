@@ -7,6 +7,7 @@ import { ManualOverrideModal } from './components/ManualOverrideModal';
 import { BatchFileSelector } from './components/BatchFileSelector';
 import { BatchResultPanel } from './components/BatchResultPanel';
 import { useBatchOrchestrator } from './hooks/useBatchOrchestrator';
+import { useVoucherExport } from './hooks/useVoucherExport';
 import type { BatchResult } from '@shared/types';
 
 const { Header, Content, Footer } = Layout;
@@ -65,10 +66,8 @@ function App() {
     },
   });
 
-  // ====== 凭证导出 ======
-  const [voucherModalOpen, setVoucherModalOpen] = useState(false);
-  const [voucherLoading, setVoucherLoading] = useState(false);
-  const [period, setPeriod] = useState('');
+  // ====== 凭证导出（单文件 + 批量统一） ======
+  const voucherExport = useVoucherExport();
 
   // ====== 科目管理 ======
   const [importSubjectsLoading, setImportSubjectsLoading] = useState(false);
@@ -130,7 +129,7 @@ function App() {
     } else {
       // 批量模式
       setMode('batch');
-      setVoucherModalOpen(false);
+      voucherExport.closeModal();
       batch.clearFiles();
       batch.addFiles(filePaths);
     }
@@ -238,58 +237,6 @@ function App() {
     setOverrideModalOpen(true);
   }, [batch.retryFailedFiles]);
 
-  // ====== 导出凭证（单文件 + 批量共用） ======
-  const handleOpenVoucherModal = useCallback(() => {
-    const txns = mode === 'single'
-      ? (currentResult?.transactions || [])
-      : (batchResult?.files.flatMap((f) => f.status === 'success' ? (f.transactions || []) : []) || []);
-    if (!period && txns?.length) {
-      const dates: string[] = txns.map((t: any) => t.date as string);
-      dates.sort();
-      const earliest = dates[0];
-      const [y, m] = earliest.split('-');
-      setPeriod(`${y}年${Number(m)}月`);
-    }
-    setVoucherModalOpen(true);
-  }, [mode, currentResult, batchResult, period]);
-
-  const handleExportVoucher = useCallback(async () => {
-    const txns = mode === 'single'
-      ? (currentResult?.transactions || [])
-      : (batchResult?.files.flatMap((f) => f.status === 'success' ? (f.transactions || []) : []) || []);
-    if (!txns?.length) {
-      message.warning('没有可导出的交易数据');
-      return;
-    }
-
-    const defaultName = `voucher_${period || Date.now()}.xlsx`;
-    const outputPath = await window.electronAPI.saveFileDialog({
-      title: '保存凭证 Excel',
-      defaultPath: defaultName,
-    });
-    if (!outputPath) return;
-
-    setVoucherLoading(true);
-    try {
-      const result = await window.electronAPI.generateVoucher({
-        transactions: txns,
-        output_path: outputPath,
-        period,
-      });
-
-      if (result.success) {
-        message.success(`凭证已导出: ${result.excel_path}`);
-        setVoucherModalOpen(false);
-      } else {
-        message.error(`导出失败：${result.error}`);
-      }
-    } catch (error: unknown) {
-      message.error(`导出出错：${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setVoucherLoading(false);
-    }
-  }, [mode, currentResult, batchResult, period]);
-
   // ====== 导入科目表 ======
   const handleImportSubjects = useCallback(async () => {
     const filePath = await window.electronAPI.selectFile('xlsx');
@@ -369,37 +316,8 @@ function App() {
     const allTxns = batchResult.files.flatMap((f) =>
       f.status === 'success' ? (f.transactions || []) : []
     );
-    if (!allTxns.length) {
-      message.warning('没有可导出的交易数据');
-      return;
-    }
-
-    const defaultName = `batch_voucher_${Date.now()}.xlsx`;
-    const outputPath = await window.electronAPI.saveFileDialog({
-      title: '保存凭证 Excel',
-      defaultPath: defaultName,
-    });
-    if (!outputPath) return;
-
-    setVoucherLoading(true);
-    try {
-      const result = await window.electronAPI.generateVoucher({
-        transactions: allTxns,
-        output_path: outputPath,
-        period,
-      });
-      if (result.success) {
-        message.success(`凭证已导出: ${result.excel_path}`);
-      } else {
-        message.error(`导出失败：${result.error}`);
-      }
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      message.error(`导出出错：${msg}`);
-    } finally {
-      setVoucherLoading(false);
-    }
-  }, [batchResult, period]);
+    await voucherExport.exportVoucher(allTxns);
+  }, [batchResult, voucherExport]);
 
   // ====== 辅助 ======
   const detectUnknown = detectState === 'unknown';
@@ -479,7 +397,7 @@ function App() {
                   onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
                   onModifyConfig={openSingleOverride}
                   onStartParse={handleSingleConfirmParse}
-                  onExportVoucher={handleOpenVoucherModal}
+                  onExportVoucher={() => voucherExport.openModal(currentResult?.transactions || [])}
                 />
               )}
 
@@ -546,11 +464,13 @@ function App() {
       {/* 导出凭证弹窗 */}
       <Modal
         title="导出凭证（金蝶精斗云格式）"
-        open={voucherModalOpen}
-        onCancel={() => setVoucherModalOpen(false)}
+        open={voucherExport.voucherModalOpen}
+        onCancel={voucherExport.closeModal}
         footer={[
-          <Button key="cancel" onClick={() => setVoucherModalOpen(false)}>取消</Button>,
-          <Button key="export" type="primary" loading={voucherLoading} onClick={handleExportVoucher}>
+          <Button key="cancel" onClick={voucherExport.closeModal}>取消</Button>,
+          <Button key="export" type="primary" loading={voucherExport.voucherLoading} onClick={() => voucherExport.exportVoucher(
+            mode === 'single' ? (currentResult?.transactions || []) : (batchResult?.files.flatMap((f) => f.status === 'success' ? (f.transactions || []) : []) || [])
+          )}>
             选择保存路径并导出
           </Button>,
         ]}
@@ -562,8 +482,8 @@ function App() {
             help="例如：2026年3月、2026年第3期"
           >
             <Input
-              value={period}
-              onChange={e => setPeriod(e.target.value)}
+              value={voucherExport.period}
+              onChange={e => voucherExport.setPeriod(e.target.value)}
               placeholder="2026年3月"
             />
           </Form.Item>
