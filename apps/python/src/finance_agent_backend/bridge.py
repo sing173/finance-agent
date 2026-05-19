@@ -173,28 +173,6 @@ def handle_parse_csv(params: dict) -> dict:
         return {"success": False, "error": "缺少 filePath 参数"}
     return _parse_icbc_csv(file_path)
 
-
-@register_method("ocr_pdf")
-def handle_ocr_pdf(params: dict) -> dict:
-    """OCR 识别 PDF（扫描件/图片型 PDF）"""
-    file_path = params.get("filePath")
-    pages = params.get("pages")  # optional list of page numbers
-    dpi = params.get("dpi", 200)
-
-    if not file_path:
-        return {"success": False, "error": "缺少 filePath 参数"}
-
-    try:
-        ocr = _pdf_ocr.PDFOCR(dpi=dpi)
-        result = ocr.extract(file_path, pages=pages)
-        return {"success": True, **result}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-
-
-
 def _parse_icbc_csv(file_path: str) -> dict:
     """解析工行 CSV 对账流水，返回与 parse_pdf 兼容的结果 (lazy import)"""
     try:
@@ -402,3 +380,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

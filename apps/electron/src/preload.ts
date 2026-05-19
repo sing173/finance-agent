@@ -8,7 +8,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   generateVoucher: (params: any) => ipcRenderer.invoke('generate_voucher_excel', params),
   importSubjects: (params: any) => ipcRenderer.invoke('import_subjects', params),
   getSubjectsInfo: () => ipcRenderer.invoke('get_subjects_info', {}),
-  ocrPDF: (params: any) => ipcRenderer.invoke('ocr_pdf', params),
   selectFile: (filter: string, allowMulti?: boolean) => ipcRenderer.invoke('select_file', { filter, allowMulti: !!allowMulti }),
   saveFileDialog: (params?: any) => ipcRenderer.invoke('save_file_dialog', params),
 

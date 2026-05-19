@@ -200,7 +200,6 @@ finance-assistant/
 │               ├── icbc_receipt_parser.py    # ICBC receipt parser (OCR-based)
 │               ├── icbc_receipt_grid_parser.py # ICBC receipt grid-line parser
 │               ├── gfb_table_parser.py   # GFB (广发银行) table-format PDF parser
-│               ├── pdf_ocr.py        # RapidOCR wrapper for scanned PDFs
 │               ├── excel_builder.py  # Transaction → Excel + voucher export
 │               └── subject_loader.py # Import accounting subjects from xlsx
 ├── shared/              # Shared type definitions (TypeScript)
@@ -232,8 +231,7 @@ finance-assistant/
 |--------|-------------|-------|
 | `health` | Backend status, version, Python version | v0.1.0 |
 | `parse_pdf` | Parse bank statement (auto-routes PDF/CSV/Excel by extension and content) | v0.1.0 |
-| `parse_csv` | Direct ICBC CSV parsing shortcut | v0.1.0 |
-| `ocr_pdf` | OCR scanned/image PDF to text | v0.1.0 |
+| `parse_csv` | Direct ICBC CSV parsing shortcut (deprecated, use parse_pdf) | v0.1.0 |
 | `generate_excel` | Export transaction list to Excel (.xlsx) | v0.1.0 |
 | `generate_voucher_excel` | Export transactions as Kingdee Jingdouyun voucher template | v0.1.0 |
 | `import_subjects` | Import accounting subjects from xlsx → built-in subjects.json | v0.1.0 |

@@ -26,7 +26,6 @@ const HANDLERS: HandlerDef[] = [
   { channel: 'generate_voucher_excel',  method: 'generate_voucher_excel', expose: true },
   { channel: 'import_subjects',         method: 'import_subjects',     expose: true  },
   { channel: 'get_subjects_info',       method: 'get_subjects_info',   expose: true  },
-  { channel: 'ocr_pdf',                 method: 'ocr_pdf',             expose: true  },
   { channel: 'detect_banks',            method: 'detect_banks',        expose: true  },
   { channel: 'detect_supported_banks',  method: 'detect_supported_banks', expose: true },
 

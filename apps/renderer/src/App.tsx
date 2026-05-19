@@ -24,7 +24,6 @@ declare global {
       generateVoucher: (params: any) => Promise<any>;
       importSubjects: (params: any) => Promise<any>;
       getSubjectsInfo: () => Promise<any>;
-      ocrPDF: (params: any) => Promise<any>;
       selectFile: (filter?: string, allowMulti?: boolean) => Promise<string[] | string | null>;
       saveFileDialog: (params?: any) => Promise<string | null>;
       detectBanks: (filePaths: string[]) => Promise<any>;
