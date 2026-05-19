@@ -463,7 +463,7 @@ function App() {
                   isManual={false}
                   transactionCount={0}
                   statementDate={undefined}
-                  error={detectUnknown ? '未能自动识别银行类型' : undefined}
+                  detectUnknown={detectUnknown}
                   onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
                   onModifyConfig={openSingleOverride}
                   onConfirmParse={handleSingleConfirmParse}

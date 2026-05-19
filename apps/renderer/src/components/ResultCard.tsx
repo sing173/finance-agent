@@ -9,6 +9,7 @@ interface ResultCardProps {
   transactionCount: number;
   statementDate?: string;
   error?: string;
+  detectUnknown?: boolean;
   onRedetect: () => void;
   onModifyConfig: () => void;
   onConfirmParse?: () => void;
@@ -21,32 +22,38 @@ export function ResultCard({
   transactionCount,
   statementDate,
   error,
+  detectUnknown,
   onRedetect,
   onModifyConfig,
   onConfirmParse,
 }: ResultCardProps) {
   const isSuccess = !error && transactionCount > 0;
+  const isDetectFail = detectUnknown || false;
 
   return (
     <Card
       style={{
-        borderColor: error ? '#ff4d4f' : isSuccess ? '#52c41a' : undefined,
+        borderColor: isDetectFail ? '#faad14' : error ? '#ff4d4f' : isSuccess ? '#52c41a' : undefined,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <Tag
           color={
-            error
+            isDetectFail
+              ? 'warning'
+              : error
               ? 'error'
               : isSuccess
               ? 'success'
               : 'default'
           }
         >
-          {error ? '失败' : isSuccess ? '成功' : '检测中'}
+          {isDetectFail ? '识别失败' : error ? '失败' : isSuccess ? '成功' : '检测中'}
         </Tag>
 
-        {error ? (
+        {isDetectFail ? (
+          <Text type="warning">未能自动识别银行类型</Text>
+        ) : error ? (
           <Text type="danger">解析失败：{error}</Text>
         ) : (
           <Text>
