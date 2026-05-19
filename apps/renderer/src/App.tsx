@@ -408,39 +408,6 @@ function App() {
     openBatchOverride(filePaths);
   }, [openBatchOverride]);
 
-  // ====== 批量：导出 Excel（合并所有成功文件） ======
-  const handleBatchExportExcel = useCallback(async () => {
-    if (!batchResult) return;
-    const allTxns = batchResult.files.flatMap((f) =>
-      f.status === 'success' ? (f.transactions || []) : []
-    );
-    if (!allTxns.length) {
-      message.warning('没有可导出的交易数据');
-      return;
-    }
-
-    setCurrentStep(1);
-    setLoading(true);
-    try {
-      const outputPath = `batch_statement_${Date.now()}.xlsx`;
-      const result = await window.electronAPI.generateExcel({
-        transactions: allTxns,
-        output_path: outputPath,
-      });
-      setCurrentStep(2);
-      if (result.success) {
-        message.success(`批量 Excel 已导出: ${result.excel_path}`);
-      } else {
-        message.error(`导出失败：${result.error}`);
-      }
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      message.error(`导出出错：${msg}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [batchResult]);
-
   // ====== 批量：导出凭证（合并所有成功文件） ======
   const handleBatchExportVoucher = useCallback(async () => {
     if (!batchResult) return;
@@ -647,7 +614,6 @@ function App() {
                 <BatchResultPanel
                   files={batchResult.files}
                   onRetry={handleBatchRetry}
-                  onExportExcel={handleBatchExportExcel}
                   onExportVoucher={handleBatchExportVoucher}
                 />
               )}

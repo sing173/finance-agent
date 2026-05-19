@@ -9,14 +9,12 @@ const { Text } = Typography;
 interface BatchResultPanelProps {
   files: BatchFileResult[];
   onRetry: (filePaths: string[]) => void;
-  onExportExcel: () => void;
   onExportVoucher: () => void;
 }
 
 export function BatchResultPanel({
   files,
   onRetry,
-  onExportExcel,
   onExportVoucher,
 }: BatchResultPanelProps) {
   const [expandAll, setExpandAll] = useState(false);
@@ -137,13 +135,6 @@ export function BatchResultPanel({
         </Space>
 
         <Space>
-          <Button
-            type="primary"
-            onClick={onExportExcel}
-            disabled={successFiles.length === 0}
-          >
-            全部导出 Excel（成功 {successFiles.length}）
-          </Button>
           <Button
             onClick={onExportVoucher}
             disabled={successFiles.length === 0}
