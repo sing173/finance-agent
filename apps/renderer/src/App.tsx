@@ -346,22 +346,6 @@ function App() {
     }
   }, []);
 
-  // ====== 切换模式（互斥） ======
-  const switchMode = useCallback((newMode: 'single' | 'batch') => {
-    setMode(newMode);
-    setOverrideModalOpen(false);
-    if (newMode === 'single') {
-      setBatchResult(null);
-      batch.clearFiles();
-    } else {
-      setCurrentResult(null);
-      setCurrentStep(0);
-      setProcessingTimeMs(0);
-      setVoucherModalOpen(false);
-      batch.clearFiles();
-    }
-  }, [batch.clearFiles]);
-
   // ====== 单文件结果卡片 handlers ======
   const handleSingleReselectFile = useCallback(() => {
     setCurrentResult(null);
@@ -423,24 +407,6 @@ function App() {
   const handleBatchRetry = useCallback((filePaths: string[]) => {
     openBatchOverride(filePaths);
   }, [openBatchOverride]);
-
-  // ====== 批量：查看详情 ======
-  const handleBatchViewDetail = useCallback((filePath: string) => {
-    const file = batchResult?.files.find((f) => f.filePath === filePath);
-    if (!file || file.status !== 'success') return;
-
-    setCurrentResult({
-      success: true,
-      transactions: file.transactions || [],
-      bank: file.bank,
-      statementDate: file.statementDate,
-      confidence: 1,
-      errors: [],
-      warnings: [],
-      _filePath: filePath,
-    });
-    switchMode('single');
-  }, [batchResult, switchMode]);
 
   // ====== 批量：导出 Excel（合并所有成功文件） ======
   const handleBatchExportExcel = useCallback(async () => {
@@ -681,7 +647,6 @@ function App() {
                 <BatchResultPanel
                   files={batchResult.files}
                   onRetry={handleBatchRetry}
-                  onViewDetail={handleBatchViewDetail}
                   onExportExcel={handleBatchExportExcel}
                   onExportVoucher={handleBatchExportVoucher}
                 />

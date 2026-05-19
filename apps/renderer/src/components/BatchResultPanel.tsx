@@ -9,7 +9,6 @@ const { Text } = Typography;
 interface BatchResultPanelProps {
   files: BatchFileResult[];
   onRetry: (filePaths: string[]) => void;
-  onViewDetail: (filePath: string) => void;
   onExportExcel: () => void;
   onExportVoucher: () => void;
 }
@@ -17,7 +16,6 @@ interface BatchResultPanelProps {
 export function BatchResultPanel({
   files,
   onRetry,
-  onViewDetail,
   onExportExcel,
   onExportVoucher,
 }: BatchResultPanelProps) {
@@ -85,17 +83,10 @@ export function BatchResultPanel({
       let body: React.ReactNode = null;
       if (isSuccess && file.transactions && file.transactions.length > 0) {
         body = (
-          <div>
-            <TransactionTable
-              transactions={file.transactions}
-              loading={false}
-            />
-            <div style={{ marginTop: 12, textAlign: 'right' }}>
-              <Button onClick={() => onViewDetail(file.filePath)}>
-                查看详情
-              </Button>
-            </div>
-          </div>
+          <TransactionTable
+            transactions={file.transactions}
+            loading={false}
+          />
         );
       } else if (isFailed) {
         body = (
@@ -179,8 +170,10 @@ export function BatchResultPanel({
       {/* 折叠面板 */}
       <Collapse
         items={getCollapseItems()}
-        defaultActiveKey={expandAll ? sortedFiles.map((f) => f.filePath) : []}
-        activeKey={expandAll ? sortedFiles.map((f) => f.filePath) : []}
+        {...(expandAll
+          ? { activeKey: sortedFiles.map((f) => f.filePath) }
+          : { defaultActiveKey: [] }
+        )}
       />
     </div>
   );
