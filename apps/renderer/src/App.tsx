@@ -26,7 +26,7 @@ declare global {
       getSubjectsInfo: () => Promise<any>;
       ocrPDF: (params: any) => Promise<any>;
       chat: (msg: string, sessionKey?: string) => Promise<any>;
-      selectFile: (filter?: string) => Promise<string | null>;
+      selectFile: (filter?: string, allowMulti?: boolean) => Promise<string[] | string | null>;
       saveFileDialog: (params?: any) => Promise<string | null>;
       detectBanks: (filePaths: string[]) => Promise<any>;
       detectSupportedBanks: () => Promise<any>;
@@ -41,11 +41,19 @@ type OverrideContext = {
   onConfirm: (bank: string, docType: string, forceOcr: boolean) => void;
 };
 
+// 单文件检测阶段状态
+type DetectState = 'idle' | 'detecting' | 'detected' | 'unknown';
+
 function App() {
   // ====== 模式 & 结果 ======
   const [mode, setMode] = useState<'single' | 'batch'>('single');
   const [currentResult, setCurrentResult] = useState<any>(null);
   const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
+
+  // ====== 单文件检测阶段 ======
+  const [detectState, setDetectState] = useState<DetectState>('idle');
+  const [detectInfo, setDetectInfo] = useState<{ bank: string; docType: string }>({ bank: '', docType: '' });
+  const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
 
   // ====== 加载 & 进度 ======
   const [loading, setLoading] = useState(false);
@@ -56,17 +64,8 @@ function App() {
   const batch = useBatchOrchestrator({
     onComplete: (result) => {
       setBatchResult(result);
-      if (result.failedCount > 0) {
-        const failedPaths = result.files
-          .filter((f) => f.status === 'failed')
-          .map((f) => f.filePath);
-        openBatchOverride(failedPaths);
-      }
     },
   });
-
-  // 单文件 fallback 用：记录最近一次通过文件选择打开的文件
-  const [batchSingleFilePath] = useState<string | null>(null);
 
   // ====== 凭证导出 ======
   const [voucherModalOpen, setVoucherModalOpen] = useState(false);
@@ -121,38 +120,63 @@ function App() {
     }
   }, []);
 
-  // ====== 单文件：选择文件 → 检测 → 解析 ======
-  const handleFileSelected = useCallback(async (filePath: string) => {
-    if (!filePath) return;
+  // ====== 统一入口：选择文件 → 根据数量决定模式 ======
+  const handleFilesSelected = useCallback((filePaths: string[]) => {
+    if (!filePaths || filePaths.length === 0) return;
+
+    if (filePaths.length === 1) {
+      // 单文件模式
+      setMode('single');
+      setBatchResult(null);
+      setCurrentStep(0);
+      setProcessingTimeMs(0);
+      handleSingleFileDetect(filePaths[0]);
+    } else {
+      // 批量模式
+      setMode('batch');
+      setCurrentResult(null);
+      setCurrentStep(0);
+      setProcessingTimeMs(0);
+      setVoucherModalOpen(false);
+      batch.clearFiles();
+      batch.addFiles(filePaths);
+    }
+  }, [batch]);
+
+  // ====== 单文件：检测银行 ======
+  const handleSingleFileDetect = useCallback(async (filePath: string) => {
+    setCurrentFilePath(filePath);
     setCurrentResult(null);
-    setLoading(true);
-    setCurrentStep(0);
-    const startTime = Date.now();
+    setDetectState('detecting');
+    setDetectInfo({ bank: '', docType: '' });
 
     try {
       const ext = filePath.toLowerCase().split('.').pop();
       const fileType = ext === 'csv' ? 'CSV' : 'PDF';
-      message.info(`正在解析${fileType}文件...`);
+      message.info(`正在检测${fileType}文件...`);
 
-      const result = await window.electronAPI.parsePDF(filePath);
-      setCurrentStep(1);
-      setProcessingTimeMs(Date.now() - startTime);
+      const result = await window.electronAPI.detectBanks([filePath]);
+      const detected = result?.results?.[0];
 
-      if (result.success) {
-        setCurrentResult(result);
-        message.success(`解析成功，共 ${result.transactions?.length || 0} 笔交易`);
+      if (detected && detected.status === 'ok' && detected.bank && detected.bank !== '未知银行') {
+        setDetectInfo({ bank: detected.bank, docType: detected.docType || 'unknown' });
+        setDetectState('detected');
+        message.success(`检测到：${detected.bank} · ${detected.docType || 'unknown'}`);
       } else {
-        message.error(`解析失败：${result.error}`);
+        setDetectInfo({ bank: '未知', docType: 'unknown' });
+        setDetectState('unknown');
+        message.warning('未能自动识别银行类型');
       }
     } catch (error: unknown) {
-      message.error(`解析出错：${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setLoading(false);
+      setDetectInfo({ bank: '未知', docType: 'unknown' });
+      setDetectState('unknown');
+      message.error('检测失败：' + (error instanceof Error ? error.message : String(error)));
     }
   }, []);
 
-  // ====== 单文件：手动覆盖后解析 ======
+  // ====== 单文件：确认解析 ======
   const handleSingleFileParse = useCallback(async (filePath: string, bank: string, docType: string, forceOcr: boolean) => {
+    if (!filePath) return;
     setLoading(true);
     setCurrentStep(0);
     const startTime = Date.now();
@@ -170,6 +194,8 @@ function App() {
 
       if (result.success) {
         setCurrentResult(result);
+        setDetectState('detected');
+        setDetectInfo({ bank: result.bank || bank, docType: result.docType || docType });
         message.success(`解析成功，共 ${result.transactions?.length || 0} 笔交易`);
       } else {
         message.error(`解析失败：${result.error}`);
@@ -181,24 +207,24 @@ function App() {
     }
   }, []);
 
+  // ====== 单文件：从 fallback 确认解析 ======
+  const handleSingleOverrideConfirm = useCallback((bank: string, docType: string, forceOcr: boolean) => {
+    if (currentFilePath) {
+      handleSingleFileParse(currentFilePath, bank, docType, forceOcr);
+    }
+  }, [currentFilePath, handleSingleFileParse]);
+
   // ====== 打开单文件 fallback 模态框 ======
   const openSingleOverride = useCallback(() => {
-    setOverrideInitialBank(currentResult?.bank || '');
-    setOverrideInitialDocType('');
+    setOverrideInitialBank(detectInfo.bank || '');
+    setOverrideInitialDocType(detectInfo.docType || '');
     setOverrideInitialOcr(false);
     setOverrideContext({
       fileCount: 1,
-      onConfirm: (bank: string, docType: string, forceOcr: boolean) => {
-        // 单文件 fallback：需要文件路径，从 batchSingleFilePath 或重新选择
-        // 这里复用当前结果中的信息，重新解析
-        handleSingleFileParse(
-          currentResult?._filePath || batchSingleFilePath || '',
-          bank, docType, forceOcr,
-        );
-      },
+      onConfirm: handleSingleOverrideConfirm,
     });
     setOverrideModalOpen(true);
-  }, [currentResult, batchSingleFilePath, handleSingleFileParse]);
+  }, [detectInfo, handleSingleOverrideConfirm]);
 
   // ====== 打开批量 fallback 模态框 ======
   const openBatchOverride = useCallback((filePaths: string[]) => {
@@ -213,8 +239,6 @@ function App() {
     });
     setOverrideModalOpen(true);
   }, [batch]);
-
-  // ====== 批量：解析失败文件 → 委托给 orchestrator ======
 
   // ====== 导出 Excel ======
   const handleExportExcel = useCallback(async () => {
@@ -329,35 +353,53 @@ function App() {
     }
   }, [batch]);
 
-  // ====== 单文件模式有解析结果时的导出按钮 ======
-  const singleFileHasResult = currentResult?.success && currentResult?.transactions?.length > 0;
-
-  // ====== 匹配数 ======
-  const matchedCount = currentResult?.transactions?.length || 0;
-
   // ====== 单文件结果卡片 handlers ======
-  const handleSingleRedetect = useCallback(async () => {
-    const filePath = await window.electronAPI.selectFile('all');
-    if (filePath) await handleFileSelected(filePath);
-  }, [handleFileSelected]);
-
-  const handleSingleModifyConfig = useCallback(() => {
-    openSingleOverride();
-  }, [openSingleOverride]);
-
   const handleSingleReselectFile = useCallback(() => {
     setCurrentResult(null);
+    setDetectState('idle');
+    setDetectInfo({ bank: '', docType: '' });
+    setCurrentFilePath(null);
     setCurrentStep(0);
     setProcessingTimeMs(0);
   }, []);
 
-  // ====== 批量：addFiles / detectAndParse / clear ======
+  // ====== 单文件：确认解析按钮（检测阶段） ======
+  const handleSingleConfirmParse = useCallback(() => {
+    if (currentFilePath) {
+      handleSingleFileParse(currentFilePath, detectInfo.bank, detectInfo.docType, false);
+    }
+  }, [currentFilePath, detectInfo, handleSingleFileParse]);
+
+  // ====== 批量：开始解析 ======
+  const handleBatchStartParse = useCallback(() => {
+    batch.parseOnly();
+  }, [batch]);
+
+  // ====== 批量：修改单文件配置（不解析） ======
+  const handleBatchModifyConfig = useCallback((filePath: string) => {
+    const file = batch.files.find((f) => f.filePath === filePath);
+    if (!file) return;
+
+    setOverrideInitialBank(file.bank || '');
+    setOverrideInitialDocType(file.docType || '');
+    setOverrideInitialOcr(false);
+    setOverrideContext({
+      fileCount: 1,
+      onConfirm: (bank: string, docType: string, _forceOcr: boolean) => {
+        // 只更新检测值，不触发解析
+        batch.updateFile(filePath, { bank, docType, error: undefined });
+      },
+    });
+    setOverrideModalOpen(true);
+  }, [batch]);
+
+  // ====== 批量：addFiles / detectOnly / parse / clear ======
   const handleBatchAddFiles = useCallback((filePaths: string[]) => {
     batch.addFiles(filePaths);
   }, [batch]);
 
-  const handleBatchDetectAndParse = useCallback(() => {
-    batch.detectAndParse();
+  const handleBatchDetectOnly = useCallback(() => {
+    batch.detectOnly();
   }, [batch]);
 
   const handleBatchClear = useCallback(() => {
@@ -365,7 +407,7 @@ function App() {
     setBatchResult(null);
   }, [batch]);
 
-  // ====== 批量：重试单个失败文件 → 直接打开 fallback ======
+  // ====== 批量：重试单个失败文件 ======
   const handleBatchRetry = useCallback((filePaths: string[]) => {
     openBatchOverride(filePaths);
   }, [openBatchOverride]);
@@ -375,7 +417,6 @@ function App() {
     const file = batchResult?.files.find((f) => f.filePath === filePath);
     if (!file || file.status !== 'success') return;
 
-    // 切换到单文件模式，展示该文件详情
     setCurrentResult({
       success: true,
       transactions: file.transactions || [],
@@ -460,6 +501,9 @@ function App() {
     }
   }, [batchResult, period]);
 
+  // ====== 辅助 ======
+  const detectUnknown = detectState === 'unknown';
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Header style={{ background: '#001529', padding: '0 24px' }}>
@@ -470,7 +514,7 @@ function App() {
       <Content style={{ padding: '20px 24px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-          {/* ====== 第一行：系统设置 + 模式入口 ====== */}
+          {/* ====== 第一行：系统设置 + 文件选择 ====== */}
           <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
             {/* 系统设置卡片 */}
             <Card title="系统设置" style={{ width: 400, flexShrink: 0, height: 200 }}>
@@ -496,100 +540,104 @@ function App() {
               </div>
             </Card>
 
-            {/* 模式入口 */}
-            <div style={{ flex: 1, display: 'flex', gap: 16, minWidth: 400 }}>
-              {/* 单文件入口 */}
-              <Card
-                hoverable
-                onClick={() => switchMode('single')}
-                style={{
-                  flex: 1,
-                  borderColor: mode === 'single' ? '#1677ff' : undefined,
-                  borderWidth: mode === 'single' ? 2 : 1,
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                  <Title level={4} style={{ marginBottom: 8 }}>单文件解析</Title>
-                  <Text type="secondary">选择单个文件进行解析</Text>
-                </div>
-              </Card>
-
-              {/* 批量入口 */}
-              <Card
-                hoverable
-                onClick={() => switchMode('batch')}
-                style={{
-                  flex: 1,
-                  borderColor: mode === 'batch' ? '#1677ff' : undefined,
-                  borderWidth: mode === 'batch' ? 2 : 1,
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                  <Title level={4} style={{ marginBottom: 8 }}>批量解析</Title>
-                  <Text type="secondary">一次解析多个同类型文件</Text>
-                </div>
-              </Card>
-            </div>
+            {/* 统一文件选择入口 */}
+            <Card
+              title={mode === 'single' ? '单文件解析' : '批量解析'}
+              style={{ flex: 1, minWidth: 400 }}
+            >
+              <FileDropZone onFilesSelected={handleFilesSelected} />
+            </Card>
           </div>
 
           {/* ====== 单文件模式视图 ====== */}
           {mode === 'single' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-              {/* 文件上传 */}
-              <FileDropZone onFileSelected={handleFileSelected} />
+              {/* 检测阶段：展示结果 + [确认解析] / [修改配置] */}
+              {detectState === 'detecting' && (
+                <Card title="检测中">
+                  <Text type="secondary">正在识别银行类型...</Text>
+                </Card>
+              )}
 
-              {/* 结果卡片 */}
-              {currentResult && !loading && (
+              {(detectState === 'detected' || detectState === 'unknown') && (
                 <ResultCard
-                  bank={currentResult.bank || '未知'}
-                  docType={currentResult.docType || currentResult._docType || '未知'}
-                  isManual={!!(currentResult as any)._isManual}
-                  transactionCount={matchedCount}
-                  statementDate={currentResult.statementDate}
-                  error={currentResult.success ? undefined : currentResult.error}
-                  onRedetect={handleSingleRedetect}
-                  onModifyConfig={handleSingleModifyConfig}
+                  bank={detectInfo.bank || '未知'}
+                  docType={detectInfo.docType || '未知'}
+                  isManual={false}
+                  transactionCount={0}
+                  statementDate={undefined}
+                  error={detectUnknown ? '未能自动识别银行类型' : undefined}
+                  onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
+                  onModifyConfig={openSingleOverride}
                   onReselectFile={handleSingleReselectFile}
+                  onConfirmParse={detectState === 'detected' ? handleSingleConfirmParse : undefined}
                 />
               )}
 
-              {/* 导出操作区 */}
-              {singleFileHasResult && (
-                <Card title="导出">
-                  <Space>
-                    <Button type="primary" loading={loading} onClick={handleExportExcel}>
-                      导出 Excel（流水表）
-                    </Button>
-                    <Button
-                      type="primary"
-                      style={{ background: '#52c41a', borderColor: '#52c41a' }}
-                      loading={loading}
-                      onClick={handleOpenVoucherModal}
-                    >
-                      导出凭证（精斗云）
-                    </Button>
-                    <Button onClick={handleSingleReselectFile}>重新选择文件</Button>
-                  </Space>
-                </Card>
+              {/* 解析结果展示 */}
+              {currentResult && (
+                <>
+                  {/* 解析成功 */}
+                  {currentResult.success && currentResult.transactions?.length > 0 && (
+                    <>
+                      <Card title="导出">
+                        <Space>
+                          <Button type="primary" loading={loading} onClick={handleExportExcel}>
+                            导出 Excel（流水表）
+                          </Button>
+                          <Button
+                            type="primary"
+                            style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                            loading={loading}
+                            onClick={handleOpenVoucherModal}
+                          >
+                            导出凭证（精斗云）
+                          </Button>
+                          <Button onClick={handleSingleReselectFile}>重新选择文件</Button>
+                        </Space>
+                      </Card>
+
+                      {(loading || currentStep > 0) && (
+                        <Card title="处理进度">
+                          <ProgressSteps currentStep={currentStep} processingTime={processingTimeMs} />
+                        </Card>
+                      )}
+
+                      <Card title="交易列表">
+                        <TransactionTable
+                          transactions={currentResult.transactions}
+                          loading={loading}
+                        />
+                      </Card>
+                    </>
+                  )}
+
+                  {/* 解析失败 */}
+                  {(!currentResult.success || !currentResult.transactions?.length) && (
+                    <>
+                      <Card title="处理进度">
+                        <ProgressSteps currentStep={currentStep} processingTime={processingTimeMs} />
+                      </Card>
+                      <ResultCard
+                        bank={currentResult.bank || detectInfo.bank || '未知'}
+                        docType={currentResult.docType || detectInfo.docType || '未知'}
+                        isManual={false}
+                        transactionCount={0}
+                        error={currentResult.error || '解析失败'}
+                        onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
+                        onModifyConfig={openSingleOverride}
+                        onReselectFile={handleSingleReselectFile}
+                      />
+                    </>
+                  )}
+                </>
               )}
 
-              {/* 进度条 */}
-              {(loading || currentStep > 0) && (
+              {/* 解析进行中 */}
+              {loading && detectState === 'detected' && !currentResult && (
                 <Card title="处理进度">
                   <ProgressSteps currentStep={currentStep} processingTime={processingTimeMs} />
-                </Card>
-              )}
-
-              {/* 交易表格 */}
-              {currentResult?.transactions && (
-                <Card title="交易列表">
-                  <TransactionTable
-                    transactions={currentResult.transactions}
-                    loading={loading}
-                  />
                 </Card>
               )}
             </div>
@@ -603,9 +651,20 @@ function App() {
                 onAddFiles={handleBatchAddFiles}
                 onRemoveFile={batch.removeFile}
                 onClear={handleBatchClear}
-                onDetectAndParse={handleBatchDetectAndParse}
-                isParsing={batch.isParsing}
+                onDetect={handleBatchDetectOnly}
+                onStartParse={handleBatchStartParse}
+                onModifyConfig={handleBatchModifyConfig}
+                isDetecting={batch.isParsing && batch.totalCount === 0}
+                isParsing={batch.isParsing && batch.totalCount > 0}
+                detectDone={batch.totalCount > 0 && !batch.isParsing}
               />
+
+              {/* 批量解析进度 */}
+              {batch.isParsing && batch.currentIndex > 0 && batch.totalCount > 0 && (
+                <Card title={`正在解析 ${batch.currentIndex}/${batch.totalCount}`}>
+                  <ProgressSteps currentStep={currentStep} processingTime={processingTimeMs} />
+                </Card>
+              )}
 
               {batchResult && (
                 <BatchResultPanel
@@ -615,13 +674,6 @@ function App() {
                   onExportExcel={handleBatchExportExcel}
                   onExportVoucher={handleBatchExportVoucher}
                 />
-              )}
-
-              {/* 批量解析进度 */}
-              {batch.isParsing && batch.currentIndex > 0 && batch.result && (
-                <Card title={`正在解析 ${batch.currentIndex}/${batch.result.totalFiles}`}>
-                  <ProgressSteps currentStep={currentStep} processingTime={processingTimeMs} />
-                </Card>
               )}
             </div>
           )}

@@ -3,22 +3,21 @@ import { message, Card } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 
 interface FileDropZoneProps {
-  onFileSelected: (filePath: string) => void;
+  onFilesSelected: (filePaths: string[]) => void;
 }
 
-export function FileDropZone({ onFileSelected }: FileDropZoneProps) {
+export function FileDropZone({ onFilesSelected }: FileDropZoneProps) {
   const handleSelectFile = useCallback(async () => {
     try {
-      // 支持 PDF、CSV、Excel 文件
-      const filePath = await window.electronAPI?.selectFile?.('all');
-      if (filePath) {
-        onFileSelected(filePath);
-        message.success(`已选择: ${filePath.split(/[/\\]/).pop()}`);
+      // 支持 PDF、CSV、Excel 文件，允许多选
+      const result = await window.electronAPI?.selectFile?.('all', true);
+      if (result && Array.isArray(result)) {
+        onFilesSelected(result);
       }
     } catch (error: any) {
       message.error('文件选择失败：' + error.message);
     }
-  }, [onFileSelected]);
+  }, [onFilesSelected]);
 
   return (
     <Card

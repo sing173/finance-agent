@@ -1,10 +1,9 @@
 import { useState, useCallback, useRef } from 'react';
+import { message } from 'antd';
 import type { BatchFileResult, BatchResult } from '@shared/types';
 
 interface UseBatchOrchestratorOptions {
-  /** 最大文件数量限制，0 表示不限制 */
   maxFiles?: number;
-  /** 解析完成回调 */
   onComplete?: (result: BatchResult) => void;
 }
 
@@ -20,8 +19,10 @@ interface BatchOrchestrator {
   addFiles: (filePaths: string[]) => void;
   removeFile: (filePath: string) => void;
   clearFiles: () => void;
+  updateFile: (filePath: string, patch: Partial<BatchFileResult>) => void;
 
-  detectAndParse: () => Promise<void>;
+  detectOnly: () => Promise<void>;
+  parseOnly: () => Promise<void>;
   retryFailedFiles: (filePaths: string[], bank: string, docType: string, forceOcr: boolean) => Promise<void>;
 
   getResult: () => BatchResult | null;
@@ -75,43 +76,77 @@ export function useBatchOrchestrator(
     setFiles((prev) => prev.filter((f) => f.filePath !== filePath));
   }, []);
 
+  const updateFile = useCallback((filePath: string, patch: Partial<BatchFileResult>) => {
+    setFiles((prev) =>
+      prev.map((f) => (f.filePath === filePath ? { ...f, ...patch } : f)),
+    );
+  }, []);
+
   const clearFiles = useCallback(() => {
     setFiles([]);
     setCurrentIndex(0);
   }, []);
 
-  const detectAndParse = useCallback(async () => {
+  const detectOnly = useCallback(async () => {
     if (isParsing || files.length === 0) return;
     setIsParsing(true);
-
     try {
       const detectResp = await (window as any).electronAPI?.detectBanks?.(
         files.map((f) => f.filePath),
       );
 
-      const detectMap: Record<string, { bank: string; docType: string }> = {};
+      interface DetectEntry {
+        bank: string;
+        docType: string;
+        status: 'ok' | 'failed';
+      }
+      const detectMap: Record<string, DetectEntry> = {};
       if (detectResp?.success && detectResp.results) {
         detectResp.results.forEach((r: any) => {
-          detectMap[r.filePath] = { bank: r.bank, docType: r.docType };
+          detectMap[r.filePath] = {
+            bank: r.bank,
+            docType: r.docType,
+            status: r.status || 'ok',
+          };
         });
       }
 
-      const updatedFiles: BatchFileResult[] = files.map((f) => ({
-        ...f,
-        bank: detectMap[f.filePath]?.bank || f.bank || '',
-        docType: detectMap[f.filePath]?.docType || f.docType || 'unknown',
-      }));
-      setFiles(updatedFiles);
+      setFiles((prev) =>
+        prev.map((f) => {
+          const detected = detectMap[f.filePath];
+          if (!detected) return f;
+          return {
+            ...f,
+            bank: detected.bank,
+            docType: detected.docType,
+            status: detected.status === 'ok' ? 'pending' : 'failed',
+            error: detected.status === 'failed' ? '检测失败' : f.error,
+          };
+        }),
+      );
+    } catch (err: any) {
+      message.error('检测失败：' + err.message);
+    } finally {
+      setIsParsing(false);
+    }
+  }, [files, isParsing]);
 
+  const parseOnly = useCallback(async () => {
+    if (isParsing || files.length === 0) return;
+    setIsParsing(true);
+    setCurrentIndex(0);
+
+    try {
       const results: BatchFileResult[] = [];
 
-      for (let i = 0; i < updatedFiles.length; i++) {
-        const file = updatedFiles[i];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
         setCurrentIndex(i + 1);
 
         try {
           const params: any = { filePath: file.filePath };
           if (file.bank) params.bank = file.bank;
+          if (file.docType) params.docType = file.docType;
 
           const r = await (window as any).electronAPI?.parsePdf?.(params);
 
@@ -179,48 +214,62 @@ export function useBatchOrchestrator(
         if (docType) params.docType = docType;
         if (forceOcr) params.forceOcr = true;
 
-        const result = await (window as any).electronAPI?.parsePdf?.(params);
+        const r = await (window as any).electronAPI?.parsePdf?.(params);
 
-        if (result.success) {
-          const newFile: BatchFileResult = {
-            filePath: fp,
-            fileName: fp.split(/[/\\]/).pop() || fp,
-            bank: result.bank || bank,
-            docType: result.docType || docType,
-            statementDate: result.statementDate,
-            status: 'success',
-            transactions: result.transactions,
-            transactionCount: result.transactions?.length || 0,
-          };
-          setFiles((prev) => [...prev.filter((f) => f.filePath !== fp), newFile]);
+        if (r.success) {
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.filePath === fp
+                ? {
+                    filePath: fp,
+                    fileName: fp.split(/[/\\]/).pop() || fp,
+                    bank: r.bank || bank,
+                    docType: r.docType || docType,
+                    statementDate: r.statementDate,
+                    status: 'success' as const,
+                    transactions: r.transactions,
+                    transactionCount: r.transactions?.length || 0,
+                  }
+                : f,
+            ),
+          );
         } else {
-          const newFile: BatchFileResult = {
-            filePath: fp,
-            fileName: fp.split(/[/\\]/).pop() || fp,
-            bank,
-            docType,
-            status: 'failed',
-            error: result.error,
-            transactionCount: 0,
-          };
-          setFiles((prev) => [...prev.filter((f) => f.filePath !== fp), newFile]);
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.filePath === fp
+                ? {
+                    filePath: fp,
+                    fileName: fp.split(/[/\\]/).pop() || fp,
+                    bank,
+                    docType,
+                    status: 'failed' as const,
+                    error: r.error,
+                    transactionCount: 0,
+                  }
+                : f,
+            ),
+          );
         }
       } catch (err: any) {
-        const newFile: BatchFileResult = {
-          filePath: fp,
-          fileName: fp.split(/[/\\]/).pop() || fp,
-          bank,
-          docType,
-          status: 'failed',
-          error: err.message,
-          transactionCount: 0,
-        };
-        setFiles((prev) => [...prev.filter((f) => f.filePath !== fp), newFile]);
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.filePath === fp
+              ? {
+                  filePath: fp,
+                  fileName: fp.split(/[/\\]/).pop() || fp,
+                  bank,
+                  docType,
+                  status: 'failed' as const,
+                  error: err.message,
+                  transactionCount: 0,
+                }
+              : f,
+          ),
+        );
       }
     }
-
     setCurrentIndex(0);
-  }, [files]);
+  }, []);
 
   const getResult = useCallback(() => result, [result]);
 
@@ -236,8 +285,11 @@ export function useBatchOrchestrator(
     addFiles,
     removeFile,
     clearFiles,
+    updateFile,
 
-    detectAndParse,
+    detectOnly,
+    parseOnly,
+
     retryFailedFiles,
 
     getResult,

@@ -12,6 +12,7 @@ interface ResultCardProps {
   onRedetect: () => void;
   onModifyConfig: () => void;
   onReselectFile: () => void;
+  onConfirmParse?: () => void;
 }
 
 export function ResultCard({
@@ -24,6 +25,7 @@ export function ResultCard({
   onRedetect,
   onModifyConfig,
   onReselectFile,
+  onConfirmParse,
 }: ResultCardProps) {
   const isSuccess = !error && transactionCount > 0;
 
@@ -68,6 +70,9 @@ export function ResultCard({
       <Space>
         {!error && (
           <Button onClick={onRedetect}>重新检测</Button>
+        )}
+        {onConfirmParse && (
+          <Button type="primary" onClick={onConfirmParse}>确认解析</Button>
         )}
         <Button onClick={onModifyConfig}>修改配置</Button>
         <Button onClick={onReselectFile}>重新选择文件</Button>
