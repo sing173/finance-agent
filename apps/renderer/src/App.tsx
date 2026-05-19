@@ -83,6 +83,8 @@ function App() {
 
   // ====== 启动时查询 ======
   useEffect(() => {
+    if (!window.electronAPI) return;
+
     const checkSubjects = async () => {
       try {
         const result = await window.electronAPI.getSubjectsInfo();

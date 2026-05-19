@@ -29,12 +29,14 @@ export function FileDropZone({ onFilesSelected }: FileDropZoneProps) {
         border: '2px dashed #1677ff33',
         transition: 'border-color 0.2s',
       }}
-      bodyStyle={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px 16px',
+      styles={{
+        body: {
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '24px 16px',
+        },
       }}
       onClick={handleSelectFile}
     >

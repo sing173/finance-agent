@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { EXPOSED_CHANNELS } from './ipc';
 
 // Dev-mode assertion: preload and ipc.ts registry must agree on exposed channels
+console.log('[preload] script loaded');  // DEBUG
 if (process.env.NODE_ENV !== 'production') {
   const defined = ['health', 'parsePDF', 'parsePdf', 'generateExcel', 'generateVoucher',
     'importSubjects', 'getSubjectsInfo', 'ocrPDF', 'selectFile', 'saveFileDialog',
