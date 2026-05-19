@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ========== 文件上传方案新增 RPC ==========
 
-  detectBanks: (filePaths: string[]) => ipcRenderer.invoke('detect-banks', { file_paths: filePaths }),
+  detectBanks: (filePaths: string[]) => ipcRenderer.invoke('detect-banks', { filePaths }),
   detectSupportedBanks: () => ipcRenderer.invoke('detect-supported-banks'),
 });
 

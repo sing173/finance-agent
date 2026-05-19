@@ -28,6 +28,8 @@ interface BatchOrchestrator {
   getResult: () => BatchResult | null;
 }
 
+type BatchPhase = 'idle' | 'detecting' | 'parsing';
+
 export function useBatchOrchestrator(
   opts: UseBatchOrchestratorOptions = {},
 ): BatchOrchestrator {
@@ -35,6 +37,7 @@ export function useBatchOrchestrator(
 
   const [files, setFiles] = useState<BatchFileResult[]>([]);
   const [isParsing, setIsParsing] = useState(false);
+  const [phase, setPhase] = useState<BatchPhase>('idle');
   const [currentIndex, setCurrentIndex] = useState(0);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
