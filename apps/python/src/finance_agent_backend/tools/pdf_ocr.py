@@ -9,6 +9,8 @@ import numpy as np
 from PIL import Image
 from rapidocr_onnxruntime import RapidOCR
 
+from .shared_utils import open_pdf
+
 
 class PDFOCR:
     """OCR for scanned/image-based PDFs."""
@@ -28,9 +30,7 @@ class PDFOCR:
 
         Returns dict with per-page text blocks and concatenated full_text.
         """
-        with open(file_path, "rb") as f:
-            pdf_bytes = f.read()
-        doc = fitz.open("pdf", pdf_bytes)
+        doc = open_pdf(file_path)
 
         results = []
         page_range = pages or range(len(doc))

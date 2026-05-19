@@ -75,9 +75,7 @@ class CMBTableParser(BaseStatementParser):
         7. 从表格区解析每行数据 → Transaction 列表
         8. 按日期排序后返回 ParseResult
         """
-        with open(file_path, 'rb') as f:
-            pdf_bytes = f.read()
-        doc = fitz.open('pdf', pdf_bytes)
+        doc = self._open_pdf(file_path)
 
         if len(doc) == 0:
             doc.close()

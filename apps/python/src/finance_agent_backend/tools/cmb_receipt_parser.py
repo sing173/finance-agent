@@ -49,9 +49,7 @@ class CMBReceiptParser(BaseStatementParser):
         errors: List[str] = []
 
         try:
-            with open(file_path, "rb") as f:
-                pdf_bytes = f.read()
-            doc = fitz.open("pdf", pdf_bytes)
+            doc = self._open_pdf(file_path)
         except Exception as e:
             return ParseResult(
                 transactions=[], bank=self.BANK_NAME,

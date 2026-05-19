@@ -61,9 +61,7 @@ class ICBCReceiptGridParser(BaseStatementParser):
         transactions: List[Transaction] = []
         errors: List[str] = []
 
-        with open(file_path, "rb") as f:
-            pdf_bytes = f.read()
-        doc = fitz.open("pdf", pdf_bytes)
+        doc = self._open_pdf(file_path)
 
         for page_num in range(len(doc)):
             try:

@@ -33,9 +33,7 @@ class CMBParser(BaseStatementParser):
 
     def parse(self, file_path: str) -> ParseResult:
         """解析招商银行 PDF 流水，传入文件路径"""
-        with open(file_path, 'rb') as f:
-            pdf_bytes = f.read()
-        doc = fitz.open('pdf', pdf_bytes)
+        doc = self._open_pdf(file_path)
 
         transactions = []
         errors = []

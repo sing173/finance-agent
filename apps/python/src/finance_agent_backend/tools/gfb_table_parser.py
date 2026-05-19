@@ -81,9 +81,7 @@ class GFBTableParser(BaseStatementParser):
         - 本期余额在页脚区
         - 金额分两列：本期支出 / 本期收入（互斥，不是正负号区分）
         """
-        with open(file_path, 'rb') as f:
-            pdf_bytes = f.read()
-        doc = fitz.open('pdf', pdf_bytes)
+        doc = self._open_pdf(file_path)
 
         if len(doc) == 0:
             doc.close()
