@@ -44,10 +44,14 @@ export function BatchFileSelector({
 
   // Load batch config dynamically
   useEffect(() => {
-    fetch('/batch_config.json')
+    const controller = new AbortController();
+    fetch('/batch_config.json', { signal: controller.signal })
       .then((r) => r.json())
       .then((data) => setMaxFiles(data.maxBatchFiles || 5))
-      .catch(() => setMaxFiles(5));
+      .catch((err) => {
+        if (err.name !== 'AbortError') setMaxFiles(5);
+      });
+    return () => controller.abort();
   }, []);
 
   const atLimit = files.length >= maxFiles;

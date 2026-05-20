@@ -8,7 +8,7 @@ import { BatchFileSelector } from './components/BatchFileSelector';
 import { BatchResultPanel } from './components/BatchResultPanel';
 import { useBatchOrchestrator } from './hooks/useBatchOrchestrator';
 import { useVoucherExport } from './hooks/useVoucherExport';
-import type { BatchResult } from '@shared/types';
+import type { BatchResult, Transaction } from '@shared/types';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
@@ -318,13 +318,22 @@ function App() {
   }, [openBatchOverride]);
 
   // ====== 批量：导出凭证（合并所有成功文件） ======
-  const handleBatchExportVoucher = useCallback(async () => {
-    if (!batchResult) return;
-    const allTxns = batchResult.files.flatMap((f) =>
+  const getTransactionsForExport = useCallback((): Transaction[] => {
+    if (mode === 'single') {
+      return currentResult?.transactions || [];
+    }
+    if (!batchResult) {
+      return [];
+    }
+    return batchResult.files.flatMap((f) =>
       f.status === 'success' ? (f.transactions || []) : []
     );
+  }, [mode, currentResult, batchResult]);
+
+  const handleBatchExportVoucher = useCallback(async () => {
+    const allTxns = getTransactionsForExport();
     await voucherExport.exportVoucher(allTxns);
-  }, [batchResult, voucherExport]);
+  }, [getTransactionsForExport, voucherExport]);
 
   // ====== 辅助 ======
   const detectUnknown = detectState === 'unknown';
@@ -476,9 +485,7 @@ function App() {
         onCancel={voucherExport.closeModal}
         footer={[
           <Button key="cancel" onClick={voucherExport.closeModal}>取消</Button>,
-          <Button key="export" type="primary" loading={voucherExport.voucherLoading} onClick={() => voucherExport.exportVoucher(
-            mode === 'single' ? (currentResult?.transactions || []) : (batchResult?.files.flatMap((f) => f.status === 'success' ? (f.transactions || []) : []) || [])
-          )}>
+          <Button key="export" type="primary" loading={voucherExport.voucherLoading} onClick={() => voucherExport.exportVoucher(getTransactionsForExport())}>
             选择保存路径并导出
           </Button>,
         ]}

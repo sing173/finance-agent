@@ -22,6 +22,12 @@ function isElectronPackaged(): boolean {
 
 function getPythonSpawnConfig(): { cmd: string; args: string[]; cwd: string } {
   if (process.env.PYTHON_CMD) {
+    // validate explicit path when provided
+    if (!fs.existsSync(process.env.PYTHON_CMD)) {
+      const msg = `PYTHON_CMD is set but executable not found: ${process.env.PYTHON_CMD}`;
+      console.error(`[PathUtils] ${msg}`);
+      throw new Error(msg);
+    }
     const scriptPath = path.resolve(__dirname, '..', '..', 'python', 'src', 'finance_agent_backend', 'bridge.py');
     return { cmd: process.env.PYTHON_CMD, args: [scriptPath], cwd: path.dirname(scriptPath) };
   }
@@ -43,6 +49,11 @@ function getPythonSpawnConfig(): { cmd: string; args: string[]; cwd: string } {
   const venvBinDir = isWindows ? 'Scripts' : 'bin';
   const pythonExe = isWindows ? 'python.exe' : 'python3';
   const venvPython = path.resolve(__dirname, '..', '..', 'python', '.venv', venvBinDir, pythonExe);
+  if (!fs.existsSync(venvPython)) {
+    const msg = `venv Python not found: ${venvPython}. Set PYTHON_CMD env var or create the virtualenv.`;
+    console.error(`[PathUtils] ${msg}`);
+    throw new Error(msg);
+  }
   const scriptPath = path.resolve(__dirname, '..', '..', 'python', 'src', 'finance_agent_backend', 'bridge.py');
   console.log('[PathUtils] Dev mode, using:', venvPython, scriptPath);
   return { cmd: venvPython, args: [scriptPath], cwd: path.dirname(scriptPath) };
