@@ -212,7 +212,6 @@ finance-assistant/
 │   ├── package.bat / package.sh   # Packaging scripts
 │   └── generate-test-cert.ps1     # Test cert generation
 ├── docs/                # Detailed documentation
-│   ├── architecture-analysis.md       # Comprehensive architecture analysis (v0.2.0)
 │   ├── file-upload-design.md          # File upload + batch mode design
 │   ├── file-upload-plan.md            # File upload implementation plan
 │   ├── file-upload-prd.md             # File upload PRD
