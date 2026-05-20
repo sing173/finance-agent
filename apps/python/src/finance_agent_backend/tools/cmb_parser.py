@@ -1,4 +1,4 @@
-"""招商银行 (CMB) 交易流水 PDF 解析器
+"""招商银行 (CMB) 个人交易流水 PDF 解析器
 
 CMB PDF 列式表格格式，每字段独占一行：
     Date (YYYY-MM-DD)
@@ -19,21 +19,21 @@ from typing import List, Optional
 
 from ..models import Transaction, ParseResult
 from .shared_utils import BANK_CMB
+from .base_parser import BaseStatementParser
 
 
-class CMBParser:
+class CMBParser(BaseStatementParser):
     """招商银行 PDF 银行流水解析器"""
 
     BANK_NAME = BANK_CMB
 
     def __init__(self):
+        super().__init__()
         self.confidence = 1.0
 
     def parse(self, file_path: str) -> ParseResult:
         """解析招商银行 PDF 流水，传入文件路径"""
-        with open(file_path, 'rb') as f:
-            pdf_bytes = f.read()
-        doc = fitz.open('pdf', pdf_bytes)
+        doc = self._open_pdf(file_path)
 
         transactions = []
         errors = []

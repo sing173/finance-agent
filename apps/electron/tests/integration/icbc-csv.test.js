@@ -13,13 +13,13 @@ async function main() {
   // Test 1: parse_csv (direct)
   console.log('[1/2] 测试 parse_csv 方法（直接解析 ICBC CSV）...');
   try {
-    const result = await pythonProcess.call('parse_csv', { file_path: CSV_FILE });
+    const result = await pythonProcess.call('parse_csv', { filePath: CSV_FILE });
     if (result.success) {
       console.log(`  ✅ 解析成功`);
       console.log(`     银行: ${result.bank}`);
       console.log(`     交易数: ${result.transactions?.length || 0}`);
-      console.log(`     期初余额: ${result.opening_balance}`);
-      console.log(`     期末余额: ${result.closing_balance}`);
+      console.log(`     期初余额: ${result.openingBalance}`);
+      console.log(`     期末余额: ${result.closingBalance}`);
       if (result.transactions?.length > 0) {
         console.log(`     首笔交易: ${result.transactions[0].date} ${result.transactions[0].description} ${result.transactions[0].amount}`);
         console.log(`     末笔交易: ${result.transactions[result.transactions.length - 1].date} ${result.transactions[result.transactions.length - 1].description} ${result.transactions[result.transactions.length - 1].amount}`);
@@ -36,7 +36,7 @@ async function main() {
   // Test 2: parse_pdf (auto-route by extension)
   console.log('\n[2/2] 测试 parse_pdf 方法（自动路由到 CSV 解析器）...');
   try {
-    const result = await pythonProcess.call('parse_pdf', { file_path: CSV_FILE });
+    const result = await pythonProcess.call('parse_pdf', { filePath: CSV_FILE });
     if (result.success) {
       console.log(`  ✅ 解析成功（自动路由）`);
       console.log(`     银行: ${result.bank}`);

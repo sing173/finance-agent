@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Literal
 
 
 @dataclass
@@ -11,12 +11,41 @@ class Transaction:
     description: str
     amount: Decimal
     currency: str = 'CNY'
-    direction: str = 'expense'  # 'income' or 'expense'
+    direction: Literal['income', 'expense'] = 'expense'
     counterparty: Optional[str] = None
     reference_number: Optional[str] = None
     notes: Optional[str] = None
     account_number: Optional[str] = None
     account_name: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return {
+            'date': self.date.isoformat(),
+            'description': self.description,
+            'amount': float(self.amount),
+            'currency': self.currency,
+            'direction': self.direction,
+            'counterparty': self.counterparty,
+            'reference_number': self.reference_number,
+            'notes': self.notes,
+            'account_number': self.account_number,
+            'account_name': self.account_name,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> 'Transaction':
+        return cls(
+            date=datetime.strptime(d['date'], '%Y-%m-%d').date(),
+            description=d.get('description', ''),
+            amount=Decimal(str(d.get('amount', 0))),
+            currency=d.get('currency', 'CNY'),
+            direction=d.get('direction', 'expense'),
+            counterparty=d.get('counterparty'),
+            reference_number=d.get('reference_number'),
+            notes=d.get('notes'),
+            account_number=d.get('account_number'),
+            account_name=d.get('account_name'),
+        )
 
 
 @dataclass

@@ -1,5 +1,5 @@
 """Bank statement PDF parser using PyMuPDF"""
-import fitz  # PyMuPDF
+import fitz
 import re
 import html
 from datetime import datetime
@@ -7,23 +7,30 @@ from typing import List, Optional
 from decimal import Decimal
 
 from ..models import Transaction, ParseResult
+from .shared_utils import (
+    BANK_ICBC, BANK_BOC, BANK_CCB, BANK_CMB,
+    parse_date_flexible,
+)
+from .base_parser import BaseStatementParser
+
+SUPPORTED_BANKS = [BANK_BOC, BANK_CMB, BANK_ICBC, BANK_CCB]
 
 
-class BankStatementParser:
-    """银行流水解析器"""
+class BankStatementParser(BaseStatementParser):
+    """银行流水解析器（通用回退）"""
 
-    SUPPORTED_BANKS = ['中国银行', '招商银行', '工商银行', '建设银行']
+    BANK_NAME = "通用"
 
     def __init__(self):
         self.confidence = 1.0
 
     def parse(self, file_path: str, bank: Optional[str] = None) -> ParseResult:
         """解析 PDF 银行流水"""
-        # fitz.open() 底层 mupdf C 库在 Windows 上不处理 Unicode 路径
-        # 先以二进制读入内存，再以字节流方式打开，绕过路径编码问题
-        with open(file_path, 'rb') as f:
-            pdf_bytes = f.read()
-        doc = fitz.open("pdf", pdf_bytes)
+        doc = self._open_pdf(file_path)
+
+        # 自动识别银行（如果未指定）
+        if not bank:
+            bank = self._detect_bank(doc)
         transactions = []
 
         # 自动识别银行（如果未指定）
@@ -63,7 +70,7 @@ class BankStatementParser:
             html_text = doc[i].get_text("html")
             sample_text += self._html_to_text(html_text)
 
-        for bank in self.SUPPORTED_BANKS:
+        for bank in SUPPORTED_BANKS:
             if bank in sample_text:
                 return bank
         return '未知银行'

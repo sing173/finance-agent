@@ -25,9 +25,10 @@ from typing import List, Optional, Dict, Any
 
 from ..models import Transaction, ParseResult
 from .shared_utils import BANK_ICBC, parse_date_iso, parse_amount
+from .base_parser import BaseStatementParser
 
 
-class ICBCCSVParser:
+class ICBCCSVParser(BaseStatementParser):
     """工商银行 CSV 对账流水解析器"""
 
     BANK_NAME = BANK_ICBC

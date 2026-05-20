@@ -111,17 +111,23 @@ npm run package
 ```bash
 # Electron integration tests
 cd apps/electron
-node tests/integration/bridge-ipc.test.js       # Health check
-node tests/integration/ipc-methods.test.js       # Full IPC methods
-node tests/integration/icbc-csv.test.js          # ICBC CSV parsing
-node tests/integration/icbc-ocr-workflow.test.js  # OCR workflow
-node tests/integration/full-workflow.test.js      # End-to-end flow
+node tests/integration/bridge-ipc.test.js        # Health check
+node tests/integration/ipc-methods.test.js        # Full IPC methods
+node tests/integration/icbc-csv.test.js           # ICBC CSV parsing
+node tests/integration/icbc-ocr-workflow.test.js   # OCR workflow
+node tests/integration/full-workflow.test.js       # End-to-end flow
+node tests/integration/v020-e2e.test.js            # v0.2.0 e2e: detectBanks + batch parsing
+node tests/integration/detect-banks.test.js        # Bank auto-detection
 ```
 
 ```bash
 # Python tests (no tests directory yet — placeholder)
 cd apps/python
 pytest
+
+# Renderer unit tests (vitest)
+cd apps/renderer
+npm test
 ```
 
 ### Linting & Formatting
@@ -167,20 +173,27 @@ finance-assistant/
 │   │   └── src/
 │   │       ├── App.tsx                # Main UI: file select, parse, export, transaction table
 │   │       ├── main.tsx               # React entry point
+│   │       ├── hooks/
+│   │       │   └── useBatchOrchestrator.ts  # Batch file orchestration hook
 │   │       └── components/
 │   │           ├── FileDropZone.tsx    # File selection (PDF/CSV/Excel via Electron dialog)
 │   │           ├── TransactionTable.tsx # Paginated transaction table with filtering
-│   │           └── ProgressSteps.tsx   # Step indicator (parse → export → done)
+│   │           ├── ProgressSteps.tsx   # Step indicator (parse → export → done)
+│   │           ├── BatchFileSelector.tsx   # Batch file list with add/remove/parse
+│   │           ├── BatchResultPanel.tsx    # Batch result summary (success/failed counts)
+│   │           └── ManualOverrideModal.tsx # Manual bank/docType override for failed files
 │   └── python/          # Python backend
 │       ├── bridge.spec               # PyInstaller spec for bridge.exe
 │       └── src/finance_agent_backend/
-│           ├── bridge.py             # JSON-RPC 2.0 server over stdio (11 registered methods)
+│           ├── bridge.py             # JSON-RPC 2.0 server over stdio (method registry + IPC routing)
 │           ├── models.py             # Transaction, ParseResult, Subject, VoucherEntry
 │           ├── config/               # Built-in configuration
 │           │   ├── subjects.json         # 会计科目字典
 │           │   ├── subject_mapping.json  # 科目映射规则
 │           │   └── account_mapping.json  # 账号映射规则
-│           └── tools/                # 13 parser/builder tools (~4,100 lines total)
+│           ├── parser_router.py    # File-type-aware routing dispatch with lazy imports
+│           ├── base_parser.py       # BaseStatementParser: shared PDF/result/transaction utilities
+│           └── tools/               # 11 parser/builder tools
 │               ├── pdf_parser.py     # Generic bank statement PDF parser
 │               ├── cmb_parser.py     # CMB old columnar PDF parser
 │               ├── cmb_table_parser.py   # CMB table-format PDF parser (账务明细清单)
@@ -191,7 +204,6 @@ finance-assistant/
 │               ├── icbc_receipt_parser.py    # ICBC receipt parser (OCR-based)
 │               ├── icbc_receipt_grid_parser.py # ICBC receipt grid-line parser
 │               ├── gfb_table_parser.py   # GFB (广发银行) table-format PDF parser
-│               ├── pdf_ocr.py        # RapidOCR wrapper for scanned PDFs
 │               ├── excel_builder.py  # Transaction → Excel + voucher export
 │               └── subject_loader.py # Import accounting subjects from xlsx
 ├── shared/              # Shared type definitions (TypeScript)
@@ -200,9 +212,13 @@ finance-assistant/
 │   ├── package.bat / package.sh   # Packaging scripts
 │   └── generate-test-cert.ps1     # Test cert generation
 ├── docs/                # Detailed documentation
-│   ├── packaging-path-resolution.md  # Electron+Python cross-env path resolution
-│   ├── signing.md                    # Code signing guide
-│   └── export-excel-design.md        # Excel export design doc
+│   ├── architecture-analysis.md       # Comprehensive architecture analysis (v0.2.0)
+│   ├── file-upload-design.md          # File upload + batch mode design
+│   ├── file-upload-plan.md            # File upload implementation plan
+│   ├── file-upload-prd.md             # File upload PRD
+│   ├── packaging-path-resolution.md   # Electron+Python cross-env path resolution
+│   ├── signing.md                     # Code signing guide
+│   └── export-excel-design.md         # Excel export design doc
 ├── logs/                # Bridge log files (gitignored)
 ├── .github/workflows/   # CI/CD pipelines
 │   └── ci.yml           # Build, test, package on push
@@ -217,39 +233,58 @@ finance-assistant/
 2. **Electron main** → **Python backend** via stdio JSON-RPC 2.0 (spawned subprocess managed by `pythonProcessManager.ts`)
 3. **Python backend** (`bridge.py`) routes method calls to registered handlers and returns results
 
+### File Upload Flow (v0.2.0)
+
+Single-file vs batch mode is determined automatically by the number of files selected:
+
+1. **User selects file(s)** via `FileDropZone` (click or drag-and-drop)
+2. **1 file** → single-file mode:
+   - `detectBanks([filePath])` → detect bank + docType
+   - User confirms or overrides bank/docType → `parseFile(params)` → display transactions
+3. **2+ files** → batch mode:
+   - `BatchFileSelector` shows file list with add/remove/clear
+   - "识别文件" → `detectBanks(filePaths)` on all pending files
+   - "开始解析" → `parseFile()` sequentially for each file
+   - Results aggregated in `BatchResultPanel` with success/failed counts
+4. **Export**: both modes share `useVoucherExport` hook for Kingdee Jingdouyun voucher generation
+
+Relevant docs: `docs/file-upload-design.md`, `docs/file-upload-plan.md`, `docs/file-upload-prd.md`
+
 ### Registered JSON-RPC Methods
 
 | Method | Description | Added |
 |--------|-------------|-------|
 | `health` | Backend status, version, Python version | v0.1.0 |
-| `parse_pdf` | Parse bank statement (auto-routes PDF/CSV/Excel by extension and content) | v0.1.0 |
-| `parse_csv` | Direct ICBC CSV parsing shortcut | v0.1.0 |
-| `ocr_pdf` | OCR scanned/image PDF to text | v0.1.0 |
+| `parse_pdf` | Parse bank statement — unified entry for PDF/CSV/Excel (auto-routes by extension and content) | v0.1.0 |
+| `parse_csv` | Direct ICBC CSV parsing shortcut (deprecated, use parse_pdf) | v0.1.0 |
 | `generate_excel` | Export transaction list to Excel (.xlsx) | v0.1.0 |
 | `generate_voucher_excel` | Export transactions as Kingdee Jingdouyun voucher template | v0.1.0 |
 | `import_subjects` | Import accounting subjects from xlsx → built-in subjects.json | v0.1.0 |
 | `get_subjects_info` | Query built-in subject table info | v0.1.0 |
 | `select_file` | Native file dialog (Electron-side, not JSON-RPC) | v0.1.0 |
+| `detect_banks` | Batch detect bank type from PDF files (returns bank + docType per file) | v0.2.0 |
+| `detect_supported_banks` | Query supported bank list dynamically from parser registry | v0.2.0 |
 
 ### File Type Routing (parse_pdf)
 
 ```
 User selects file
-  ├── .xlsx → CMBExcelParser (招行Excel交易流水)
-  ├── .csv  → ICBCCSVParser (工行CSV对账流水)
-  └── .pdf
-       └── _detect_bank_from_pdf() → (bank, doc_type)
-            ├── 扫描件 (no embedded text) or doc_type=receipt
-            │    └── ICBCReceiptGridParser (grid-line OCR, self-validates)
-            │         └── (fallback) ICBCParser (流水)
-            ├── 工商银行 (statement)
-            │    └── ICBCParser
-            ├── 招商银行
-            │    ├── receipt → CMBReceiptParser
-            │    ├── table → CMBTableParser (账务明细清单)
-            │    └── column → CMBParser (old format)
-            ├── 广发银行 → GFBTableParser
-            └── 未知银行 → BankStatementParser (generic)
+  └── parser_router.route(file_path, bank?)    # File-type-aware dispatch (lazy imports)
+       ├── .xlsx → CMBExcelParser (招行Excel交易流水)
+       ├── .csv  → ICBCCSVParser (工行CSV对账流水)
+       └── .pdf
+            └── _detect_bank_from_pdf() → (bank, doc_type)
+                 ├── 扫描件 (no embedded text) or doc_type=receipt
+                 │    └── ICBCReceiptGridParser (grid-line OCR, self-validates)
+                 │         └── (fallback) ICBCParser (流水)
+                 ├── 工商银行 (statement)
+                 │    └── ICBCParser
+                 ├── 招商银行
+                 │    ├── receipt → CMBReceiptParser
+                 │    ├── table → CMBTableParser (账务明细清单)
+                 │    └── column → CMBParser (old format)
+                 ├── 广发银行 → GFBTableParser
+                 └── 未知银行 → BankStatementParser (generic)
 ```
 
 ### Bank Support Matrix
@@ -318,10 +353,14 @@ User selects file
 - Multi-page PDFs: subsequent pages inherit header column mapping from the first page
 - OCR is slow (~1-2s per page); lazy-load RapidOCR only when needed
 
-### Parser Architecture
-- 13 parser files with duplicated patterns (bank detection, transaction serialization). v0.2.0 should extract a base class.
+### Parser Architecture (v0.2.0 improvements)
+
+- **`parser_router.py`**: Extracted from `bridge.py` (~110 lines). Handles file-extension-aware dispatch and lazy-imports all 11 parsers so only the needed module loads per request. `bridge.py` `handle_parse_pdf` reduced to a 4-line delegation.
+- **`base_parser.py`**: `BaseStatementParser` utility base class — shared `_read_pdf_bytes()`, `_build_result()`, `_build_transaction()`, `_parse_date()`, `_parse_amount()` methods. All 11 parsers now inherit from it, eliminating duplicated PDF bytes reading and result-building patterns.
+- **Tool count reduced from 13 to 11**: `cmb_receipt_parser.py` was inlined into `cmb_table_parser.py` as `_parse_receipt()` method; `cmb_table_parser.py` now handles both table-format statements and receipts.
 - All parsers share the same `ParseResult` return type — keeps bridge.py routing consistent
-- Routing logic in `bridge.py` `handle_parse_pdf` is becoming complex; consider extracting to a router module
+- **Wire format**: All IPC parameter names and response fields unified to camelCase across Python → Electron → React (e.g. `file_path` → `filePath`, `statement_date` → `statementDate`).
+- **`BatchFileSelector.tsx`** split from self-orchestrating to pure UI: file list + add/remove/parse buttons; orchestration lives in `useBatchOrchestrator` hook + `App.tsx`.
 
 ### CSV/Excel Handling
 - ICBC CSV uses GBK encoding, comma-delimited, with embedded Tab characters in fields

@@ -8,9 +8,11 @@ const { Text } = Typography;
 interface TransactionTableProps {
   transactions: Transaction[];
   loading?: boolean;
+  onEdit?: (txn: Transaction) => void;
+  onDelete?: (txn: Transaction) => void;
 }
 
-export function TransactionTable({ transactions, loading }: TransactionTableProps) {
+export function TransactionTable({ transactions, loading, onEdit, onDelete }: TransactionTableProps) {
   const dataSource = useMemo(() =>
     transactions.map((t, i) => ({ ...t, _key: t.reference_number || `tx-${i}` })),
     [transactions]
@@ -48,14 +50,13 @@ export function TransactionTable({ transactions, loading }: TransactionTableProp
       dataIndex: 'direction',
       key: 'direction',
       render: (dir: string) => (
-        <Tag color={dir === 'income' ? 'green' : dir === 'expense' ? 'red' : 'blue'}>
-          {dir === 'income' ? '收入' : dir === 'expense' ? '支出' : '转账'}
+        <Tag color={dir === 'income' ? 'green' : 'red'}>
+          {dir === 'income' ? '收入' : '支出'}
         </Tag>
       ),
       filters: [
         { text: '收入', value: 'income' },
         { text: '支出', value: 'expense' },
-        { text: '转账', value: 'transfer' },
       ],
       onFilter: (value: boolean | React.Key, record: Transaction) => record.direction === value,
       width: 100,
@@ -89,10 +90,14 @@ export function TransactionTable({ transactions, loading }: TransactionTableProp
     {
       title: '操作',
       key: 'action',
-      render: () => (
+      render: (_: any, record: Transaction) => (
         <Space>
-          <Button type="link" size="small">编辑</Button>
-          <Button type="link" size="small" danger>删除</Button>
+          {onEdit && (
+            <Button type="link" size="small" onClick={() => onEdit(record)}>编辑</Button>
+          )}
+          {onDelete && (
+            <Button type="link" size="small" danger onClick={() => onDelete(record)}>删除</Button>
+          )}
         </Space>
       ),
       width: 120,

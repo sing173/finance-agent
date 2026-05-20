@@ -26,9 +26,10 @@ from .shared_utils import (
     find_table_region, partition_spans,
     extract_balance_from_footer,
 )
+from .base_parser import BaseStatementParser
 
 
-class CMBTableParser:
+class CMBTableParser(BaseStatementParser):
     """招商银行 账务明细清单（水平表格格式）解析器"""
 
     BANK_NAME = BANK_CMB
@@ -74,9 +75,7 @@ class CMBTableParser:
         7. 从表格区解析每行数据 → Transaction 列表
         8. 按日期排序后返回 ParseResult
         """
-        with open(file_path, 'rb') as f:
-            pdf_bytes = f.read()
-        doc = fitz.open('pdf', pdf_bytes)
+        doc = self._open_pdf(file_path)
 
         if len(doc) == 0:
             doc.close()

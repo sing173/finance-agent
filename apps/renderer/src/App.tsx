@@ -1,8 +1,14 @@
 import { Layout, Typography, Button, Card, message, Space, Modal, Form, Input } from 'antd';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FileDropZone } from './components/FileDropZone';
 import { TransactionTable } from './components/TransactionTable';
-import { ProgressSteps } from './components/ProgressSteps';
+import { ResultCard } from './components/ResultCard';
+import { ManualOverrideModal } from './components/ManualOverrideModal';
+import { BatchFileSelector } from './components/BatchFileSelector';
+import { BatchResultPanel } from './components/BatchResultPanel';
+import { useBatchOrchestrator } from './hooks/useBatchOrchestrator';
+import { useVoucherExport } from './hooks/useVoucherExport';
+import type { BatchResult, Transaction, ParseFileParams, ParseFileResult, DetectBanksResult, DetectSupportedBanksResult } from '@shared/types';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
@@ -12,213 +18,235 @@ declare global {
   interface Window {
     electronAPI: {
       health: () => Promise<any>;
-      parsePDF: (path: string) => Promise<any>;
-      parsePdf: (params: any) => Promise<any>;
+      parseFile: (params: ParseFileParams) => Promise<ParseFileResult>;
       generateExcel: (params: any) => Promise<any>;
       generateVoucher: (params: any) => Promise<any>;
       importSubjects: (params: any) => Promise<any>;
       getSubjectsInfo: () => Promise<any>;
-      ocrPDF: (params: any) => Promise<any>;
-      chat: (msg: string, sessionKey?: string) => Promise<any>;
-      selectFile: (filter?: string) => Promise<string | null>;
+      selectFile: (filter?: string, allowMulti?: boolean) => Promise<string[] | string | null>;
       saveFileDialog: (params?: any) => Promise<string | null>;
+      detectBanks: (filePaths: string[]) => Promise<DetectBanksResult>;
+      detectSupportedBanks: () => Promise<DetectSupportedBanksResult>;
+      getFilePath: (file: File) => string;
       onPythonStatus: (callback: (status: string) => void) => void;
       getPythonStatus: () => Promise<string>;
     };
   }
 }
 
+type OverrideContext = {
+  fileCount: number;
+  isPdfOnly: boolean;
+  onConfirm: (bank: string, docType: string, forceOcr: boolean) => void;
+};
+
+// 单文件检测阶段状态
+type DetectState = 'idle' | 'detecting' | 'detected' | 'unknown';
+
 function App() {
-  const [backendStatus, setBackendStatus] = useState<string>('检查中...');
-  const [loading, setLoading] = useState(false);
-  const [healthModalOpen, setHealthModalOpen] = useState(false);
-  const [healthData, setHealthData] = useState<any>(null);
-  const [parseResult, setParseResult] = useState<any>(null);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [processingTimeMs, setProcessingTimeMs] = useState(0);
+  // ====== 模式 & 结果 ======
+  const [mode, setMode] = useState<'single' | 'batch'>('single');
+  const [currentResult, setCurrentResult] = useState<any>(null);
+  const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
 
-  // 导出凭证弹窗相关状态
-  const [voucherModalOpen, setVoucherModalOpen] = useState(false);
-  const [voucherLoading, setVoucherLoading] = useState(false);
-  const [period, setPeriod] = useState('');
+  // ====== 单文件检测阶段 ======
+  const [detectState, setDetectState] = useState<DetectState>('idle');
+  const [detectInfo, setDetectInfo] = useState<{ bank: string; docType: string; isManual: boolean }>({ bank: '', docType: '', isManual: false });
+  const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
 
-  // 导入科目表
+  // ====== 加载 ======
+  const [loading, setLoading] = useState(false);  // 单文件解析
+  const [connecting, setConnecting] = useState(false);  // 测试连接
+
+  // ====== 批量编排 ======
+  const batch = useBatchOrchestrator({
+    onComplete: (result) => {
+      setBatchResult(result);
+    },
+  });
+
+  // ====== 凭证导出（单文件 + 批量统一） ======
+  const voucherExport = useVoucherExport();
+
+  // ====== 科目管理 ======
   const [importSubjectsLoading, setImportSubjectsLoading] = useState(false);
   const [subjectsCount, setSubjectsCount] = useState<number | null>(null);
+  const [backendStatus, setBackendStatus] = useState<string>('检查中...');
 
-  // 启动时查询内置科目数量
+  // ====== 手动覆盖模态框 ======
+  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
+  const [overrideContext, setOverrideContext] = useState<OverrideContext | null>(null);
+  const [overrideInitialBank, setOverrideInitialBank] = useState('');
+  const [overrideInitialDocType, setOverrideInitialDocType] = useState('');
+  const [overrideInitialOcr, setOverrideInitialOcr] = useState(false);
+
+  // ====== 启动时查询 ======
   useEffect(() => {
+    if (!window.electronAPI) return;
+
     const checkSubjects = async () => {
       try {
         const result = await window.electronAPI.getSubjectsInfo();
-        if (result.success) {
-          setSubjectsCount(result.count);
-        }
-      } catch {
-        // 忽略，检查失败不影响使用
-      }
+        if (result.success) setSubjectsCount(result.count);
+      } catch { /* ignore */ }
     };
     checkSubjects();
-  }, []);
 
-  // 监听 Python 进程状态变化 + 初始查询
-  useEffect(() => {
-    // 主动查询当前状态
     window.electronAPI.getPythonStatus?.().then((status: string) => {
-      if (status === 'online') {
-        setBackendStatus('正常');
-      } else {
-        setBackendStatus('离线');
-      }
-    }).catch(() => setBackendStatus('离线'));
+      setBackendStatus(status === 'online' ? '正常' : '离线');
+    }).catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      setBackendStatus(msg.includes('not started') ? '未启动' : '离线');
+    });
 
-    // 监听状态变化
     window.electronAPI.onPythonStatus?.((status: string) => {
-      if (status === 'offline') {
-        setBackendStatus('离线');
-        setHealthData(null);
-      } else if (status === 'online') {
-        setBackendStatus('正常（已恢复）');
-      } else if (status === 'error') {
-        setBackendStatus('错误');
-      }
+      if (status === 'offline') { setBackendStatus('离线'); }
+      else if (status === 'online') setBackendStatus('正常（已恢复）');
+      else if (status === 'error') setBackendStatus('错误');
     });
   }, []);
 
-  const testConnection = async () => {
-    setLoading(true);
+  // ====== 连接测试 ======
+  const testConnection = useCallback(async () => {
+    setConnecting(true);
     try {
       const result = await window.electronAPI.health();
       setBackendStatus(`正常 (v${result.version})`);
-      setHealthData(result);
-      setHealthModalOpen(true);
       message.success('后端连接成功！');
-    } catch (error: any) {
-      setBackendStatus(`离线: ${error.message}`);
+    } catch (error: unknown) {
+      setBackendStatus(`离线: ${error instanceof Error ? error.message : String(error)}`);
       message.error('后端连接失败');
-      setHealthData(null);
     } finally {
-      setLoading(false);
+      setConnecting(false);
     }
-  };
+  }, []);
 
-  const handleFileSelected = async (filePath: string) => {
-    if (!filePath) return;
+  // ====== 统一入口：选择文件 → 根据数量决定模式 ======
+  const handleFilesSelected = useCallback((filePaths: string[]) => {
+    if (!filePaths || filePaths.length === 0) return;
 
-    // 检查文件类型（支持 PDF、CSV、Excel）
-    const ext = filePath.toLowerCase().split('.').pop();
-    if (!['pdf', 'csv', 'xlsx', 'xls'].includes(ext || '')) {
-      message.warning('请选择 PDF、CSV 或 Excel 文件');
-      return;
+    if (filePaths.length === 1) {
+      // 单文件模式
+      setMode('single');
+      setBatchResult(null);
+      handleSingleFileDetect(filePaths[0]);
+    } else {
+      // 批量模式
+      setMode('batch');
+      voucherExport.closeModal();
+      batch.clearFiles();
+      batch.addFiles(filePaths);
     }
+  }, [batch.clearFiles, batch.addFiles]);
 
-    setParseResult(null);
-    setLoading(true);
-    setCurrentStep(0);
-    const startTime = Date.now();
+  // ====== 单文件：检测银行 ======
+  const handleSingleFileDetect = useCallback(async (filePath: string) => {
+    setCurrentFilePath(filePath);
+    setCurrentResult(null);
+    setBatchResult(null);
+    setDetectState('detecting');
+    setDetectInfo({ bank: '', docType: '', isManual: false });
 
     try {
-      const fileType = ext === 'csv' ? 'CSV' : 'PDF';
-      message.info(`正在解析${fileType}文件...`);
+      const ext = filePath.toLowerCase().split('.').pop();
+      const fileType = ext === 'csv' ? 'CSV' : ext === 'xlsx' ? 'Excel' : 'PDF';
+      message.info(`正在检测${fileType}文件...`);
 
-      // 统一使用 parsePDF（bridge 内部自动识别 CSV）
-      const result = await window.electronAPI.parsePDF(filePath);
+      const result = await window.electronAPI.detectBanks([filePath]);
+      const detected = result?.results?.[0];
 
-      setCurrentStep(1);
-      setProcessingTimeMs(Date.now() - startTime);
+      if (detected && detected.status === 'ok' && detected.bank && detected.bank !== '未知银行') {
+        setDetectInfo({ bank: detected.bank, docType: detected.docType || 'unknown', isManual: false });
+        setDetectState('detected');
+        message.success(`检测到：${detected.bank} · ${detected.docType || 'unknown'}`);
+      } else {
+        setDetectInfo({ bank: '未知', docType: 'unknown', isManual: false });
+        setDetectState('unknown');
+        message.warning('未能自动识别银行类型');
+      }
+    } catch (error: unknown) {
+      setDetectInfo({ bank: '未知', docType: 'unknown', isManual: false });
+      setDetectState('unknown');
+      message.error('检测失败：' + (error instanceof Error ? error.message : String(error)));
+    }
+  }, []);
+
+  // ====== 单文件：确认解析 ======
+  const handleSingleFileParse = useCallback(async (filePath: string, bank: string, docType: string, forceOcr: boolean) => {
+    if (!filePath) return;
+    setLoading(true);
+    setOverrideModalOpen(false);
+
+    try {
+      // 未知银行时传 '未知银行'，让后端走 generic BankStatementParser fallback
+      const effectiveBank = (bank === '未知' || bank === '未知银行' || !bank) ? undefined : bank;
+      message.info(`正在解析${effectiveBank ? `（${effectiveBank} · ${docType}）` : '...'}...`);
+      const params: ParseFileParams = { filePath };
+      if (effectiveBank) params.bank = effectiveBank;
+      if (docType) params.docType = docType;
+      if (forceOcr) params.forceOcr = true;
+
+      const result = await window.electronAPI.parseFile(params);
 
       if (result.success) {
-        setParseResult(result);
+        setCurrentResult(result);
+        setDetectState('detected');
+        setDetectInfo({ bank: result.bank || bank, docType: result.docType || docType, isManual: false });
         message.success(`解析成功，共 ${result.transactions?.length || 0} 笔交易`);
       } else {
-        message.error(`解析失败：${result.error}`);
+        message.error(`解析失败：${result.errors?.join(", ") || "未知错误"}`);
       }
-    } catch (error: any) {
-      message.error(`解析出错：${error.message}`);
+    } catch (error: unknown) {
+      message.error(`解析出错：${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const matchedCount = parseResult?.transactions?.length || 0;
+  // ====== 单文件：从 fallback 手动设置配置（不解析） ======
+  const handleSingleOverrideConfirm = useCallback((bank: string, docType: string, _forceOcr: boolean) => {
+    setDetectInfo({ bank, docType, isManual: true });
+    setDetectState('detected');
+    setOverrideModalOpen(false);
+  }, []);
 
-  const handleExportExcel = async () => {
-    if (!parseResult?.transactions?.length) {
-      message.warning('没有可导出的交易数据');
-      return;
-    }
-
-    setCurrentStep(1);
-    setLoading(true);
-    try {
-      const outputPath = `bank_statement_${Date.now()}.xlsx`;
-      const result = await window.electronAPI.generateExcel({
-        transactions: parseResult.transactions,
-        output_path: outputPath,
-      });
-      setCurrentStep(2);
-      if (result.success) {
-        message.success(`Excel 已导出: ${result.excel_path}`);
-      } else {
-        message.error(`导出失败：${result.error}`);
-      }
-    } catch (error: any) {
-      message.error(`导出出错：${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ---- 导出凭证 ----
-  const handleOpenVoucherModal = () => {
-    // 自动推导期间名称（取解析结果中最早的月份，如 "2026年3月"）
-    if (!period && parseResult?.transactions?.length) {
-      const dates: string[] = parseResult.transactions.map((t: any) => t.date as string);
-      dates.sort();
-      const earliest = dates[0]; // 'YYYY-MM-DD'
-      const [y, m] = earliest.split('-');
-      setPeriod(`${y}年${Number(m)}月`);
-    }
-    setVoucherModalOpen(true);
-  };
-
-  const handleExportVoucher = async () => {
-    if (!parseResult?.transactions?.length) {
-      message.warning('没有可导出的交易数据');
-      return;
-    }
-
-    // 1. 弹出保存路径对话框
-    const defaultName = `voucher_${period || Date.now()}.xlsx`;
-    const outputPath = await window.electronAPI.saveFileDialog({
-      title: '保存凭证 Excel',
-      defaultPath: defaultName,
+  // ====== 打开单文件 fallback 模态框 ======
+  const openSingleOverride = useCallback(() => {
+    const ext = currentFilePath?.toLowerCase().split('.').pop();
+    const isPdfOnly = ext === 'pdf';
+    setOverrideInitialBank(detectInfo.bank || '');
+    setOverrideInitialDocType(detectInfo.docType || '');
+    setOverrideInitialOcr(false);
+    setOverrideContext({
+      fileCount: 1,
+      isPdfOnly,
+      onConfirm: handleSingleOverrideConfirm,
     });
-    if (!outputPath) return; // 用户取消
+    setOverrideModalOpen(true);
+  }, [detectInfo.bank, detectInfo.docType, handleSingleOverrideConfirm, currentFilePath]);
 
-    setVoucherLoading(true);
-    try {
-      const result = await window.electronAPI.generateVoucher({
-        transactions: parseResult.transactions,
-        output_path: outputPath,
-        period: period,
-      });
+  // ====== 打开批量 fallback 模态框 ======
+  const openBatchOverride = useCallback((filePaths: string[]) => {
+    const allPdf = filePaths.every(fp => fp.toLowerCase().endsWith('.pdf'));
+    setOverrideInitialBank('');
+    setOverrideInitialDocType('');
+    setOverrideInitialOcr(false);
+    setOverrideContext({
+      fileCount: filePaths.length,
+      isPdfOnly: allPdf,
+      onConfirm: (bank: string, docType: string, _forceOcr: boolean) => {
+        setOverrideModalOpen(false);
+        // 只更新检测值，不触发解析
+        for (const fp of filePaths) {
+          batch.updateFile(fp, { bank, docType, error: undefined, isManual: true });
+        }
+      },
+    });
+    setOverrideModalOpen(true);
+  }, [batch.updateFile]);
 
-      if (result.success) {
-        message.success(`凭证已导出: ${result.excel_path}`);
-        setVoucherModalOpen(false);
-      } else {
-        message.error(`导出失败：${result.error}`);
-      }
-    } catch (error: any) {
-      message.error(`导出出错：${error.message}`);
-    } finally {
-      setVoucherLoading(false);
-    }
-  };
-
-  // ---- 导入科目表 ----
-  const handleImportSubjects = async () => {
+  // ====== 导入科目表 ======
+  const handleImportSubjects = useCallback(async () => {
     const filePath = await window.electronAPI.selectFile('xlsx');
     if (!filePath) return;
 
@@ -231,12 +259,86 @@ function App() {
       } else {
         message.error(`导入失败：${result.error}`);
       }
-    } catch (error: any) {
-      message.error(`导入出错：${error.message}`);
+    } catch (error: unknown) {
+      message.error(`导入出错：${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setImportSubjectsLoading(false);
     }
-  };
+  }, []);
+
+  // ====== 单文件：确认解析按钮（检测阶段） ======
+  const handleSingleConfirmParse = useCallback(() => {
+    if (currentFilePath) {
+      handleSingleFileParse(currentFilePath, detectInfo.bank, detectInfo.docType, false);
+    }
+  }, [currentFilePath, detectInfo.bank, detectInfo.docType, handleSingleFileParse]);
+
+  // ====== 批量：开始解析 ======
+  const handleBatchStartParse = useCallback(() => {
+    batch.parseOnly();
+  }, [batch.parseOnly]);
+
+  // ====== 批量：修改单文件配置（不解析） ======
+  const handleBatchModifyConfig = useCallback((filePath: string) => {
+    const file = batch.files.find((f) => f.filePath === filePath);
+    if (!file) return;
+
+    const ext = file.filePath.toLowerCase().split('.').pop();
+    const isPdfOnly = ext === 'pdf';
+    setOverrideInitialBank(file.bank || '');
+    setOverrideInitialDocType(file.docType || '');
+    setOverrideInitialOcr(false);
+    setOverrideContext({
+      fileCount: 1,
+      isPdfOnly,
+      onConfirm: (bank: string, docType: string, _forceOcr: boolean) => {
+        setOverrideModalOpen(false);
+        // 只更新检测值，不触发解析
+        batch.updateFile(filePath, { bank, docType, error: undefined, isManual: true });
+      },
+    });
+    setOverrideModalOpen(true);
+  }, [batch.files, batch.updateFile]);
+
+  // ====== 批量：addFiles / detectOnly / parse / clear ======
+  const handleBatchAddFiles = useCallback((filePaths: string[]) => {
+    batch.addFiles(filePaths);
+  }, [batch.addFiles]);
+
+  const handleBatchDetectOnly = useCallback(() => {
+    batch.detectOnly();
+  }, [batch.detectOnly]);
+
+  const handleBatchClear = useCallback(() => {
+    batch.clearFiles();
+    setBatchResult(null);
+  }, [batch.clearFiles]);
+
+  // ====== 批量：重试单个失败文件 ======
+  const handleBatchRetry = useCallback((filePaths: string[]) => {
+    openBatchOverride(filePaths);
+  }, [openBatchOverride]);
+
+  // ====== 批量：导出凭证（合并所有成功文件） ======
+  const getTransactionsForExport = useCallback((): Transaction[] => {
+    if (mode === 'single') {
+      return currentResult?.transactions || [];
+    }
+    if (!batchResult) {
+      return [];
+    }
+    return batchResult.files.flatMap((f) =>
+      f.status === 'success' ? (f.transactions || []) : []
+    );
+  }, [mode, currentResult, batchResult]);
+
+  const handleBatchExportVoucher = useCallback(async () => {
+    const allTxns = getTransactionsForExport();
+    await voucherExport.exportVoucher(allTxns);
+  }, [getTransactionsForExport, voucherExport]);
+
+  // ====== 辅助 ======
+  const detectUnknown = detectState === 'unknown';
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -246,98 +348,117 @@ function App() {
         </Title>
       </Header>
       <Content style={{ padding: '20px 24px' }}>
-        {/* 第一行：系统设置 + 文件选择 */}
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 16 }}>
-          {/* 系统设置卡片（连接测试 + 科目管理） */}
-          <Card title="系统设置" style={{ width: 400, flexShrink: 0, height: 200 }}>
-            <div style={{ marginBottom: 16 }}>
-              <Text type="secondary">后端状态：</Text>
-              <Text strong>{backendStatus}</Text>
-            </div>
-            <Space style={{ marginBottom: 16 }}>
-              <Button type="primary" loading={loading} onClick={testConnection}>
-                测试连接
-              </Button>
-              <Button
-                loading={importSubjectsLoading}
-                onClick={handleImportSubjects}
-              >
-                导入科目表
-              </Button>
-            </Space>
-            <div>
-              <Text type="secondary">
-                当前内置科目：{subjectsCount !== null ? `${subjectsCount} 条` : '未知'}
-              </Text>
-              {subjectsCount !== null && subjectsCount > 0 && (
-                <Text type="success" style={{ marginLeft: 8 }}>
-                  ✓ 已就绪
-                </Text>
-              )}
-            </div>
-          </Card>
-
-          {/* 文件上传区域 */}
-          <div style={{ flex: 1, minWidth: 300, height: 200 }}>
-            <FileDropZone onFileSelected={handleFileSelected} />
-          </div>
-        </div>
-
-        {/* 以下卡片垂直排列 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-          {/* 导出操作区（解析成功后显示） */}
-          {parseResult?.success && (
-            <Card title="导出">
-              <Space>
-                <Button
-                  type="primary"
-                  loading={loading}
-                  onClick={handleExportExcel}
-                >
-                  导出 Excel（流水表）
+          {/* ====== 第一行：系统设置 + 文件选择 ====== */}
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            {/* 系统设置卡片 */}
+            <Card title="系统设置" style={{ width: 400, flexShrink: 0, height: 200 }}>
+              <div style={{ marginBottom: 16 }}>
+                <Text type="secondary">后端状态：</Text>
+                <Text strong>{backendStatus}</Text>
+              </div>
+              <Space style={{ marginBottom: 16 }}>
+                <Button type="primary" loading={connecting} onClick={testConnection}>
+                  测试连接
                 </Button>
-                <Button
-                  type="primary"
-                  style={{ background: '#52c41a', borderColor: '#52c41a' }}
-                  loading={loading}
-                  onClick={handleOpenVoucherModal}
-                >
-                  导出凭证（精斗云）
-                </Button>
-                <Button onClick={() => { setParseResult(null); setCurrentStep(0); }}>
-                  重新选择文件
+                <Button loading={importSubjectsLoading} onClick={handleImportSubjects}>
+                  导入科目表
                 </Button>
               </Space>
+              <div>
+                <Text type="secondary">
+                  当前内置科目：{subjectsCount !== null ? `${subjectsCount} 条` : '未知'}
+                </Text>
+                {subjectsCount !== null && subjectsCount > 0 && (
+                  <Text type="success" style={{ marginLeft: 8 }}>✓ 已就绪</Text>
+                )}
+              </div>
             </Card>
-          )}
 
-          {/* 进度条 */}
-          {(loading || currentStep > 0) && (
-            <Card title="处理进度">
-              <ProgressSteps currentStep={currentStep} processingTime={processingTimeMs} />
-            </Card>
-          )}
+            {/* 统一文件选择入口 */}
+            <div style={{ flex: 1, minWidth: 400 }}>
+              <FileDropZone onFilesSelected={handleFilesSelected} />
+            </div>
+          </div>
 
-          {/* 解析结果 */}
-          {parseResult && (
-            <Card title="解析结果">
-              <p>银行：{parseResult.bank}</p>
-              <p>解析交易数：{matchedCount}</p>
-              {parseResult.statement_date && (
-                <p>账单日期：{parseResult.statement_date}</p>
+          {/* ====== 单文件模式视图 ====== */}
+          {mode === 'single' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* 检测中 */}
+              {detectState === 'detecting' && (
+                <Card title="检测中">
+                  <Text type="secondary">正在识别银行类型...</Text>
+                </Card>
               )}
-            </Card>
+
+              {/* 检测完成 / 解析中 / 解析结果 — 同一卡片贯穿全流程 */}
+              {(detectState === 'detected' || detectState === 'unknown' || loading || currentResult) && (
+                <ResultCard
+                  key={currentFilePath || undefined}
+                  phase={
+                    loading
+                      ? 'parsing'
+                      : currentResult
+                      ? currentResult.success
+                        ? 'success'
+                        : 'failed'
+                      : 'detect'
+                  }
+                  bank={currentResult?.bank || detectInfo.bank || '未知'}
+                  docType={currentResult?.docType || detectInfo.docType || 'unknown'}
+                  transactionCount={currentResult?.transactions?.length || 0}
+                  statementDate={currentResult?.statementDate}
+                  error={currentResult?.error}
+                  detectUnknown={detectUnknown}
+                  isManual={detectInfo.isManual}
+                  onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
+                  onModifyConfig={openSingleOverride}
+                  onStartParse={handleSingleConfirmParse}
+                  onExportVoucher={() => voucherExport.openModal(currentResult?.transactions || [])}
+                />
+              )}
+
+              {/* 交易列表 */}
+              {currentResult?.success && currentResult.transactions?.length > 0 && (
+                <Card title="交易列表">
+                  <TransactionTable
+                    transactions={currentResult.transactions}
+                    loading={loading}
+                  />
+                </Card>
+              )}
+
+            </div>
           )}
 
-          {/* 交易表格 */}
-          {parseResult?.transactions && (
-            <Card title="交易列表">
-              <TransactionTable
-                transactions={parseResult.transactions}
-                loading={loading}
+          {/* ====== 批量模式视图 ====== */}
+          {mode === 'batch' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <BatchFileSelector
+                files={batch.files}
+                onAddFiles={handleBatchAddFiles}
+                onRemoveFile={batch.removeFile}
+                onClear={handleBatchClear}
+                onDetect={handleBatchDetectOnly}
+                onStartParse={handleBatchStartParse}
+                onModifyConfig={handleBatchModifyConfig}
+                isDetecting={batch.isDetecting}
+                isParsing={batch.isParsing}
+                detectDone={batch.detectDone}
+                currentIndex={batch.currentIndex}
+                totalCount={batch.totalCount}
               />
-            </Card>
+
+              {batchResult && (
+                <BatchResultPanel
+                  files={batchResult.files}
+                  onRetry={handleBatchRetry}
+                  onExportVoucher={handleBatchExportVoucher}
+                />
+              )}
+            </div>
           )}
         </div>
       </Content>
@@ -345,21 +466,28 @@ function App() {
         Finance Assistant ©2026 — Built with Electron + React + Python
       </Footer>
 
-      {/* 导出凭证弹窗 — 仅保留期间名称 */}
+      {/* 手动覆盖模态框（单文件 + 批量共用） */}
+      {overrideContext && (
+        <ManualOverrideModal
+          open={overrideModalOpen}
+          fileCount={overrideContext.fileCount}
+          isPdfOnly={overrideContext.isPdfOnly}
+          initialBank={overrideInitialBank}
+          initialDocType={overrideInitialDocType}
+          initialOcr={overrideInitialOcr}
+          onConfirm={(bank, docType, forceOcr) => overrideContext.onConfirm(bank, docType, forceOcr)}
+          onCancel={() => setOverrideModalOpen(false)}
+        />
+      )}
+
+      {/* 导出凭证弹窗 */}
       <Modal
         title="导出凭证（金蝶精斗云格式）"
-        open={voucherModalOpen}
-        onCancel={() => setVoucherModalOpen(false)}
+        open={voucherExport.voucherModalOpen}
+        onCancel={voucherExport.closeModal}
         footer={[
-          <Button key="cancel" onClick={() => setVoucherModalOpen(false)}>
-            取消
-          </Button>,
-          <Button
-            key="export"
-            type="primary"
-            loading={voucherLoading}
-            onClick={handleExportVoucher}
-          >
+          <Button key="cancel" onClick={voucherExport.closeModal}>取消</Button>,
+          <Button key="export" type="primary" loading={voucherExport.voucherLoading} onClick={() => voucherExport.exportVoucher(getTransactionsForExport())}>
             选择保存路径并导出
           </Button>,
         ]}
@@ -371,24 +499,12 @@ function App() {
             help="例如：2026年3月、2026年第3期"
           >
             <Input
-              value={period}
-              onChange={e => setPeriod(e.target.value)}
+              value={voucherExport.period}
+              onChange={e => voucherExport.setPeriod(e.target.value)}
               placeholder="2026年3月"
             />
           </Form.Item>
         </Form>
-      </Modal>
-
-      {/* 健康检查结果弹窗 */}
-      <Modal
-        title="连接测试结果"
-        open={healthModalOpen}
-        onCancel={() => setHealthModalOpen(false)}
-        footer={null}
-      >
-        <pre style={{ fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-          {JSON.stringify(healthData, null, 2)}
-        </pre>
       </Modal>
     </Layout>
   );
