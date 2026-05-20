@@ -27,18 +27,19 @@ export interface HealthResult {
   python_version: string;
 }
 
-/** PDF 解析 */
-export interface ParsePDFParams {
+/** 文件解析（统一入口：PDF/CSV/Excel） */
+export interface ParseFileParams {
   filePath: string;
   bank?: string; // 可选：自动识别银行
   docType?: string; // 可选：手动指定文档类型（statement / receipt）
   forceOcr?: boolean; // 可选：强制 OCR
 }
-export interface ParsePDFResult {
+export interface ParseFileResult {
   success: boolean;
   transactions: Transaction[];
   bank: string;
-  statementDate: string;
+  docType: string;
+  statementDate?: string;
   openingBalance?: number;
   closingBalance?: number;
   confidence: number;
@@ -91,6 +92,12 @@ export interface DetectFileResult {
 export interface DetectBanksResult {
   success: boolean;
   results: DetectFileResult[];
+}
+
+/** 支持银行列表查询 */
+export interface DetectSupportedBanksResult {
+  success: boolean;
+  banks: string[];
 }
 
 /** 批量解析单个文件的结果 */

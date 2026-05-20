@@ -2,8 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   health: () => ipcRenderer.invoke('health'),
-  parsePDF: (path: string) => ipcRenderer.invoke('parse_pdf', { filePath: path }),
-  parsePdf: (params: any) => ipcRenderer.invoke('parse_pdf', params),
+  parseFile: (params: any) => ipcRenderer.invoke('parse_pdf', params),
   generateExcel: (params: any) => ipcRenderer.invoke('generate_excel', params),
   generateVoucher: (params: any) => ipcRenderer.invoke('generate_voucher_excel', params),
   importSubjects: (params: any) => ipcRenderer.invoke('import_subjects', params),
@@ -12,7 +11,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveFileDialog: (params?: any) => ipcRenderer.invoke('save_file_dialog', params),
 
   // 拖拽文件 → 获取真实路径
-  getFilePath: (file: File) => webUtils.getPathForFile(file),
+  getFilePath: (file: File) => {
+    if (!file || !webUtils) return '';
+    return webUtils.getPathForFile(file);
+  },
 
   // 监听 Python 进程状态变化
   onPythonStatus: (callback: (status: string) => void) => {

@@ -124,6 +124,10 @@ node tests/integration/detect-banks.test.js        # Bank auto-detection
 # Python tests (no tests directory yet — placeholder)
 cd apps/python
 pytest
+
+# Renderer unit tests (vitest)
+cd apps/renderer
+npm test
 ```
 
 ### Linting & Formatting
@@ -208,9 +212,13 @@ finance-assistant/
 │   ├── package.bat / package.sh   # Packaging scripts
 │   └── generate-test-cert.ps1     # Test cert generation
 ├── docs/                # Detailed documentation
-│   ├── packaging-path-resolution.md  # Electron+Python cross-env path resolution
-│   ├── signing.md                    # Code signing guide
-│   └── export-excel-design.md        # Excel export design doc
+│   ├── architecture-analysis.md       # Comprehensive architecture analysis (v0.2.0)
+│   ├── file-upload-design.md          # File upload + batch mode design
+│   ├── file-upload-plan.md            # File upload implementation plan
+│   ├── file-upload-prd.md             # File upload PRD
+│   ├── packaging-path-resolution.md   # Electron+Python cross-env path resolution
+│   ├── signing.md                     # Code signing guide
+│   └── export-excel-design.md         # Excel export design doc
 ├── logs/                # Bridge log files (gitignored)
 ├── .github/workflows/   # CI/CD pipelines
 │   └── ci.yml           # Build, test, package on push
@@ -225,18 +233,37 @@ finance-assistant/
 2. **Electron main** → **Python backend** via stdio JSON-RPC 2.0 (spawned subprocess managed by `pythonProcessManager.ts`)
 3. **Python backend** (`bridge.py`) routes method calls to registered handlers and returns results
 
+### File Upload Flow (v0.2.0)
+
+Single-file vs batch mode is determined automatically by the number of files selected:
+
+1. **User selects file(s)** via `FileDropZone` (click or drag-and-drop)
+2. **1 file** → single-file mode:
+   - `detectBanks([filePath])` → detect bank + docType
+   - User confirms or overrides bank/docType → `parseFile(params)` → display transactions
+3. **2+ files** → batch mode:
+   - `BatchFileSelector` shows file list with add/remove/clear
+   - "识别文件" → `detectBanks(filePaths)` on all pending files
+   - "开始解析" → `parseFile()` sequentially for each file
+   - Results aggregated in `BatchResultPanel` with success/failed counts
+4. **Export**: both modes share `useVoucherExport` hook for Kingdee Jingdouyun voucher generation
+
+Relevant docs: `docs/file-upload-design.md`, `docs/file-upload-plan.md`, `docs/file-upload-prd.md`
+
 ### Registered JSON-RPC Methods
 
 | Method | Description | Added |
 |--------|-------------|-------|
 | `health` | Backend status, version, Python version | v0.1.0 |
-| `parse_pdf` | Parse bank statement (auto-routes PDF/CSV/Excel by extension and content) | v0.1.0 |
+| `parse_pdf` | Parse bank statement — unified entry for PDF/CSV/Excel (auto-routes by extension and content) | v0.1.0 |
 | `parse_csv` | Direct ICBC CSV parsing shortcut (deprecated, use parse_pdf) | v0.1.0 |
 | `generate_excel` | Export transaction list to Excel (.xlsx) | v0.1.0 |
 | `generate_voucher_excel` | Export transactions as Kingdee Jingdouyun voucher template | v0.1.0 |
 | `import_subjects` | Import accounting subjects from xlsx → built-in subjects.json | v0.1.0 |
 | `get_subjects_info` | Query built-in subject table info | v0.1.0 |
 | `select_file` | Native file dialog (Electron-side, not JSON-RPC) | v0.1.0 |
+| `detect_banks` | Batch detect bank type from PDF files (returns bank + docType per file) | v0.2.0 |
+| `detect_supported_banks` | Query supported bank list dynamically from parser registry | v0.2.0 |
 
 ### File Type Routing (parse_pdf)
 

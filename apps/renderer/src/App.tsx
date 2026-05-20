@@ -8,7 +8,7 @@ import { BatchFileSelector } from './components/BatchFileSelector';
 import { BatchResultPanel } from './components/BatchResultPanel';
 import { useBatchOrchestrator } from './hooks/useBatchOrchestrator';
 import { useVoucherExport } from './hooks/useVoucherExport';
-import type { BatchResult, Transaction } from '@shared/types';
+import type { BatchResult, Transaction, ParseFileParams, ParseFileResult, DetectBanksResult, DetectSupportedBanksResult } from '@shared/types';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
@@ -18,16 +18,15 @@ declare global {
   interface Window {
     electronAPI: {
       health: () => Promise<any>;
-      parsePDF: (path: string) => Promise<any>;
-      parsePdf: (params: any) => Promise<any>;
+      parseFile: (params: ParseFileParams) => Promise<ParseFileResult>;
       generateExcel: (params: any) => Promise<any>;
       generateVoucher: (params: any) => Promise<any>;
       importSubjects: (params: any) => Promise<any>;
       getSubjectsInfo: () => Promise<any>;
       selectFile: (filter?: string, allowMulti?: boolean) => Promise<string[] | string | null>;
       saveFileDialog: (params?: any) => Promise<string | null>;
-      detectBanks: (filePaths: string[]) => Promise<any>;
-      detectSupportedBanks: () => Promise<any>;
+      detectBanks: (filePaths: string[]) => Promise<DetectBanksResult>;
+      detectSupportedBanks: () => Promise<DetectSupportedBanksResult>;
       getFilePath: (file: File) => string;
       onPythonStatus: (callback: (status: string) => void) => void;
       getPythonStatus: () => Promise<string>;
@@ -95,7 +94,10 @@ function App() {
 
     window.electronAPI.getPythonStatus?.().then((status: string) => {
       setBackendStatus(status === 'online' ? '正常' : '离线');
-    }).catch(() => setBackendStatus('离线'));
+    }).catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      setBackendStatus(msg.includes('not started') ? '未启动' : '离线');
+    });
 
     window.electronAPI.onPythonStatus?.((status: string) => {
       if (status === 'offline') { setBackendStatus('离线'); }
@@ -179,12 +181,12 @@ function App() {
       // 未知银行时传 '未知银行'，让后端走 generic BankStatementParser fallback
       const effectiveBank = (bank === '未知' || bank === '未知银行' || !bank) ? undefined : bank;
       message.info(`正在解析${effectiveBank ? `（${effectiveBank} · ${docType}）` : '...'}...`);
-      const params: any = { filePath };
+      const params: ParseFileParams = { filePath };
       if (effectiveBank) params.bank = effectiveBank;
       if (docType) params.docType = docType;
       if (forceOcr) params.forceOcr = true;
 
-      const result = await window.electronAPI.parsePdf(params);
+      const result = await window.electronAPI.parseFile(params);
 
       if (result.success) {
         setCurrentResult(result);
@@ -192,7 +194,7 @@ function App() {
         setDetectInfo({ bank: result.bank || bank, docType: result.docType || docType, isManual: false });
         message.success(`解析成功，共 ${result.transactions?.length || 0} 笔交易`);
       } else {
-        message.error(`解析失败：${result.error}`);
+        message.error(`解析失败：${result.errors?.join(", ") || "未知错误"}`);
       }
     } catch (error: unknown) {
       message.error(`解析出错：${error instanceof Error ? error.message : String(error)}`);
@@ -221,7 +223,7 @@ function App() {
       onConfirm: handleSingleOverrideConfirm,
     });
     setOverrideModalOpen(true);
-  }, [detectInfo, handleSingleOverrideConfirm, currentFilePath]);
+  }, [detectInfo.bank, detectInfo.docType, handleSingleOverrideConfirm, currentFilePath]);
 
   // ====== 打开批量 fallback 模态框 ======
   const openBatchOverride = useCallback((filePaths: string[]) => {
@@ -269,7 +271,7 @@ function App() {
     if (currentFilePath) {
       handleSingleFileParse(currentFilePath, detectInfo.bank, detectInfo.docType, false);
     }
-  }, [currentFilePath, detectInfo, handleSingleFileParse]);
+  }, [currentFilePath, detectInfo.bank, detectInfo.docType, handleSingleFileParse]);
 
   // ====== 批量：开始解析 ======
   const handleBatchStartParse = useCallback(() => {

@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { message } from 'antd';
-import type { BatchFileResult, BatchResult } from '@shared/types';
+import type { BatchFileResult, BatchResult, DetectFileResult, ParseFileParams } from '@shared/types';
+import { getFileNameFromPath } from '../utils/pathUtils';
 
 interface UseBatchOrchestratorOptions {
   maxFiles?: number;
@@ -67,7 +68,7 @@ export function useBatchOrchestrator(
         if (!merged.some((f) => f.filePath === fp)) {
           merged.push({
             filePath: fp,
-            fileName: fp.split(/[/\\]/).pop() || fp,
+            fileName: getFileNameFromPath(fp),
             bank: '',
             docType: '',
             status: 'pending',
@@ -98,24 +99,15 @@ export function useBatchOrchestrator(
     if (phase !== 'idle' || files.length === 0) return;
     setPhase('detecting');
     try {
-      const detectResp = await (window as any).electronAPI?.detectBanks?.(
+      const detectResp = await window.electronAPI?.detectBanks?.(
         files.map((f) => f.filePath),
       );
 
-      interface DetectEntry {
-        bank: string;
-        docType: string;
-        status: 'ok' | 'failed';
-      }
-      const detectMap: Record<string, DetectEntry> = {};
+      const detectMap: Record<string, DetectFileResult> = {};
       if (detectResp?.success && detectResp.results) {
-        detectResp.results.forEach((r: any) => {
-          detectMap[r.filePath] = {
-            bank: r.bank,
-            docType: r.docType,
-            status: r.status || 'ok',
-          };
-        });
+        for (const r of detectResp.results) {
+          detectMap[r.filePath] = r;
+        }
       }
 
       setFiles((prev) =>
@@ -152,11 +144,11 @@ export function useBatchOrchestrator(
         setCurrentIndex(i + 1);
 
         try {
-          const params: any = { filePath: file.filePath };
+          const params: ParseFileParams = { filePath: file.filePath };
           if (file.bank) params.bank = file.bank;
           if (file.docType) params.docType = file.docType;
 
-          const r = await (window as any).electronAPI?.parsePdf?.(params);
+          const r = await window.electronAPI?.parseFile?.(params);
 
           if (r?.success) {
             results.push({
@@ -176,7 +168,7 @@ export function useBatchOrchestrator(
               bank: file.bank || '未知',
               docType: file.docType || 'unknown',
               status: 'failed',
-              error: r?.error || '解析失败',
+              error: r?.errors?.join(", ") || '解析失败',
               transactionCount: 0,
             });
           }
@@ -223,11 +215,11 @@ export function useBatchOrchestrator(
       setCurrentIndex(i + 1);
 
       try {
-        const params: any = { filePath: fp, bank };
+        const params: ParseFileParams = { filePath: fp, bank };
         if (docType) params.docType = docType;
         if (forceOcr) params.forceOcr = true;
 
-        const r = await (window as any).electronAPI?.parsePdf?.(params);
+        const r = await window.electronAPI?.parseFile?.(params);
 
         if (r.success) {
           setFiles((prev) =>
@@ -235,7 +227,7 @@ export function useBatchOrchestrator(
               f.filePath === fp
                 ? {
                     filePath: fp,
-                    fileName: fp.split(/[/\\]/).pop() || fp,
+                    fileName: getFileNameFromPath(fp),
                     bank: r.bank || bank,
                     docType: r.docType || docType,
                     statementDate: r.statementDate,
@@ -252,11 +244,11 @@ export function useBatchOrchestrator(
               f.filePath === fp
                 ? {
                     filePath: fp,
-                    fileName: fp.split(/[/\\]/).pop() || fp,
+                    fileName: getFileNameFromPath(fp),
                     bank,
                     docType,
                     status: 'failed' as const,
-                    error: r.error,
+                    error: r.errors?.join(", ") || "解析失败",
                     transactionCount: 0,
                   }
                 : f,
@@ -269,7 +261,7 @@ export function useBatchOrchestrator(
             f.filePath === fp
               ? {
                   filePath: fp,
-                  fileName: fp.split(/[/\\]/).pop() || fp,
+                  fileName: getFileNameFromPath(fp),
                   bank,
                   docType,
                   status: 'failed' as const,
