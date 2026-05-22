@@ -1,94 +1,200 @@
-"""Parser router — file-extension-aware dispatch to the correct parser.
+"""解析路由器 — 根据文件扩展名将文件分发到对应的解析器。
 
-Replaces the 110-line routing chain inside bridge.py's handle_parse_pdf.
-All heavy parser modules are imported lazily; only the needed one loads.
+替代 bridge.py 中 handle_parse_pdf 原有的 110 行路由链。
+所有重型解析器模块均延迟导入，仅加载当前需要的解析器。
 """
 from __future__ import annotations
 
 import os
+import re
 import time
-import fitz  # lightweight enough to import eagerly
+import fitz  # 足够轻量，可直接导入
 
 from finance_agent_backend.models import Transaction, ParseResult
 
 # ---------------------------------------------------------------------------
-# Bank / doc-type detection
+# 银行代码与中文名称双向映射
 # ---------------------------------------------------------------------------
 
-BANK_KEYWORDS = {
-    '招商银行': ['招商银行', 'China Merchants Bank'],
-    '工商银行': ['工商银行', 'ICBC'],
-    '中国银行': ['中国银行', 'Bank of China'],
-    '建设银行': ['建设银行', 'China Construction Bank'],
-    '广发银行': ['广发银行', '广东发展银行', 'CGB'],
+BANK_CODE_TO_NAME: dict[str, str] = {
+    'ICBC': '工商银行',
+    'CMB': '招商银行',
+    'GFB': '广发银行',
+}
+BANK_NAME_TO_CODE: dict[str, str] = {v: k for k, v in BANK_CODE_TO_NAME.items()}
+
+
+# ---------------------------------------------------------------------------
+# PDF 结构特征匹配器（Level 1 嵌入式文本检测）
+# ---------------------------------------------------------------------------
+
+# 每个条目: ((关键字...), (bankCode, docType), mode)
+#   mode='all'  — 所有关键字必须同时出现（带表头的表格格式）
+#   mode='any'  — 任一关键字命中即可（仅标题，如回单）
+
+# docType 统一用中文：'流水' | '回单' | 'unknown'
+PDF_STRUCTURE_MATCHERS: list[tuple[tuple[str, ...], tuple[str, str], str]] = [
+    # 招行 — 表格格式流水（账务明细清单 + 借贷金额列）
+    (('账务明细清单', '借方/贷方金额'), ('CMB', '流水'), 'all'),
+    (('Date', 'Currency', 'Counter Party'), ('CMB', '流水'), 'all'),
+    # 招行 — 回单（仅有标题，无列）
+    (('出账回单', '入账回单'), ('CMB', '回单'), 'any'),
+    # 广发 — 表格格式流水（使用本期支出/本期收入而非交易金额）
+    (('交易日期', '交易类型', '本期支出'), ('GFB', '流水'), 'all'),
+]
+
+
+def _match_pdf_structure(
+    text: str,
+    matchers: list[tuple[tuple[str, ...], tuple[str, str], str]] | None = None,
+) -> tuple[str, str] | None:
+    """将嵌入式 PDF 文本与结构签名进行匹配。
+
+    首个命中时返回 (bankCode, docType)，否则返回 None。
+    匹配前会压缩空白字符，消除 PDF 渲染导致的字间空格。
+    """
+    if matchers is None:
+        matchers = PDF_STRUCTURE_MATCHERS
+
+    # PDF 渲染可能产生字间空格（如"出 账 回 单"），压缩空白后匹配
+    compact = re.sub(r'\s+', '', text)
+
+    for keywords, result, mode in matchers:
+        if mode == 'all':
+            if all(re.sub(r'\s+', '', kw) in compact for kw in keywords):
+                return result
+        elif mode == 'any':
+            if any(re.sub(r'\s+', '', kw) in compact for kw in keywords):
+                return result
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# 解析器注册表 — bankCode → dispatch list
+# ---------------------------------------------------------------------------
+# Each bank entry is a list of dispatch entries tried in order:
+#   (module_name, class_name)           — simple parser, try and move on
+#   dict                                 — sub-typed entry (e.g. CMB statement:
+#                                        'table' / 'column' via _detect_cmb_pdf_subtype)
+# An 'unknown' key in the list handles the case where docType could not be
+# determined from the file content.  Banks without an 'unknown' entry fall
+# through to _try_unknown_bank_parsers() which tries every bank's 'unknown'.
+
+PARSER_REGISTRY: dict[str, list] = {
+    'ICBC': [
+        ('icbc_receipt_grid_parser', 'ICBCReceiptGridParser'),  # receipt
+        ('icbc_parser', 'ICBCParser'),                            # statement
+    ],
+    'CMB': [
+        ('cmb_receipt_parser', 'CMBReceiptParser'),              # receipt
+        {'table': ('cmb_table_parser', 'CMBTableParser'),         # statement – sub-typed
+         'column': ('cmb_parser', 'CMBParser')},
+    ],
+    'GFB': [
+        ('gfb_table_parser', 'GFBTableParser'),                   # statement
+    ],
 }
 
 
+# RapidOCR 单例 — 避免每次检测重复加载 ONNX 模型（~50MB）
+_ocr_instance = None
+
+
+def _get_ocr():
+    global _ocr_instance
+    if _ocr_instance is None:
+        from rapidocr_onnxruntime import RapidOCR
+        _ocr_instance = RapidOCR()
+    return _ocr_instance
+
+
 def detect_bank_from_pdf(file_path: str) -> tuple[str, str]:
-    """Detect bank name and document type from a PDF's embedded text.
+    """通过三级路由检测银行。返回 (bankCode, docType)，docType 为中文。
 
-    Returns (bank, doc_type).  Falls back to ('未知银行', 'unknown') on error.
+    Level 1: fitz 提取嵌入式文本 → _match_pdf_structure()
+    Level 2: OCR 首页 → 正则提取账号 → registry.match_by_account()
+    均失败时回退到 ('未知银行', '流水')。
     """
-    def _classify(sample: str) -> tuple[str, str]:
-        bank = '未知银行'
-        for name, kws in BANK_KEYWORDS.items():
-            if any(kw in sample for kw in kws):
-                bank = name
-                break
+    from finance_agent_backend.account_registry import (
+        AccountMappingRepository,
+        AccountRegistry,
+        _default_config_path,
+    )
 
-        doc_type = 'unknown'
-        sample_no_space = sample.replace(' ', '')
-        if ('出账回单' in sample_no_space or '入账回单' in sample_no_space
-                or '电子回单' in sample or '网上银行电子回单' in sample):
-            doc_type = 'receipt'
-        elif ('交易流水' in sample or '明细清单' in sample
-                or '对账单' in sample):
-            doc_type = 'statement'
-        elif '日期' in sample and '金额' in sample and '余额' in sample:
-            doc_type = 'statement'
-
-        return bank, doc_type
+    repo = AccountMappingRepository(_default_config_path())
+    registry = AccountRegistry(repo.load())  # 函数级实例，每次调用新建
 
     try:
         with open(file_path, 'rb') as f:
             pdf_bytes = f.read()
         doc = fitz.open('pdf', pdf_bytes)
-        sample = ''
-        for i in range(min(3, len(doc))):
-            sample += doc[i].get_text('text')
-        doc.close()
+        try:
+            sample = ''
+            for i in range(min(3, len(doc))):
+                sample += doc[i].get_text('text')
 
-        if sample.strip():
-            return _classify(sample)
-        return '未知银行', 'unknown'
+            # Level 1: 在嵌入式文本上做结构匹配
+            if sample.strip():
+                result = _match_pdf_structure(sample)
+                if result:
+                    return result
+                return '未知银行', '流水'
+
+            # Level 2: 扫描件 OCR + 账号匹配（复用 doc，避免重读 PDF）
+            result = _detect_bank_by_ocr_account(doc, registry)
+            if result:
+                return result
+            return '未知银行', '流水'
+        finally:
+            doc.close()
     except Exception:
         return '未知银行', 'unknown'
 
 
-def detect_cmb_pdf_type(file_path: str) -> str:
-    """Return 'table' (账务明细清单) or 'column' (old columnar format)."""
-    TABLE_TITLES = ['账务明细清单', 'Statement Of Account',
-                    'Statement of Account', 'STATEMENT OF ACCOUNT']
+def _detect_bank_by_ocr_account(doc, registry) -> tuple[str, str] | None:
+    """Level 2: OCR 识别首页，提取账号，匹配 registry。
+
+    复用传入的 fitz doc，不重复读 PDF。
+    RapidOCR 实例通过模块级单例复用。
+    registry 由调用方传入，不依赖全局单例。
+    返回 (bankCode, '回单') 或 None。
+    """
     try:
-        with open(file_path, 'rb') as f:
-            pdf_bytes = f.read()
-        doc = fitz.open('pdf', pdf_bytes)
-        text = doc[0].get_text('text')
-        doc.close()
-        for title in TABLE_TITLES:
-            if title in text:
-                return 'table'
+        import re
+        from PIL import Image
+        import numpy as np
+
+        page = doc[0]
+        pix = page.get_pixmap(dpi=200)
+        img = Image.frombytes('RGB', [pix.width, pix.height], pix.samples)
+        img_np = np.array(img)
+
+        ocr = _get_ocr()
+        result = ocr(img_np)
+        if not result or not result[0]:
+            return None
+
+        text = ''.join(str(item[1]) for item in result[0] if item[1])
+
+        candidates = re.findall(r'\d{12,19}', text)
+
+        for acct in candidates:
+            entry = registry.match_by_account(acct)
+            if entry:
+                return (entry.bankCode, '回单')
+
+        return None
     except Exception:
-        pass
-    return 'column'
+        return None
 
 
 # ---------------------------------------------------------------------------
-# ParseResult → dict serialisation
+# ParseResult → dict 序列化
 # ---------------------------------------------------------------------------
 
 def _serialize_result(result: ParseResult) -> dict:
-    """Convert a ParseResult dataclass to a JSON-safe dict."""
+    """将 ParseResult 数据类转换为 JSON 可序列化字典。"""
     return {
         "success": True,
         "transactions": [_serialize_txn(t) for t in result.transactions],
@@ -118,33 +224,34 @@ def _serialize_txn(t: Transaction) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Main entry point
+# 主入口
 # ---------------------------------------------------------------------------
 
-def route(file_path: str, bank: str | None = None) -> dict:
-    """Route *file_path* to the correct parser and return a JSON-safe dict.
+def route(file_path: str, bank: str | None = None, doc_type: str | None = None) -> dict:
+    """将 *file_path* 路由到对应解析器，返回 JSON 可序列化字典。
 
-    Dispatches on file extension:
-    - ``.xlsx``  → CMB Excel parser
-    - ``.csv``   → ICBC CSV parser
-    - ``.pdf``   → bank-detection → bank-specific PDF parser → generic fallback
+    按扩展名分发:
+    - ``.xlsx``  → 招行 Excel 解析器
+    - ``.csv``   → 工行 CSV 解析器
+    - ``.pdf``   → 银行检测 → 银行专用 PDF 解析器 → 通用回退
 
-    The *bank* parameter (if provided) skips bank detection for PDF files.
+    *bank* 参数（非空）则跳过 PDF 文件的银行检测。
+    *doc_type* 参数（非空）指定文档类型（'statement' / 'receipt'），与 *bank* 配合使用。
     """
-    # --- xlsx (CMB Excel) ---
+    # --- xlsx (招行 Excel) ---
     if file_path.lower().endswith('.xlsx'):
         return _do_parse_cmb_excel(file_path)
 
-    # --- csv (ICBC CSV) ---
+    # --- csv (工行 CSV) ---
     if file_path.lower().endswith('.csv'):
         return _do_parse_icbc_csv(file_path)
 
     # --- pdf ---
-    return _do_parse_pdf(file_path, bank=bank)
+    return _do_parse_pdf(file_path, bank=bank, doc_type=doc_type)
 
 
 # ---------------------------------------------------------------------------
-# Format-specific handlers (lazy-import their parser modules)
+# 格式专用处理器（延迟导入对应解析器模块）
 # ---------------------------------------------------------------------------
 
 def _do_parse_cmb_excel(file_path: str) -> dict:
@@ -167,108 +274,130 @@ def _do_parse_icbc_csv(file_path: str) -> dict:
         return {"success": False, "error": str(e)}
 
 
-def _do_parse_pdf(file_path: str, bank: str | None = None) -> dict:
-    from finance_agent_backend.tools import (
-        icbc_receipt_grid_parser,
-        icbc_parser,
-        cmb_receipt_parser,
-        cmb_table_parser,
-        cmb_parser,
-        gfb_table_parser,
-        pdf_parser,
-    )
+def _do_parse_pdf(file_path: str, bank: str | None = None,
+                  doc_type: str | None = None) -> dict:
+    """解析 PDF 文件，使用 PARSER_REGISTRY 分发。
 
-    if not bank:
-        bank, doc_type = detect_bank_from_pdf(file_path)
-    else:
-        doc_type = 'unknown'
+    - *bank* 非空 → 外部指定，转为 bankCode，跳过检测
+    - *bank* 空 → 通过三级路由自动检测
+    - *doc_type* 非空 → 外部指定文档类型（'statement'/'receipt'）
 
-    # Routing strategy (mirrors original handle_parse_pdf logic):
-    #   receipt / unknown / ICBC-not-clear -> try receipt grid first
-    #   ICBC clear statement -> ICBCParser
-    #   CMB -> CMBTableParser / CMBParser (by subtype)
-    #   GFB -> GFBTableParser
-    #   unknown -> generic BankStatementParser
-
-    result: ParseResult | None = None  # must be initialised before use
+    强制验证: bankCode 必须属于 PARSER_REGISTRY，否则拒绝解析，
+    要求用户在界面上手动选择银行和文件类型。
+    """
 
     def _has_result(r):
         return r is not None and r.transactions
 
-    try_receipt_first = (
-        doc_type == 'receipt'
-        or bank == '未知银行'
-        or ('工商' in (bank or '') and doc_type != 'statement')
-    )
-    if try_receipt_first:
-        t0 = time.time()
-        try:
-            result = icbc_receipt_grid_parser.ICBCReceiptGridParser().parse(file_path)
-        except Exception:
-            result = None
-        _log_route('ICBC 回单网格', result, t0)
+    # ── 解析 bankCode + docType ──────────────────────────────────
+    if bank:
+        bank_code = BANK_NAME_TO_CODE.get(bank, bank)
+        if not doc_type:
+            doc_type = '流水'
+    else:
+        if doc_type:
+            bank_code = '未知银行'
+        else:
+            bank_code, doc_type = detect_bank_from_pdf(file_path)
+
+    # ── 强制验证：bankCode 必须在注册表中 ────────────────────────
+    if bank_code not in PARSER_REGISTRY:
+        return {
+            "success": False,
+            "error": f"无法识别银行类型（{bank_code}），请在界面上手动选择银行和文件类型",
+        }
+
+    # ── 通过 PARSER_REGISTRY 分发 ───────────────────────────────
+    result = _dispatch_registry_parser(file_path, bank_code, doc_type)
 
     if not _has_result(result):
-        if '工商' in (bank or '') or bank == '未知银行':
-            t0 = time.time()
-            try:
-                result = icbc_parser.ICBCParser().parse(file_path)
-            except Exception:
-                result = None
-            _log_route('ICBC 流水', result, t0)
-
-    if not _has_result(result):
-        if '招商' in (bank or ''):
-            if doc_type == 'receipt':
-                t0 = time.time()
-                try:
-                    result = cmb_receipt_parser.CMBReceiptParser().parse(file_path)
-                except Exception:
-                    result = None
-                label = '招行回单'
-            else:
-                cmb_type = detect_cmb_pdf_type(file_path)
-                p = (cmb_table_parser.CMBTableParser()
-                     if cmb_type == 'table'
-                     else cmb_parser.CMBParser())
-                t0 = time.time()
-                try:
-                    result = p.parse(file_path)
-                except Exception:
-                    result = None
-                label = f'招行({cmb_type})'
-            _log_route(label, result, t0)
-
-    if not _has_result(result):
-        if '广发' in (bank or ''):
-            t0 = time.time()
-            try:
-                result = gfb_table_parser.GFBTableParser().parse(file_path)
-            except Exception:
-                result = None
-            _log_route('广发', result, t0)
-
-    if not _has_result(result):
-        t0 = time.time()
-        try:
-            result = pdf_parser.BankStatementParser().parse(file_path, bank)
-        except Exception:
-            result = None
-        _log_route('通用', result, t0)
-
-    if result is None:
-        return {"success": False, "error": "解析失败：所有解析器均无法处理该文件"}
+        return {
+            "success": False,
+            "error": f"解析失败：{bank_code}（{doc_type}）解析器未返回数据，请尝试其他文件类型或联系开发者",
+        }
 
     return _serialize_result(result)
 
 
+def _dispatch_registry_parser(
+    file_path: str, bank_code: str, doc_type: str
+) -> ParseResult | None:
+    """查询 PARSER_REGISTRY 并实例化对应解析器。
+
+    按注册表顺序逐个尝试，首个返回数据的即停。
+    doc_type 仅用于日志标签，不做硬过滤（允许 receipt 失败后回退到 statement）。
+    """
+    registry = PARSER_REGISTRY[bank_code]
+
+    for entry in registry:
+        t0 = time.time()
+        try:
+            if isinstance(entry, dict):
+                # sub-typed entry (CMB statement: 'table' / 'column')
+                subtype = _detect_cmb_pdf_subtype(file_path)
+                key = subtype if subtype in entry else list(entry.keys())[0]
+                result = _try_parser(*entry[key], file_path)
+            elif isinstance(entry, tuple) and len(entry) == 2:
+                result = _try_parser(*entry, file_path)
+            else:
+                result = None
+        except Exception:
+            result = None
+
+        # 日志标签
+        if isinstance(entry, dict):
+            label = ','.join(f'{k}={v[1]}' for k, v in entry.items())
+        elif isinstance(entry, tuple) and len(entry) == 2:
+            label = entry[1]
+        else:
+            label = '?'
+        _log_route(f'{bank_code}({doc_type}):{label}', result, t0)
+
+        if result and result.transactions:
+            return result
+
+    return None
+
+
+def _try_parser(module_name: str, class_name: str, file_path: str) -> ParseResult | None:
+    """延迟导入解析器模块并调用其 parse() 方法。"""
+    mod = __import__(
+        f'finance_agent_backend.tools.{module_name}',
+        fromlist=[class_name],
+    )
+    cls = getattr(mod, class_name)
+    parser = cls()
+    return parser.parse(file_path)
+
+
+def _detect_cmb_pdf_subtype(file_path: str) -> str:
+    """返回 'table'（账务明细清单）或 'column'（旧式竖排格式）。
+
+    私有辅助函数 — 仅在招行流水分发时调用。
+    """
+    TABLE_TITLES = ['账务明细清单', 'Statement Of Account',
+                    'Statement of Account', 'STATEMENT OF ACCOUNT']
+    try:
+        with open(file_path, 'rb') as f:
+            pdf_bytes = f.read()
+        doc = fitz.open('pdf', pdf_bytes)
+        text = doc[0].get_text('text')
+        doc.close()
+        for title in TABLE_TITLES:
+            if title in text:
+                return 'table'
+    except Exception:
+        pass
+    return 'column'
+
+
 # ---------------------------------------------------------------------------
-# Helpers
+# 辅助函数
 # ---------------------------------------------------------------------------
 
 def _log_route(label: str, result: ParseResult | None, t0: float,
                logger=None) -> None:
-    """Log routing decision. Accepts an optional logger; falls back to print."""
+    """记录路由决策日志。接受可选 logger，失败时回退到 print。"""
     count = len(result.transactions) if result else 0
     elapsed = time.time() - t0
     msg = f"{label}: {count} 条, {elapsed:.1f}s"

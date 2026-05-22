@@ -1,14 +1,16 @@
 import { Layout, Typography, Button, Card, message, Space, Modal, Form, Input } from 'antd';
 import { useState, useEffect, useCallback } from 'react';
+import { SettingOutlined } from '@ant-design/icons';
 import { FileDropZone } from './components/FileDropZone';
 import { TransactionTable } from './components/TransactionTable';
 import { ResultCard } from './components/ResultCard';
 import { ManualOverrideModal } from './components/ManualOverrideModal';
 import { BatchFileSelector } from './components/BatchFileSelector';
 import { BatchResultPanel } from './components/BatchResultPanel';
+import { AccountSubjectManager } from './components/AccountSubjectManager';
 import { useBatchOrchestrator } from './hooks/useBatchOrchestrator';
 import { useVoucherExport } from './hooks/useVoucherExport';
-import type { BatchResult, Transaction, ParseFileParams, ParseFileResult, DetectBanksResult, DetectSupportedBanksResult } from '@shared/types';
+import type { BatchResult, Transaction, ParseFileParams, ParseFileResult, DetectBanksResult, DetectSupportedBanksResult, DocType } from '@shared/types';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
@@ -72,6 +74,9 @@ function App() {
   const [importSubjectsLoading, setImportSubjectsLoading] = useState(false);
   const [subjectsCount, setSubjectsCount] = useState<number | null>(null);
   const [backendStatus, setBackendStatus] = useState<string>('检查中...');
+
+  // ====== 账号-科目管理 ======
+  const [accountManagerVisible, setAccountManagerVisible] = useState(false);
 
   // ====== 手动覆盖模态框 ======
   const [overrideModalOpen, setOverrideModalOpen] = useState(false);
@@ -183,7 +188,7 @@ function App() {
       message.info(`正在解析${effectiveBank ? `（${effectiveBank} · ${docType}）` : '...'}...`);
       const params: ParseFileParams = { filePath };
       if (effectiveBank) params.bank = effectiveBank;
-      if (docType) params.docType = docType;
+      if (docType) params.docType = docType as DocType;
       if (forceOcr) params.forceOcr = true;
 
       const result = await window.electronAPI.parseFile(params);
@@ -238,7 +243,7 @@ function App() {
         setOverrideModalOpen(false);
         // 只更新检测值，不触发解析
         for (const fp of filePaths) {
-          batch.updateFile(fp, { bank, docType, error: undefined, isManual: true });
+          batch.updateFile(fp, { bank, docType: docType as any, error: undefined, isManual: true });
         }
       },
     });
@@ -294,7 +299,7 @@ function App() {
       onConfirm: (bank: string, docType: string, _forceOcr: boolean) => {
         setOverrideModalOpen(false);
         // 只更新检测值，不触发解析
-        batch.updateFile(filePath, { bank, docType, error: undefined, isManual: true });
+        batch.updateFile(filePath, { bank, docType: docType as any, error: undefined, isManual: true });
       },
     });
     setOverrideModalOpen(true);
@@ -364,6 +369,9 @@ function App() {
                 </Button>
                 <Button loading={importSubjectsLoading} onClick={handleImportSubjects}>
                   导入科目表
+                </Button>
+                <Button icon={<SettingOutlined />} onClick={() => setAccountManagerVisible(true)}>
+                  账号管理
                 </Button>
               </Space>
               <div>
@@ -479,6 +487,25 @@ function App() {
           onCancel={() => setOverrideModalOpen(false)}
         />
       )}
+
+      {/* 账号-科目管理模态框 */}
+      <Modal
+        title="账号-科目管理"
+        open={accountManagerVisible}
+        onCancel={() => setAccountManagerVisible(false)}
+        footer={null}
+        width={1000}
+        destroyOnHidden
+      >
+        <AccountSubjectManager
+          onRefresh={() => {
+            // 刷新时更新科目数量显示
+            window.electronAPI?.getSubjectsInfo?.().then((result: any) => {
+              if (result?.success) setSubjectsCount(result.count);
+            });
+          }}
+        />
+      </Modal>
 
       {/* 导出凭证弹窗 */}
       <Modal

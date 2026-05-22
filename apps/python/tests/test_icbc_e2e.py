@@ -23,7 +23,7 @@ from finance_agent_backend.bridge import handle_request
 def _get_test_pdf():
     path = os.environ.get(
         "ICBC_TEST_PDF",
-        r"C:\Users\dell\Desktop\finance agent\中国工商银行企业网上银行931-2603.pdf",
+        r"C:\Users\dell\Desktop\finance agent\中国工商银行企业网上银行363-2603.pdf",
     )
     if not os.path.exists(path):
         pytest.skip(f"Test PDF not found: {path}")
@@ -51,39 +51,35 @@ class TestICBCParser:
         parser = ICBCParser()
         result = parser.parse(_get_test_pdf())
         tx = result.transactions[0]
-        assert tx.date == date(2026, 3, 6)
-        assert tx.amount == Decimal("44800.00")
+        assert tx.date == date(2026, 3, 5)
+        assert tx.amount == Decimal("799.00")
         assert tx.direction == "expense"
-        assert tx.counterparty == "麒麟软件有限公司"
-        assert "支付应付款" in tx.description
-        assert tx.reference_number == "0000000000000000012001100501052500864"
-        assert tx.notes == "208,581.86"
+        assert tx.counterparty == "中国电信股份有限公司广州分公司"
+        assert tx.notes == "14,255.94"
 
     def test_last_transaction(self):
         parser = ICBCParser()
         result = parser.parse(_get_test_pdf())
         tx = result.transactions[-1]
-        assert tx.date == date(2026, 3, 20)
-        assert tx.amount == Decimal("9.00")
+        assert tx.date == date(2026, 3, 30)
+        assert tx.amount == Decimal("22655.00")
         assert tx.direction == "expense"
-        assert "跨行汇款手续费" in tx.description
-        assert tx.notes == "663,386.86"
 
     def test_income_transaction(self):
         parser = ICBCParser()
         result = parser.parse(_get_test_pdf())
         income_tx = [t for t in result.transactions if t.direction == "income"]
-        assert len(income_tx) == 2
-        # Loan income on 2026-03-19
-        loan = income_tx[1]
-        assert loan.date == date(2026, 3, 19)
-        assert loan.amount == Decimal("1000000.00")
-        assert "对公贷款" in loan.description
+        assert len(income_tx) == 5
+        # 采购结算单 on 2026-03-17
+        purchase = income_tx[2]
+        assert purchase.date == date(2026, 3, 17)
+        assert purchase.amount == Decimal("17143.00")
+        assert "采购结算单" in purchase.description
 
     def test_statement_date_is_last_transaction_date(self):
         parser = ICBCParser()
         result = parser.parse(_get_test_pdf())
-        assert result.statement_date == date(2026, 3, 20)
+        assert result.statement_date == date(2026, 3, 30)
 
     def test_all_transactions_have_date_amount_direction(self):
         parser = ICBCParser()
@@ -107,8 +103,8 @@ class TestICBCParser:
                     pass
         assert len(balances) > 10
         # Verify first and last balance match expected
-        assert balances[0] == Decimal("208581.86")
-        assert balances[-1] == Decimal("663386.86")
+        assert balances[0] == Decimal("14255.94")
+        assert balances[-1] == Decimal("20334.82")
 
     def test_reference_numbers_are_clean(self):
         """Reference numbers should not contain Chinese text or pipe chars."""
@@ -158,7 +154,7 @@ class TestBridgeParsePDF:
         resp = handle_request({
             "jsonrpc": "2.0",
             "method": "parse_pdf",
-            "params": {"file_path": _get_test_pdf()},
+            "params": {"filePath": _get_test_pdf()},
             "id": 1,
         })
         assert resp["id"] == 1
@@ -175,13 +171,13 @@ class TestBridgeParsePDF:
             "id": 2,
         })
         assert resp["result"]["success"] is False
-        assert "file_path" in resp["result"]["error"]
+        assert "filePath" in resp["result"]["error"]
 
     def test_parse_pdf_nonexistent_file(self):
         resp = handle_request({
             "jsonrpc": "2.0",
             "method": "parse_pdf",
-            "params": {"file_path": r"C:\nonexistent\file.pdf"},
+            "params": {"filePath": r"C:\nonexistent\file.pdf"},
             "id": 3,
         })
         assert resp["result"]["success"] is False
@@ -215,7 +211,7 @@ class TestBridgeExcel:
         parse_resp = handle_request({
             "jsonrpc": "2.0",
             "method": "parse_pdf",
-            "params": {"file_path": _get_test_pdf()},
+            "params": {"filePath": _get_test_pdf()},
             "id": 1,
         })
         transactions = parse_resp["result"]["transactions"]

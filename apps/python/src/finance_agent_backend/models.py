@@ -101,3 +101,15 @@ class VoucherEntry:
     original_amount: Optional[Decimal] = None         # W: 原币金额
     currency: str = 'RMB'                             # X: 币别
     exchange_rate: Decimal = field(default_factory=lambda: Decimal('1.0'))  # Y: 汇率
+
+
+@dataclass
+class AccountEntry:
+    """账号-科目映射条目"""
+    id: str                          # 自动生成（时间戳）
+    matchType: str                   # 'suffix' | 'exact'
+    pattern: str                     # 匹配用的账号片段
+    bank: str                        # 银行中文名
+    bankCode: str                    # ICBC / CMB / GFB
+    subjectCode: str                 # 会计科目代码
+    subjectName: str                 # 科目全名

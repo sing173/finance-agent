@@ -1,17 +1,21 @@
 /**
  * 全流程端到端测试
- * 覆盖：Python 启动 → PDF 解析 → Excel 导出 → 清理
+ * 覆盖：Python 启动 → detect → parse → Excel 导出 → 清理
  */
 
 const { pythonProcess } = require('../../dist/pythonProcessManager');
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
 
 const OUTPUT_DIR = path.resolve(__dirname, 'output');
-const TEST_PDF_PATH = path.join(OUTPUT_DIR, 'workflow_test_statement.pdf');
-const TEST_EXCEL_PATH = path.join(OUTPUT_DIR, 'workflow_export_result.xlsx');
-const TEMP_SCRIPT_PATH = path.join(OUTPUT_DIR, 'workflow_gen_pdf.py');
+
+// ---------- 真实测试文件 ----------
+
+const REAL_FILES = {
+  cmb_pdf: path.join('C:\\Users\\dell\\Desktop\\finance agent', 'cmb-03.pdf'),
+};
+
+// ---------- 工具 ----------
 
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
@@ -19,68 +23,23 @@ function ensureDir(dirPath) {
 
 function cleanup() {
   console.log('\n[Cleanup] 清理临时文件...');
-  const files = [TEST_PDF_PATH, TEST_EXCEL_PATH, TEMP_SCRIPT_PATH];
+  const files = fs.readdirSync(OUTPUT_DIR);
   let cleaned = 0;
   for (const f of files) {
-    if (fs.existsSync(f)) {
-      fs.unlinkSync(f);
-      console.log('  ✓ 删除:', path.basename(f));
+    const fp = path.join(OUTPUT_DIR, f);
+    if (fs.statSync(fp).isFile()) {
+      fs.unlinkSync(fp);
       cleaned++;
     }
   }
-  if (cleaned === 0) {
-    console.log('  ✓ output 目录已清空');
-  }
+  console.log(`  ${cleaned > 0 ? `✓ 清理 ${cleaned} 个文件` : '✓ 无需清理'}`);
 }
 
-function generateTestPDF() {
-  console.log('[Prep] 生成测试 PDF...');
-  ensureDir(OUTPUT_DIR);
-
-  const pythonExe = process.env.PYTHON_CMD ||
-    path.resolve(__dirname, '../../../python/.venv/Scripts/python.exe');
-  const srcPath = path.resolve(__dirname, '../../../python/src');
-  const pdfPath = TEST_PDF_PATH;
-
-  const script = `import sys
-sys.path.insert(0, r"${srcPath.replace(/\\/g, '\\\\')}")
-import fitz
-doc = fitz.open()
-page = doc.new_page()
-text = """Bank Statement
-=====================================
-Date       Description                Amount    Counterparty
-2025-05-01  Salary Income from Tech     +15000.00  Tech Company
-2025-05-02  Supermarket Shopping       -328.50   Walmart
-2025-05-03  Transfer to Zhang San      -2000.00  Zhang San
-2025-05-05  Interest Income from Bank  +12.50    Bank of China
-"""
-page.insert_text((50, 50), text, fontsize=12)
-doc.save(r"${pdfPath.replace(/\\/g, '\\\\')}")
-doc.close()
-print("PDF OK")
-`;
-
-  return new Promise((resolve, reject) => {
-    const tempScript = TEMP_SCRIPT_PATH;
-    fs.writeFileSync(tempScript, script, 'utf8');
-    const proc = spawn(pythonExe, [tempScript], { cwd: __dirname, stdio: 'pipe', shell: true });
-    let out = '';
-    proc.stdout.on('data', d => out += d.toString());
-    proc.stderr.on('data', d => console.error('[PDF]', d.toString().trim()));
-    proc.on('close', code => {
-      try { fs.unlinkSync(tempScript); } catch (e) {}
-      if (code === 0 && fs.existsSync(TEST_PDF_PATH)) {
-        console.log('  ✓ PDF 已生成');
-        resolve();
-      } else {
-        reject(new Error('失败 code=' + code + ', out: ' + out));
-      }
-    });
-    proc.on('error', reject);
-  });
+function assert(cond, msg) {
+  if (!cond) throw new Error('断言失败: ' + msg);
 }
 
+// ---------- 主流程 ----------
 
 async function runFullWorkflow() {
   console.log('=== 全流程端到端测试 ===\n');
@@ -90,34 +49,58 @@ async function runFullWorkflow() {
     cleanup();
     ensureDir(OUTPUT_DIR);
 
-    console.log('=== 阶段 1: 测试数据 ===\n');
-    await generateTestPDF();
-    console.log('');
-
-    console.log('=== 阶段 2: Python 后端 ===\n');
+    // ── 阶段 1: 启动后端 ──
+    console.log('=== 阶段 1: Python 后端 ===\n');
     await pythonProcess.start();
     await new Promise(r => setTimeout(r, 1500));
     console.log('✅ 进程已启动\n');
 
-    console.log('=== 阶段 3: 健康检查 ===\n');
+    // ── 阶段 2: 健康检查 ──
+    console.log('=== 阶段 2: 健康检查 ===\n');
     const health = await pythonProcess.call('health', {});
+    assert(health.status === 'ok', 'health status 应为 ok');
+    assert(health.version === '0.2.0', `版本应为 0.2.0，实际 ${health.version}`);
     console.log('  版本:', health.version);
+    console.log('  Python:', health.python_version.split(' ')[0]);
     console.log('✅ 服务正常\n');
 
+    // ── 阶段 3: detect_banks（自动识别）──
+    console.log('=== 阶段 3: detect_banks ===\n');
+    const detectR = await pythonProcess.call('detect_banks', { filePaths: [REAL_FILES.cmb_pdf] });
+    assert(detectR.success === true, 'detect 应成功');
+    assert(detectR.results.length === 1, '应返回 1 个结果');
+    assert(detectR.results[0].status === 'ok', 'PDF 应检测成功');
+    assert(detectR.results[0].bank, '应返回 bank');
+    assert(detectR.results[0].docType, '应返回 docType');
+    const detectedBank = detectR.results[0].bank;
+    const detectedDocType = detectR.results[0].docType;
+    console.log(`  检测到: ${detectedBank} · ${detectedDocType}`);
+    console.log('✅ 检测成功\n');
+
+    // ── 阶段 4: parse_pdf（透传 detect 结果）──
     console.log('=== 阶段 4: PDF 解析 ===\n');
     const parse = await pythonProcess.call('parse_pdf', {
-      filePath: TEST_PDF_PATH,
-      bank: '测试银行',
+      filePath: REAL_FILES.cmb_pdf,
+      bank: detectedBank,
+      docType: detectedDocType,
     });
+    assert(typeof parse === 'object', '应返回对象');
+    assert('success' in parse, '应含 success 字段');
+    assert(Array.isArray(parse.transactions), '应含 transactions 数组');
+    assert(parse.bank, '应含 bank');
     console.log('  交易数:', parse.transactions.length);
     console.log('  银行:', parse.bank);
-    parse.transactions.forEach((t, i) => {
-      console.log('    ' + (i + 1) + '. ' + t.date + ' ' + (t.direction === 'income' ? '+' : '') + t.amount + ' - ' + t.description);
-    });
+    if (parse.transactions.length > 0) {
+      parse.transactions.forEach((t, i) => {
+        console.log(`    ${i + 1}. ${t.date} ${t.direction === 'income' ? '+' : ''}${t.amount} - ${t.description}`);
+      });
+    }
     if (!parse.success) throw new Error('PDF 解析失败: ' + parse.error);
     console.log('✅ 解析成功\n');
 
+    // ── 阶段 5: Excel 导出 ──
     console.log('=== 阶段 5: Excel 导出 ===\n');
+    const TEST_EXCEL_PATH = path.join(OUTPUT_DIR, 'full_workflow_export.xlsx');
     const excel = await pythonProcess.call('generate_excel', {
       transactions: parse.transactions,
       output_path: TEST_EXCEL_PATH,
@@ -130,6 +113,7 @@ async function runFullWorkflow() {
     console.log('     路径:', path.basename(TEST_EXCEL_PATH));
     console.log('     大小:', stats.size, '字节\n');
 
+    // ── 阶段 6: 输出验证 ──
     console.log('=== 阶段 6: 输出验证 ===\n');
     const files = fs.readdirSync(OUTPUT_DIR);
     console.log('  输出目录:', path.relative(__dirname, OUTPUT_DIR));
@@ -146,7 +130,8 @@ async function runFullWorkflow() {
     console.log('  ✅ Python 进程启动');
     console.log('  ✅ JSON-RPC 2.0');
     console.log('  ✅ health 检查');
-    console.log('  ✅ PDF 解析');
+    console.log('  ✅ detect_banks 自动识别');
+    console.log('  ✅ parse_pdf 解析（透传 detect 结果）');
     console.log('  ✅ Excel 导出');
     console.log('  ✅ 文件管理');
 

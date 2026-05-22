@@ -23,7 +23,7 @@ export function ManualOverrideModal({
   onCancel,
 }: ManualOverrideModalProps) {
   const [bank, setBank] = useState<string>(initialBank || '');
-  const [docType, setDocType] = useState<string>(initialDocType || '');
+  const [docType, setDocType] = useState<string>(initialDocType || '流水');
   const [forceOcr, setForceOcr] = useState<boolean>(initialOcr);
   const [banks, setBanks] = useState<string[]>([]);
 

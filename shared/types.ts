@@ -27,18 +27,21 @@ export interface HealthResult {
   python_version: string;
 }
 
+/** 文档类型：统一使用中文 */
+export type DocType = '流水' | '回单' | 'unknown';
+
 /** 文件解析（统一入口：PDF/CSV/Excel） */
 export interface ParseFileParams {
   filePath: string;
   bank?: string; // 可选：自动识别银行
-  docType?: string; // 可选：手动指定文档类型（statement / receipt）
+  docType?: DocType; // 可选：手动指定文档类型（流水 / 回单）
   forceOcr?: boolean; // 可选：强制 OCR
 }
 export interface ParseFileResult {
   success: boolean;
   transactions: Transaction[];
   bank: string;
-  docType: string;
+  docType: DocType;
   statementDate?: string;
   openingBalance?: number;
   closingBalance?: number;
@@ -78,13 +81,27 @@ export interface ChatStreamParams extends ChatParams {
   on_chunk: (chunk: string) => void;
 }
 
+/** 账号-科目映射（Issue #29: FR-1） */
+export interface AccountEntry {
+  id: string;
+  matchType: 'suffix' | 'exact';
+  pattern: string;
+  bank: string;
+  bankCode: string;
+  subjectCode: string;
+  subjectName: string;
+  /** 完整科目名称（可选） */
+  full_name?: string;
+}
+
 // ========== 文件上传方案新增类型 ==========
 
 /** 批量检测单个文件的返回 */
 export interface DetectFileResult {
   filePath: string;
   bank: string;
-  docType: string;
+  bankCode?: string;
+  docType: DocType;
   status: 'ok' | 'failed';
 }
 
@@ -105,7 +122,7 @@ export interface BatchFileResult {
   filePath: string;
   fileName: string;
   bank: string;
-  docType: string;
+  docType: DocType;
   statementDate?: string;
   status: 'pending' | 'success' | 'failed' | 'cancelled';
   isManual?: boolean;

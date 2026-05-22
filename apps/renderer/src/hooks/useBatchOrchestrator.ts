@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { message } from 'antd';
-import type { BatchFileResult, BatchResult, DetectFileResult, ParseFileParams } from '@shared/types';
+import type { BatchFileResult, BatchResult, DetectFileResult, ParseFileParams, DocType } from '@shared/types';
 import { getFileNameFromPath } from '../utils/pathUtils';
 
 interface UseBatchOrchestratorOptions {
@@ -70,7 +70,7 @@ export function useBatchOrchestrator(
             filePath: fp,
             fileName: getFileNameFromPath(fp),
             bank: '',
-            docType: '',
+            docType: 'unknown',
             status: 'pending',
             transactionCount: 0,
           });
@@ -142,6 +142,25 @@ export function useBatchOrchestrator(
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         setCurrentIndex(i + 1);
+
+        // 强制验证：银行和文件类型必须都已配置，否则跳过
+        const isUnknownBank = !file.bank ||
+          file.bank === '未知' || file.bank === '未知银行' ||
+          file.bank === 'UNKNOWN';
+        const isMissingDocType = !file.docType;
+
+        if (isUnknownBank || isMissingDocType) {
+          results.push({
+            filePath: file.filePath,
+            fileName: file.fileName,
+            bank: file.bank || '未知',
+            docType: file.docType || 'unknown',
+            status: 'failed',
+            error: '无法识别银行类型或文件类型，请手动选择银行和文件类型后再解析',
+            transactionCount: 0,
+          });
+          continue;
+        }
 
         try {
           const params: ParseFileParams = { filePath: file.filePath };
@@ -216,7 +235,7 @@ export function useBatchOrchestrator(
 
       try {
         const params: ParseFileParams = { filePath: fp, bank };
-        if (docType) params.docType = docType;
+        if (docType) params.docType = docType as DocType;
         if (forceOcr) params.forceOcr = true;
 
         const r = await window.electronAPI?.parseFile?.(params);
@@ -246,7 +265,7 @@ export function useBatchOrchestrator(
                     filePath: fp,
                     fileName: getFileNameFromPath(fp),
                     bank,
-                    docType,
+                    docType: docType as DocType,
                     status: 'failed' as const,
                     error: r.errors?.join(", ") || "解析失败",
                     transactionCount: 0,
@@ -263,7 +282,7 @@ export function useBatchOrchestrator(
                   filePath: fp,
                   fileName: getFileNameFromPath(fp),
                   bank,
-                  docType,
+                  docType: docType as DocType,
                   status: 'failed' as const,
                   error: err.message,
                   transactionCount: 0,
