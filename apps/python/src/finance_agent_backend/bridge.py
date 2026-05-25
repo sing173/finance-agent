@@ -519,6 +519,22 @@ def handle_account_registry_delete(params: dict) -> dict:
         return {"success": False, "error": str(e)}
 
 
+@register_method("db.health")
+def handle_db_health(params: dict) -> dict:
+    """验证数据库状态，返回所有表名。"""
+    try:
+        from finance_agent_backend import db as _db
+        conn = _db.get_db()
+        tables = [
+            row[0] for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+            ).fetchall()
+        ]
+        return {"status": "ok", "tables": tables}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 def handle_request(request: dict) -> dict:
     method = request.get("method")
     params = request.get("params", {})
