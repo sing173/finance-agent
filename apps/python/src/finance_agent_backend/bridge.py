@@ -168,15 +168,7 @@ def _parse_icbc_csv(file_path: str) -> dict:
         from finance_agent_backend.tools import icbc_csv_parser
         parser = icbc_csv_parser.ICBCCSVParser()
         result = parser.parse(file_path)
-        transactions = [t.to_dict() for t in result.transactions]
-        return {
-            "success": True, "transactions": transactions,
-            "bank": result.bank,
-            "statementDate": result.statement_date.isoformat() if result.statement_date else None,
-            "openingBalance": float(result.opening_balance) if result.opening_balance else None,
-            "closingBalance": float(result.closing_balance) if result.closing_balance else None,
-            "confidence": result.confidence, "errors": result.errors, "warnings": result.warnings,
-        }
+        return result.to_dict()
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -292,9 +284,13 @@ def handle_get_subjects_info(params: dict) -> dict:
 
 @register_method("detect_supported_banks")
 def handle_detect_supported_banks(params: dict) -> dict:
-    """动态返回当前支持的银行列表（中文名，供 UI 下拉选择）。"""
+    """返回当前支持的银行列表（code + 中文名，供 UI 下拉选择）。"""
     from finance_agent_backend import parser_router
-    return {"success": True, "banks": list(parser_router.BANK_CODE_TO_NAME.values())}
+    banks = [
+        {"code": code, "name": name}
+        for code, name in parser_router.BANK_CODE_TO_NAME.items()
+    ]
+    return {"success": True, "banks": banks}
 
 
 @register_method("detect_banks")
@@ -330,14 +326,13 @@ def handle_detect_banks(params: dict) -> dict:
                 })
                 continue
 
-            # PDF: three-level routing detection
-            bank_code, doc_type = parser_router.detect_bank_from_pdf(fp)
-            bank_name = parser_router.BANK_CODE_TO_NAME.get(bank_code, bank_code)
+            # PDF: three-level routing detection (returns dict)
+            info = parser_router.detect_bank_from_pdf(fp)
             results.append({
                 "filePath": fp,
-                "bank": bank_name,
-                "bankCode": bank_code,
-                "docType": doc_type,
+                "bank": info["bank"],
+                "bankCode": info["bankCode"],
+                "docType": info["docType"],
                 "status": "ok",
             })
         except Exception:
@@ -356,34 +351,21 @@ def handle_detect_banks(params: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
-@register_method("account_registry.list")
-def handle_account_registry_list(params: dict) -> dict:
-    """列出所有账号-科目映射。"""
-    try:
-        from finance_agent_backend.account_registry import (
-            AccountMappingRepository,
-            _default_config_path,
-        )
-        repo = AccountMappingRepository(_default_config_path())
-        entries = repo.load()
-        return {
-            "success": True,
-            "accounts": [
-                {
-                    "id": e.id,
-                    "matchType": e.matchType,
-                    "pattern": e.pattern,
-                    "bank": e.bank,
-                    "bankCode": e.bankCode,
-                    "subjectCode": e.subjectCode,
-                    "subjectName": e.subjectName,
-                }
-                for e in entries
-            ],
-        }
-    except Exception as e:
-        _log.error("account_registry.list 异常: %s", traceback.format_exc())
-        return {"success": False, "error": str(e)}
+def _open_account_registry(with_subject_codes: bool = False):
+    """工厂函数：获取 AccountRegistry + AccountMappingRepository 对。
+
+    消除 5 个 handler 中的重复样板：import、repo.load()、subject_codes 加载。
+    """
+    from finance_agent_backend.account_registry import (
+        AccountMappingRepository,
+        AccountRegistry,
+        _default_config_path,
+    )
+    repo = AccountMappingRepository(_default_config_path())
+    entries = repo.load()
+    subject_codes = _get_subject_codes() if with_subject_codes else None
+    registry = AccountRegistry(entries, subject_codes=subject_codes)
+    return registry, repo
 
 
 def _get_subject_codes() -> set:
@@ -392,7 +374,6 @@ def _get_subject_codes() -> set:
         from finance_agent_backend.account_registry import _default_config_path
         import json
 
-        # subjects.json 与 account_mapping.json 同目录
         config_dir = os.path.dirname(_default_config_path())
         subjects_path = os.path.join(config_dir, "subjects.json")
 
@@ -406,6 +387,33 @@ def _get_subject_codes() -> set:
         return set()
 
 
+def _serialize_account_entry(e) -> dict:
+    """AccountEntry → JSON-RPC 字典（5 个 handler 共享）。"""
+    return {
+        "id": e.id,
+        "matchType": e.matchType,
+        "pattern": e.pattern,
+        "bank": e.bank,
+        "bankCode": e.bankCode,
+        "subjectCode": e.subjectCode,
+        "subjectName": e.subjectName,
+    }
+
+
+@register_method("account_registry.list")
+def handle_account_registry_list(params: dict) -> dict:
+    """列出所有账号-科目映射。"""
+    try:
+        registry, _ = _open_account_registry()
+        return {
+            "success": True,
+            "accounts": [_serialize_account_entry(e) for e in registry.list_all()],
+        }
+    except Exception as e:
+        _log.error("account_registry.list 异常: %s", traceback.format_exc())
+        return {"success": False, "error": str(e)}
+
+
 @register_method("account_registry.match")
 def handle_account_registry_match(params: dict) -> dict:
     """根据账号匹配映射条目。"""
@@ -414,30 +422,12 @@ def handle_account_registry_match(params: dict) -> dict:
         return {"success": False, "error": "缺少 accountNumber 参数"}
 
     try:
-        from finance_agent_backend.account_registry import (
-            AccountMappingRepository,
-            AccountRegistry,
-            _default_config_path,
-        )
-        repo = AccountMappingRepository(_default_config_path())
-        registry = AccountRegistry(repo.load())
+        registry, _ = _open_account_registry()
         entry = registry.match_by_account(account_number)
-
-        if entry:
-            return {
-                "success": True,
-                "entry": {
-                    "id": entry.id,
-                    "matchType": entry.matchType,
-                    "pattern": entry.pattern,
-                    "bank": entry.bank,
-                    "bankCode": entry.bankCode,
-                    "subjectCode": entry.subjectCode,
-                    "subjectName": entry.subjectName,
-                },
-            }
-        else:
-            return {"success": True, "entry": None}
+        return {
+            "success": True,
+            "entry": _serialize_account_entry(entry) if entry else None,
+        }
     except Exception as e:
         _log.error("account_registry.match 异常: %s", traceback.format_exc())
         return {"success": False, "error": str(e)}
@@ -447,55 +437,30 @@ def handle_account_registry_match(params: dict) -> dict:
 def handle_account_registry_add(params: dict) -> dict:
     """新增账号-科目映射（校验 bankCode 必填 + subjectCode 存在性）。"""
     try:
-        from finance_agent_backend.account_registry import (
-            AccountMappingRepository,
-            AccountRegistry,
-            AccountEntry,
-            _default_config_path,
-        )
+        from finance_agent_backend.account_registry import AccountEntry
 
-        # 参数校验
         bankCode = params.get("bankCode", "")
         if not bankCode:
             return {"success": False, "error": "bankCode 不能为空"}
 
-        subjectCode = params.get("subjectCode", "")
-
-        # 加载现有条目 + 科目表
-        repo = AccountMappingRepository(_default_config_path())
-        entries = repo.load()
-        subject_codes = _get_subject_codes()
-
-        # 构建新条目
         entry = AccountEntry(
-            id="",  # auto-generated
+            id="",
             matchType=params.get("matchType", "suffix"),
             pattern=params.get("pattern", ""),
             bank=params.get("bank", ""),
             bankCode=bankCode,
-            subjectCode=subjectCode,
+            subjectCode=params.get("subjectCode", ""),
             subjectName=params.get("subjectName", ""),
         )
 
-        # 使用 AccountRegistry 的 add 方法（会校验 + 自动生成 id）
-        registry = AccountRegistry(entries, subject_codes=subject_codes)
+        registry, repo = _open_account_registry(with_subject_codes=True)
         registry.add(entry)
-
-        # 持久化
         repo.save(registry.list_all(), "10002")
 
         return {
             "success": True,
             "id": entry.id,
-            "entry": {
-                "id": entry.id,
-                "matchType": entry.matchType,
-                "pattern": entry.pattern,
-                "bank": entry.bank,
-                "bankCode": entry.bankCode,
-                "subjectCode": entry.subjectCode,
-                "subjectName": entry.subjectName,
-            },
+            "entry": _serialize_account_entry(entry),
         }
     except ValueError as e:
         return {"success": False, "error": str(e)}
@@ -512,17 +477,7 @@ def handle_account_registry_update(params: dict) -> dict:
         return {"success": False, "error": "缺少 id 参数"}
 
     try:
-        from finance_agent_backend.account_registry import (
-            AccountMappingRepository,
-            AccountRegistry,
-            AccountEntry,
-            _default_config_path,
-        )
-
-        repo = AccountMappingRepository(_default_config_path())
-        entries = repo.load()
-        subject_codes = _get_subject_codes()
-        registry = AccountRegistry(entries, subject_codes=subject_codes)
+        from finance_agent_backend.account_registry import AccountEntry
 
         entry = AccountEntry(
             id=entry_id,
@@ -534,6 +489,7 @@ def handle_account_registry_update(params: dict) -> dict:
             subjectName=params.get("subjectName", ""),
         )
 
+        registry, repo = _open_account_registry(with_subject_codes=True)
         registry.update(entry)
         repo.save(registry.list_all(), "10002")
 
@@ -553,16 +509,7 @@ def handle_account_registry_delete(params: dict) -> dict:
         return {"success": False, "error": "缺少 id 参数"}
 
     try:
-        from finance_agent_backend.account_registry import (
-            AccountMappingRepository,
-            AccountRegistry,
-            _default_config_path,
-        )
-
-        repo = AccountMappingRepository(_default_config_path())
-        entries = repo.load()
-        registry = AccountRegistry(entries)
-
+        registry, repo = _open_account_registry()
         registry.delete(entry_id)
         repo.save(registry.list_all(), "10002")
 

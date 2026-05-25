@@ -44,9 +44,21 @@ function defaultInvoke(api: string, _params: any) {
   return Promise.resolve({ success: true });
 }
 
+const detectSupportedBanksMock = vi.fn().mockResolvedValue({
+  success: true,
+  banks: [
+    { code: 'ICBC', name: '工商银行' },
+    { code: 'CMB', name: '招商银行' },
+    { code: 'GFB', name: '广发银行' },
+  ],
+});
+
 beforeEach(() => {
   invokeMock.mockImplementation(defaultInvoke);
-  (window as any).electronAPI = { invoke: invokeMock };
+  (window as any).electronAPI = {
+    invoke: invokeMock,
+    detectSupportedBanks: detectSupportedBanksMock,
+  };
 });
 
 afterEach(() => {

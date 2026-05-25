@@ -70,7 +70,7 @@ async function runTests() {
     assert(banksResult.success === true, 'success 应为 true');
     assert(Array.isArray(banksResult.banks), 'banks 应为数组');
     assert(banksResult.banks.length >= 3, `银行列表至少 3 个，实际 ${banksResult.banks.length}`);
-    console.log(`  支持银行: ${banksResult.banks.join(', ')}`);
+    console.log(`  支持银行: ${banksResult.banks.map(b => b.name).join(', ')}`);
     testCount++; passCount++;
     console.log(`[${testCount}] detect_supported_banks 返回银行列表 ✅\n`);
 

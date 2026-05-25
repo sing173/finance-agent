@@ -10,7 +10,7 @@ import re
 import time
 import fitz  # 足够轻量，可直接导入
 
-from finance_agent_backend.models import Transaction, ParseResult
+from finance_agent_backend.models import ParseResult
 
 # ---------------------------------------------------------------------------
 # 银行代码与中文名称双向映射
@@ -109,12 +109,14 @@ def _get_ocr():
     return _ocr_instance
 
 
-def detect_bank_from_pdf(file_path: str) -> tuple[str, str]:
-    """通过三级路由检测银行。返回 (bankCode, docType)，docType 为中文。
+def detect_bank_from_pdf(file_path: str) -> dict:
+    """通过三级路由检测银行。返回 {bankCode, bank, docType}。
 
     Level 1: fitz 提取嵌入式文本 → _match_pdf_structure()
     Level 2: OCR 首页 → 正则提取账号 → registry.match_by_account()
-    均失败时回退到 ('未知银行', '流水')。
+    均失败时回退到 {'bankCode': '未知银行', 'bank': '未知银行', 'docType': '流水'}。
+
+    bank 中文名由 BANK_CODE_TO_NAME 推导（调用方无需再查映射表）。
     """
     from finance_agent_backend.account_registry import (
         AccountMappingRepository,
@@ -123,7 +125,14 @@ def detect_bank_from_pdf(file_path: str) -> tuple[str, str]:
     )
 
     repo = AccountMappingRepository(_default_config_path())
-    registry = AccountRegistry(repo.load())  # 函数级实例，每次调用新建
+    registry = AccountRegistry(repo.load())
+
+    def _build(bank_code: str, doc_type: str) -> dict:
+        return {
+            "bankCode": bank_code,
+            "bank": BANK_CODE_TO_NAME.get(bank_code, bank_code),
+            "docType": doc_type,
+        }
 
     try:
         with open(file_path, 'rb') as f:
@@ -134,22 +143,20 @@ def detect_bank_from_pdf(file_path: str) -> tuple[str, str]:
             for i in range(min(3, len(doc))):
                 sample += doc[i].get_text('text')
 
-            # Level 1: 在嵌入式文本上做结构匹配
             if sample.strip():
                 result = _match_pdf_structure(sample)
                 if result:
-                    return result
-                return '未知银行', '流水'
+                    return _build(*result)
+                return _build('未知银行', '流水')
 
-            # Level 2: 扫描件 OCR + 账号匹配（复用 doc，避免重读 PDF）
             result = _detect_bank_by_ocr_account(doc, registry)
             if result:
-                return result
-            return '未知银行', '流水'
+                return _build(*result)
+            return _build('未知银行', '流水')
         finally:
             doc.close()
     except Exception:
-        return '未知银行', 'unknown'
+        return _build('未知银行', '流水')
 
 
 def _detect_bank_by_ocr_account(doc, registry) -> tuple[str, str] | None:
@@ -190,40 +197,6 @@ def _detect_bank_by_ocr_account(doc, registry) -> tuple[str, str] | None:
 
 
 # ---------------------------------------------------------------------------
-# ParseResult → dict 序列化
-# ---------------------------------------------------------------------------
-
-def _serialize_result(result: ParseResult) -> dict:
-    """将 ParseResult 数据类转换为 JSON 可序列化字典。"""
-    return {
-        "success": True,
-        "transactions": [_serialize_txn(t) for t in result.transactions],
-        "bank": result.bank,
-        "statementDate": result.statement_date.isoformat() if result.statement_date else None,
-        "openingBalance": float(result.opening_balance) if result.opening_balance else None,
-        "closingBalance": float(result.closing_balance) if result.closing_balance else None,
-        "confidence": result.confidence,
-        "errors": result.errors,
-        "warnings": result.warnings,
-    }
-
-
-def _serialize_txn(t: Transaction) -> dict:
-    return {
-        "date": t.date.isoformat(),
-        "description": t.description,
-        "amount": float(t.amount),
-        "currency": t.currency,
-        "direction": t.direction,
-        "counterparty": t.counterparty,
-        "reference_number": t.reference_number,
-        "notes": t.notes,
-        "account_number": t.account_number,
-        "account_name": t.account_name,
-    }
-
-
-# ---------------------------------------------------------------------------
 # 主入口
 # ---------------------------------------------------------------------------
 
@@ -259,7 +232,7 @@ def _do_parse_cmb_excel(file_path: str) -> dict:
     try:
         parser = cmb_excel_parser.CMBExcelParser()
         result = parser.parse(file_path)
-        return _serialize_result(result)
+        return result.to_dict()
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -269,7 +242,7 @@ def _do_parse_icbc_csv(file_path: str) -> dict:
     try:
         parser = icbc_csv_parser.ICBCCSVParser()
         result = parser.parse(file_path)
-        return _serialize_result(result)
+        return result.to_dict()
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -298,7 +271,9 @@ def _do_parse_pdf(file_path: str, bank: str | None = None,
         if doc_type:
             bank_code = '未知银行'
         else:
-            bank_code, doc_type = detect_bank_from_pdf(file_path)
+            info = detect_bank_from_pdf(file_path)
+            bank_code = info["bankCode"]
+            doc_type = info["docType"]
 
     # ── 强制验证：bankCode 必须在注册表中 ────────────────────────
     if bank_code not in PARSER_REGISTRY:
@@ -316,7 +291,7 @@ def _do_parse_pdf(file_path: str, bank: str | None = None,
             "error": f"解析失败：{bank_code}（{doc_type}）解析器未返回数据，请尝试其他文件类型或联系开发者",
         }
 
-    return _serialize_result(result)
+    return result.to_dict()
 
 
 def _dispatch_registry_parser(

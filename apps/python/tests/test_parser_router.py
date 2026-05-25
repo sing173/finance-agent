@@ -52,16 +52,16 @@ class TestDetectBankEmbedded:
     def test_detect_cmb_table_embedded(self):
         path = REAL_FILES["cmb_pdf_embedded"]
         _skip_if_missing(path)
-        bank_code, doc_type = _timed("cmb-03 识别", detect_bank_from_pdf, path)
-        assert bank_code == 'CMB'
-        assert doc_type == '流水'
+        info = _timed("cmb-03 识别", detect_bank_from_pdf, path)
+        assert info['bankCode'] == 'CMB'
+        assert info['docType'] == '流水'
 
     def test_detect_gfb_table_embedded(self):
         path = REAL_FILES["gfb_pdf_embedded"]
         _skip_if_missing(path)
-        bank_code, doc_type = _timed("广发 识别", detect_bank_from_pdf, path)
-        assert bank_code == 'GFB'
-        assert doc_type == '流水'
+        info = _timed("广发 识别", detect_bank_from_pdf, path)
+        assert info['bankCode'] == 'GFB'
+        assert info['docType'] == '流水'
 
 
 class TestDetectBankScanned:
@@ -70,24 +70,24 @@ class TestDetectBankScanned:
     def test_detect_icbc_scanned(self):
         path = REAL_FILES["icbc_pdf_scanned"]
         _skip_if_missing(path)
-        bank_code, doc_type = _timed("工行扫描件 识别", detect_bank_from_pdf, path)
-        assert bank_code == 'ICBC'
-        assert doc_type == '回单'
+        info = _timed("工行扫描件 识别", detect_bank_from_pdf, path)
+        assert info['bankCode'] == 'ICBC'
+        assert info['docType'] == '回单'
 
     def test_detect_cmb_receipt_embedded(self):
         """招行回单2 嵌入式文本 — 含'出账回单'+'入账回单'"""
         path = REAL_FILES["cmb_receipt_pdf"]
         _skip_if_missing(path)
-        bank_code, doc_type = _timed("招行回单2 识别", detect_bank_from_pdf, path)
-        assert bank_code == 'CMB'
-        assert doc_type == '回单'
+        info = _timed("招行回单2 识别", detect_bank_from_pdf, path)
+        assert info['bankCode'] == 'CMB'
+        assert info['docType'] == '回单'
 
     def test_detect_icbc_receipt_scanned(self):
         path = REAL_FILES["icbc_receipt_pdf"]
         _skip_if_missing(path)
-        bank_code, doc_type = _timed("工行回单 识别", detect_bank_from_pdf, path)
-        assert bank_code == 'ICBC'
-        assert doc_type == '回单'
+        info = _timed("工行回单 识别", detect_bank_from_pdf, path)
+        assert info['bankCode'] == 'ICBC'
+        assert info['docType'] == '回单'
 
     def test_ocr_instance_reuse_speedup(self):
         """第二次 OCR 应显著快于首次（RapidOCR 单例复用）"""

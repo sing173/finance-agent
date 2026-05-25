@@ -112,9 +112,14 @@ export interface DetectBanksResult {
 }
 
 /** 支持银行列表查询 */
+export interface BankInfo {
+  code: string;  // ICBC / CMB / GFB
+  name: string;  // 工商银行 / 招商银行 / 广发银行
+}
+
 export interface DetectSupportedBanksResult {
   success: boolean;
-  banks: string[];
+  banks: BankInfo[];
 }
 
 /** 批量解析单个文件的结果 */

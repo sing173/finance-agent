@@ -29,19 +29,6 @@ interface AccountSubjectManagerProps {
   onRefresh?: () => void;
 }
 
-/**
- * bankCode → bank 中文名映射（与后端 BANK_CODE_TO_NAME 保持一致）
- */
-const BANK_CODE_MAP: Record<string, string> = {
-  ICBC: '工商银行',
-  CMB: '招商银行',
-  GFB: '广发银行',
-};
-
-const BANK_OPTIONS = Object.entries(BANK_CODE_MAP).map(([code, name]) => ({
-  label: `${name} (${code})`,
-  value: code,
-}));
 
 /**
  * AccountSubjectManager — 账号-科目管理主组件
@@ -70,15 +57,32 @@ export function AccountSubjectManager({
     name: string;
   } | null>(null);
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [bankOptions, setBankOptions] = useState<{ code: string; name: string }[]>([]);
 
   const [form] = Form.useForm();
 
-  // bankCode 变化时自动填充 bank 中文名
+  // bankCode 变化时自动填充 bank 中文名（从 detect_supported_banks 加载的列表查）
   const handleBankCodeChange = useCallback((bankCode: string) => {
+    const found = bankOptions.find((b) => b.code === bankCode);
     form.setFieldsValue({
-      bank: BANK_CODE_MAP[bankCode] || bankCode,
+      bank: found?.name || bankCode,
     });
-  }, [form]);
+  }, [form, bankOptions]);
+
+  // 加载银行列表（下拉选项，替代硬编码 BANK_CODE_MAP）
+  const loadBankOptions = useCallback(async () => {
+    try {
+      const r = await (window as any).electronAPI?.detectSupportedBanks?.();
+      if (r?.success && r.banks) {
+        setBankOptions(r.banks);  // [{code, name}, ...]
+      }
+    } catch (err) {
+      console.error('加载银行列表失败:', err);
+    }
+  }, []);
+
+  // 初始加载：账号列表 + 银行选项
+  useEffect(() => { loadBankOptions(); }, [loadBankOptions]);
   const loadSubjects = useCallback(async () => {
     try {
       const result = await (window as any).electronAPI?.invoke('get_subjects_info', {});
@@ -189,7 +193,7 @@ export function AccountSubjectManager({
         matchType: values.matchType,
         pattern: values.pattern,
         bankCode: values.bankCode,
-        bank: values.bank || BANK_CODE_MAP[values.bankCode] || '',
+        bank: values.bank || bankOptions.find(b => b.code === values.bankCode)?.name || '',
         subjectCode: selectedSubject?.code || values.subjectCode,
         subjectName: selectedSubject?.name || values.subjectName,
       };
@@ -363,7 +367,10 @@ export function AccountSubjectManager({
             <Select
               placeholder="选择银行"
               onChange={handleBankCodeChange}
-              options={BANK_OPTIONS}
+              options={bankOptions.map((b) => ({
+                label: `${b.name} (${b.code})`,
+                value: b.code,
+              }))}
             />
           </Form.Item>
 

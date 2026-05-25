@@ -83,7 +83,7 @@ async function runTests() {
       assert(r.success === true, 'success 应为 true');
       assert(Array.isArray(r.banks), 'banks 应为数组');
       assert(r.banks.length >= 3, `银行列表至少 3 个，实际 ${r.banks.length}`);
-      console.log(`  支持银行: ${r.banks.join(', ')}`);
+      console.log(`  支持银行: ${r.banks.map(b => b.name).join(', ')}`);
       console.log('  ✅ 通过\n');
     }
 
