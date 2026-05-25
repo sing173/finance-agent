@@ -453,24 +453,48 @@ class ICBCReceiptGridParser(BaseStatementParser):
         amount_text = fields.get("amount_text", "")
         amount = self._parse_amount(amount_text)
 
-        # direction: 付款人包含"中锦" → 我方付款 → expense
+        # direction: 通过 account_registry 匹配账号判断我方账户
+        # 付款人账号匹配成功 → 我方付款 → expense
+        # 收款人账号匹配成功 → 我方收款 → income
+        # 账号含星号脱敏（如 6222****1234）时不参与匹配
+        payer_account = fields.get("payer_account", "")
+        payee_account = fields.get("payee_account", "")
         payer_name = fields.get("payer_name", "")
         payee_name = fields.get("payee_name", "")
-        is_mine = "中锦" in payer_name
 
-        if is_mine:
+        from finance_agent_backend.account_registry import (
+            AccountMappingRepository,
+            AccountRegistry,
+            _default_config_path,
+        )
+
+        repo = AccountMappingRepository(_default_config_path())
+        registry = AccountRegistry(repo.load())
+
+        def _match(account: str):
+            if not account or "*" in account:
+                return None
+            return registry.match_by_account(account)
+
+        payer_match = _match(payer_account)
+        payee_match = _match(payee_account)
+
+        if payer_match:
             direction = "expense"
             counterparty = payee_name or None
-            # 追加收款人账号
             payee_acct = fields.get("payee_account", "")
             if counterparty and payee_acct and "*" not in payee_acct:
                 counterparty = f"{counterparty}（{payee_acct}）"
-        else:
+        elif payee_match:
             direction = "income"
             counterparty = payer_name or None
             payer_acct = fields.get("payer_account", "")
             if counterparty and payer_acct and "*" not in payer_acct:
                 counterparty = f"{counterparty}（{payer_acct}）"
+        else:
+            # fallback: 无法通过账号匹配判断方向，默认 expense（保持向后兼容）
+            direction = "expense"
+            counterparty = payee_name or payer_name or None
 
         # description: 摘要 + 用途 + 业务种类 (去重)
         parts = []
