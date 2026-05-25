@@ -266,17 +266,28 @@ def handle_import_subjects(params: dict) -> dict:
 
 @register_method("get_subjects_info")
 def handle_get_subjects_info(params: dict) -> dict:
-    """查询内置科目表信息。"""
+    """查询内置科目表信息（返回完整列表供 UI 使用）。"""
     config_dir = _get_config_dir()
     subjects_path = os.path.join(config_dir, 'subjects.json')
     if not os.path.exists(subjects_path):
-        return {"success": True, "count": 0, "loaded": False}
+        return {"success": True, "count": 0, "loaded": False, "subjects": []}
     try:
         with open(subjects_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        return {"success": True, "count": len(data), "loaded": True}
+        subjects = []
+        for code, info in data.items():
+            subjects.append({
+                "code": code,
+                "name": info.get('name', ''),
+                "category": info.get('category', ''),
+                "direction": info.get('direction', '借'),
+                "is_cash": info.get('is_cash', False),
+                "enabled": info.get('enabled', True),
+                "full_name": info.get('full_name', info.get('name', '')),
+            })
+        return {"success": True, "count": len(subjects), "loaded": True, "subjects": subjects}
     except Exception as e:
-        return {"success": False, "count": 0, "loaded": False, "error": str(e)}
+        return {"success": False, "count": 0, "loaded": False, "error": str(e), "subjects": []}
 
 
 @register_method("detect_supported_banks")

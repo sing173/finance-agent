@@ -29,6 +29,13 @@ const HANDLERS: HandlerDef[] = [
   { channel: 'detect_banks',            method: 'detect_banks',        expose: true  },
   { channel: 'detect_supported_banks',  method: 'detect_supported_banks', expose: true },
 
+  // Issue #29: FR-1 账号-科目管理
+  { channel: 'account_registry.list',    method: 'account_registry.list',    expose: true },
+  { channel: 'account_registry.match',   method: 'account_registry.match',   expose: true },
+  { channel: 'account_registry.add',     method: 'account_registry.add',     expose: true },
+  { channel: 'account_registry.update',  method: 'account_registry.update',  expose: true },
+  { channel: 'account_registry.delete',  method: 'account_registry.delete',  expose: true },
+
   // Electron-side (no Python backend)
   { channel: 'select_file',             method: null,                  expose: true  },
   { channel: 'save_file_dialog',        method: null,                  expose: true  },

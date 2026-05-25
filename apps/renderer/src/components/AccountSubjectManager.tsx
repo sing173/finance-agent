@@ -30,6 +30,20 @@ interface AccountSubjectManagerProps {
 }
 
 /**
+ * bankCode → bank 中文名映射（与后端 BANK_CODE_TO_NAME 保持一致）
+ */
+const BANK_CODE_MAP: Record<string, string> = {
+  ICBC: '工商银行',
+  CMB: '招商银行',
+  GFB: '广发银行',
+};
+
+const BANK_OPTIONS = Object.entries(BANK_CODE_MAP).map(([code, name]) => ({
+  label: `${name} (${code})`,
+  value: code,
+}));
+
+/**
  * AccountSubjectManager — 账号-科目管理主组件
  *
  * 功能：
@@ -55,8 +69,27 @@ export function AccountSubjectManager({
     code: string;
     name: string;
   } | null>(null);
+  const [subjects, setSubjects] = useState<any[]>([]);
 
   const [form] = Form.useForm();
+
+  // bankCode 变化时自动填充 bank 中文名
+  const handleBankCodeChange = useCallback((bankCode: string) => {
+    form.setFieldsValue({
+      bank: BANK_CODE_MAP[bankCode] || bankCode,
+    });
+  }, [form]);
+  const loadSubjects = useCallback(async () => {
+    try {
+      const result = await (window as any).electronAPI?.invoke('get_subjects_info', {});
+      if (result?.success && result.subjects) {
+        // get_subjects_info 返回 { success, count, subjects: [...] }
+        setSubjects(result.subjects || []);
+      }
+    } catch (err) {
+      console.error('加载科目列表失败:', err);
+    }
+  }, []);
 
   // 从 bridge 加载账号列表
   const loadAccounts = useCallback(async () => {
@@ -85,6 +118,13 @@ export function AccountSubjectManager({
     }
   }, [propAccounts, loadAccounts]);
 
+  // 打开科目选择器时加载科目列表
+  useEffect(() => {
+    if (subjectPickerVisible) {
+      loadSubjects();
+    }
+  }, [subjectPickerVisible, loadSubjects]);
+
   // 新增按钮
   const handleAdd = () => {
     setEditingEntry(null);
@@ -96,14 +136,16 @@ export function AccountSubjectManager({
   // 编辑按钮
   const handleEdit = (record: AccountEntry) => {
     setEditingEntry(record);
+    // bankCode 通过 onChange 联动填充 bank，需先设 bankCode 再设 bank
     form.setFieldsValue({
       matchType: record.matchType,
       pattern: record.pattern,
-      bank: record.bank,
       bankCode: record.bankCode,
       subjectCode: record.subjectCode,
       subjectName: record.subjectName,
     });
+    // 手动触发 bankCode → bank 联动
+    handleBankCodeChange(record.bankCode);
     setSelectedSubject({
       code: record.subjectCode,
       name: record.subjectName,
@@ -144,7 +186,10 @@ export function AccountSubjectManager({
     try {
       const values = await form.validateFields();
       const params = {
-        ...values,
+        matchType: values.matchType,
+        pattern: values.pattern,
+        bankCode: values.bankCode,
+        bank: values.bank || BANK_CODE_MAP[values.bankCode] || '',
         subjectCode: selectedSubject?.code || values.subjectCode,
         subjectName: selectedSubject?.name || values.subjectName,
       };
@@ -311,26 +356,23 @@ export function AccountSubjectManager({
           </Form.Item>
 
           <Form.Item
-            label="银行"
-            name="bank"
-            rules={[{ required: true, message: '请输入银行名称' }]}
-          >
-            <Input placeholder="如：工商银行" />
-          </Form.Item>
-
-          <Form.Item
             label="银行代码"
             name="bankCode"
-            rules={[{ required: true, message: '请输入银行代码' }]}
+            rules={[{ required: true, message: '请选择银行代码' }]}
           >
             <Select
               placeholder="选择银行"
-              options={[
-                { label: '工商银行 (ICBC)', value: 'ICBC' },
-                { label: '招商银行 (CMB)', value: 'CMB' },
-                { label: '广发银行 (GFB)', value: 'GFB' },
-              ]}
+              onChange={handleBankCodeChange}
+              options={BANK_OPTIONS}
             />
+          </Form.Item>
+
+          <Form.Item
+            label="银行"
+            name="bank"
+            rules={[{ required: true, message: '银行名称必填' }]}
+          >
+            <Input disabled placeholder="由银行代码自动填充" />
           </Form.Item>
 
           <Form.Item label="科目" required>
@@ -366,6 +408,7 @@ export function AccountSubjectManager({
         visible={subjectPickerVisible}
         onClose={() => setSubjectPickerVisible(false)}
         onSelect={handleSelectSubject}
+        subjects={subjects}
       />
     </Card>
   );
