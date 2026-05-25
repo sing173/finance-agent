@@ -59,6 +59,20 @@ class ParseResult:
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
 
+    def to_dict(self) -> dict:
+        """序列化为 JSON-RPC 兼容字典（camelCase 字段名）。"""
+        return {
+            "success": True,
+            "transactions": [t.to_dict() for t in self.transactions],
+            "bank": self.bank,
+            "statementDate": self.statement_date.isoformat() if self.statement_date else None,
+            "openingBalance": float(self.opening_balance) if self.opening_balance else None,
+            "closingBalance": float(self.closing_balance) if self.closing_balance else None,
+            "confidence": self.confidence,
+            "errors": self.errors,
+            "warnings": self.warnings,
+        }
+
 
 @dataclass
 class Subject:
@@ -101,3 +115,15 @@ class VoucherEntry:
     original_amount: Optional[Decimal] = None         # W: 原币金额
     currency: str = 'RMB'                             # X: 币别
     exchange_rate: Decimal = field(default_factory=lambda: Decimal('1.0'))  # Y: 汇率
+
+
+@dataclass
+class AccountEntry:
+    """账号-科目映射条目"""
+    id: str                          # 自动生成（时间戳）
+    matchType: str                   # 'suffix' | 'exact'
+    pattern: str                     # 匹配用的账号片段
+    bank: str                        # 银行中文名
+    bankCode: str                    # ICBC / CMB / GFB
+    subjectCode: str                 # 会计科目代码
+    subjectName: str                 # 科目全名

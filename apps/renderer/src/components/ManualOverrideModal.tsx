@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal, Select, Checkbox, Button, Space } from 'antd';
+import type { BankInfo } from '@shared/types';
 
 interface ManualOverrideModalProps {
   open: boolean;
@@ -23,16 +24,16 @@ export function ManualOverrideModal({
   onCancel,
 }: ManualOverrideModalProps) {
   const [bank, setBank] = useState<string>(initialBank || '');
-  const [docType, setDocType] = useState<string>(initialDocType || '');
+  const [docType, setDocType] = useState<string>(initialDocType || '流水');
   const [forceOcr, setForceOcr] = useState<boolean>(initialOcr);
-  const [banks, setBanks] = useState<string[]>([]);
+  const [bankOptions, setBankOptions] = useState<BankInfo[]>([]);
 
   // 加载支持银行列表
   useEffect(() => {
     if (open) {
       (window as any).electronAPI?.detectSupportedBanks?.()
         .then((r: any) => {
-          if (r?.success) setBanks(r.banks || []);
+          if (r?.success) setBankOptions(r.banks || []);
         })
         .catch(() => {});
     }
@@ -98,7 +99,7 @@ export function ManualOverrideModal({
             placeholder="请选择银行类型"
             value={bank || undefined}
             onChange={(val) => setBank(val)}
-            options={banks.map((b) => ({ value: b, label: b }))}
+            options={bankOptions.map((b) => ({ value: b.name, label: b.name }))}
             showSearch
             filterOption={(input, opt) =>
               (opt?.label ?? '').toLowerCase().includes(input.toLowerCase())

@@ -82,8 +82,8 @@ describe('useBatchOrchestrator', () => {
       const detectBanks = vi.fn().mockResolvedValue({
         success: true,
         results: [
-          { filePath: '/a.pdf', bank: '工商银行', docType: 'statement', status: 'ok' },
-          { filePath: '/b.pdf', bank: '招商银行', docType: 'statement', status: 'ok' },
+          { filePath: '/a.pdf', bank: '工商银行', docType: '流水', status: 'ok' },
+          { filePath: '/b.pdf', bank: '招商银行', docType: '流水', status: 'ok' },
         ],
       });
       mockElectronAPI({ detectBanks });
@@ -100,12 +100,12 @@ describe('useBatchOrchestrator', () => {
 
       expect(result.current.files[0]).toMatchObject({
         bank: '工商银行',
-        docType: 'statement',
+        docType: '流水',
         status: 'pending',
       });
       expect(result.current.files[1]).toMatchObject({
         bank: '招商银行',
-        docType: 'statement',
+        docType: '流水',
         status: 'pending',
       });
     });
@@ -141,7 +141,7 @@ describe('useBatchOrchestrator', () => {
       const parseFile = vi.fn().mockResolvedValue({
         success: true,
         bank: '工商银行',
-        docType: 'statement',
+        docType: '流水',
         statementDate: '2026-01-15',
         transactions: [{ date: '2026-01-01', description: 'test', amount: 100 }],
       });
@@ -151,7 +151,7 @@ describe('useBatchOrchestrator', () => {
 
       act(() => {
         result.current.addFiles(['/a.pdf']);
-        result.current.updateFile('/a.pdf', { bank: '工商银行', docType: 'statement' });
+        result.current.updateFile('/a.pdf', { bank: '工商银行', docType: '流水' });
       });
 
       await act(async () => {
@@ -172,6 +172,7 @@ describe('useBatchOrchestrator', () => {
 
       act(() => {
         result.current.addFiles(['/a.pdf']);
+        result.current.updateFile('/a.pdf', { bank: '工商银行', docType: '流水' });
       });
 
       await act(async () => {

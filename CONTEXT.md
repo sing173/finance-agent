@@ -17,7 +17,7 @@
 | 科目 / Subject | 会计科目 |
 | 凭证 / Voucher | 金蝶精斗云导入格式 |
 | bankCode | 银行路由键（ICBC/CMB/GFB） |
-| docType | `statement` / `receipt` / `unknown` |
+| docType | `流水` / `回单` / `流水`（兜底） |
 
 ---
 
@@ -33,26 +33,23 @@
 
 ## Routing
 
-**v0.2.0** (keyword matching):
+**v0.2.0** (structure/account matching):
 
 ```
 .xlsx  → CMBExcelParser
 .csv   → ICBCCSVParser (GBK)
-.pdf   → detect_bank_from_pdf() — keyword match on first 3 pages
-          ├── receipt/scanned → ICBCReceiptGridParser
-          ├── ICBC            → ICBCParser
-          ├── CMB             → CMBReceiptParser / CMBTableParser / CMBParser
-          ├── GFB             → GFBTableParser
-          └── unknown         → BankStatementParser
+.pdf   → detect_bank_from_pdf() — three-level routing
+          Level 1: Embedded PDF → structure matcher (all/any modes) → (bankCode, docType)
+          Level 2: Scanned PDF → OCR account number → account_registry.match_by_account()
+          Route via PARSER_REGISTRY[bankCode] ordered list (first result wins)
+          Unknown bank → force-reject (user must manually select bank)
 ```
 
-**v0.3.0 planned** (structure/account matching):
+**v0.3.0 planned** (three-layer voucher matching):
 
 ```
-Level 0: Extension (unchanged)
-Level 1: Embedded PDF → table headers/column titles → (bankCode, docType)
-Level 2: Scanned PDF → OCR account number → account_registry.match_by_account()
-Route via PARSER_REGISTRY[bankCode][docType]
+L1 JSON rules → L2 SQLite history (TF-IDF ≥ 0.75) → L3 manual subject picker
+PARSER_REGISTRY unchanged from v0.2.0.
 ```
 
 ---

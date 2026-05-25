@@ -28,5 +28,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   detectBanks: (filePaths: string[]) => ipcRenderer.invoke('detect_banks', { filePaths }),
   detectSupportedBanks: () => ipcRenderer.invoke('detect_supported_banks'),
+
+  // 通用 JSON-RPC 调用（支持 account_registry.* 等动态方法）
+  invoke: (method: string, params?: any) => ipcRenderer.invoke(method, params),
 });
 
