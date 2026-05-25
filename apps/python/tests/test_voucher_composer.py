@@ -1,0 +1,235 @@
+"""Tests for voucher_composer.py — 凭证组装 + preview RPC (Issue #34).
+
+Tests verify: compose (merging + direction), voucher.preview RPC,
+voucher.save_draft RPC.
+"""
+import os
+import sys
+import json
+import tempfile
+import sqlite3
+from datetime import date
+from decimal import Decimal
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+import pytest
+from finance_agent_backend.models import Transaction
+from finance_agent_backend.db import init_db
+
+
+# ── 辅助 ──────────────────────────────────────────────────────
+
+def _make_txn(
+    dt: str, desc: str, amount: float, direction: str,
+    counterparty: str = '', acct: str = '', ref: str = '',
+) -> Transaction:
+    return Transaction(
+        date=date.fromisoformat(dt),
+        description=desc,
+        amount=Decimal(str(amount)),
+        direction=direction,  # type: ignore
+        counterparty=counterparty,
+        account_number=acct,
+        reference_number=ref,
+    )
+
+
+SAMPLE_TXNS = [
+    _make_txn("2026-03-01", "支付启胜物业费1月", 1200.00, "expense",
+              counterparty="启胜物业", acct="622202****1234", ref="P001"),
+    _make_txn("2026-03-01", "支付启胜物业费2月", 1200.00, "expense",
+              counterparty="启胜物业", acct="622202****1234", ref="P002"),
+    _make_txn("2026-03-15", "收到客户货款", 50000.00, "income",
+              counterparty="客户A", acct="622202****1234", ref="P003"),
+]
+
+# Minified subject_mapping + account_mapping for preview
+SIMPLE_SUBJECT_MAPPING = {
+    "version": 2,
+    "expense": {
+        "default_subject_code": "",
+        "rules": [
+            {"id": "r1", "priority": 1, "match": {"keywords": ["物业", "物管"]},
+             "subject_code": "5060203", "subject_name": "管理费用_物业管理费"},
+        ],
+    },
+    "income": {
+        "default_subject_code": "",
+        "rules": [
+            {"id": "r2", "priority": 1, "match": {"keywords": ["收款", "货款"]},
+             "subject_code": "10122", "subject_name": "应收账款"},
+        ],
+    },
+}
+
+
+@pytest.fixture
+def tmp_db():
+    fd, path = tempfile.mkstemp(suffix='.db')
+    os.close(fd)
+    conn = sqlite3.connect(path)
+    init_db(conn)
+    conn.close()
+    yield path
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
+# ── 测试 ──────────────────────────────────────────────────────
+
+class TestCompose:
+    """VoucherComposer.compose() — 同类合并 + 借贷方向。"""
+
+    def test_basic_compose(self, tmp_db):
+        from finance_agent_backend.voucher_composer import VoucherComposer
+
+        composer = VoucherComposer(db_path=tmp_db)
+        result = composer.compose(SAMPLE_TXNS, SIMPLE_SUBJECT_MAPPING)
+
+        # 2 笔物业费（同对方科目+同方向）→ 1 张凭证
+        # 1 笔货款收入 → 1 张凭证
+        assert len(result) == 2
+
+    def test_merge_same_counterparty(self, tmp_db):
+        from finance_agent_backend.voucher_composer import VoucherComposer
+
+        composer = VoucherComposer(db_path=tmp_db)
+        result = composer.compose(SAMPLE_TXNS, SIMPLE_SUBJECT_MAPPING)
+
+        # 凭证 #1: 物业费（expense → 2 entries + 1 bank entry）
+        voucher1 = result[0]
+        # expense: 借 对方科目, 贷 银行科目
+        assert voucher1["voucher_no"] == 1
+        entries = voucher1["entries"]
+        assert len(entries) == 3  # 2. 物业费分录 + 1 bank 分录
+        assert entries[0]["subject_code"] == "5060203"
+
+    def test_direction_expense_debit_counterpart(self, tmp_db):
+        """支出→借方对方科目，贷方银行科目。"""
+        from finance_agent_backend.voucher_composer import VoucherComposer
+
+        composer = VoucherComposer(db_path=tmp_db)
+        result = composer.compose(SAMPLE_TXNS, SIMPLE_SUBJECT_MAPPING)
+
+        voucher1 = result[0]  # expense
+        entries = voucher1["entries"]
+        # 分录 1 & 2: 借 对方科目
+        assert entries[0]["debit_amount"] is not None
+        assert entries[0]["credit_amount"] is None
+        # 最后一条: 贷 银行科目
+        bank_entry = entries[-1]
+        assert bank_entry["credit_amount"] is not None
+        assert bank_entry["debit_amount"] is None
+
+    def test_direction_income_credit_counterpart(self, tmp_db):
+        """收入→贷方对方科目，借方银行科目。"""
+        from finance_agent_backend.voucher_composer import VoucherComposer
+
+        composer = VoucherComposer(db_path=tmp_db)
+        result = composer.compose(SAMPLE_TXNS, SIMPLE_SUBJECT_MAPPING)
+
+        voucher2 = result[1]  # income
+        entries = voucher2["entries"]
+        # 分录 1: 借 银行科目
+        assert entries[0]["debit_amount"] is not None
+        # 分录 2: 贷 对方科目
+        assert entries[1]["credit_amount"] is not None
+
+    def test_totals_balance(self, tmp_db):
+        """借方合计 = 贷方合计。"""
+        from finance_agent_backend.voucher_composer import VoucherComposer
+
+        composer = VoucherComposer(db_path=tmp_db)
+        result = composer.compose(SAMPLE_TXNS, SIMPLE_SUBJECT_MAPPING)
+
+        for voucher in result:
+            total_debit = sum(
+                e.get("debit_amount") or 0 for e in voucher["entries"]
+            )
+            total_credit = sum(
+                e.get("credit_amount") or 0 for e in voucher["entries"]
+            )
+            assert abs(total_debit - total_credit) < 0.01, (
+                f"Voucher {voucher['voucher_no']}: debit={total_debit}, credit={total_credit}"
+            )
+            assert total_debit > 0  # non-trivial voucher
+
+
+class TestPreviewRPC:
+    """voucher.preview JSON-RPC 方法。"""
+
+    def test_preview_returns_vouchers(self, tmp_db):
+        from finance_agent_backend.bridge import handle_request
+
+        # Register composer handler (bridge already loads it)
+        # We call handle_request directly with voucher.preview
+        response = handle_request({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "voucher.preview",
+            "params": {
+                "transactions": [t.to_dict() for t in SAMPLE_TXNS],
+                "subject_mapping": SIMPLE_SUBJECT_MAPPING,
+            },
+        })
+        result = response.get("result", {})
+        assert result.get("success") is True
+        vouchers = result.get("vouchers", [])
+        assert len(vouchers) == 2
+        assert "warnings" in result
+
+
+class TestSaveDraftRPC:
+    """voucher.save_draft JSON-RPC 方法。"""
+
+    def test_save_draft(self, tmp_db):
+        from finance_agent_backend.bridge import handle_request
+        from finance_agent_backend import db as _db
+
+        # Reset singleton so db_path param is used
+        _db.close_db()
+        _db._conn = None
+        _db._db_path = None
+
+        response = handle_request({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "voucher.save_draft",
+            "params": {
+                "name": "2026年3月凭证",
+                "period": "2026年第3期",
+                "db_path": tmp_db,
+                "entries": [
+                    {
+                        "entry_seq": 1, "voucher_no": 1,
+                        "date": "2026-03-01", "summary": "支付物业费",
+                        "subject_code": "5060203", "subject_name": "管理费用_物业管理费",
+                        "debit_amount": 2400.0, "credit_amount": None,
+                        "direction": "expense", "match_source": "rule",
+                        "original_summary": "支付启胜物业费1月", "is_manual": False,
+                    },
+                    {
+                        "entry_seq": 2, "voucher_no": 1,
+                        "date": "2026-03-01", "summary": "银行科目",
+                        "subject_code": "1000201", "subject_name": "银行存款-工行基本户",
+                        "debit_amount": None, "credit_amount": 2400.0,
+                        "direction": "expense", "match_source": "unmatched",
+                        "original_summary": "", "is_manual": False,
+                    },
+                ],
+            },
+        })
+        result = response.get("result", {})
+        assert result.get("success") is True
+        assert result.get("draft_id")
+
+        # Verify DB has entries
+        conn = sqlite3.connect(tmp_db)
+        drafts = conn.execute("SELECT * FROM voucher_draft").fetchall()
+        entries = conn.execute("SELECT * FROM voucher_draft_entry").fetchall()
+        conn.close()
+        assert len(drafts) == 1
+        assert len(entries) == 2

@@ -8,10 +8,12 @@ JSON-RPC 2.0 服务器，通过 stdio 与 Electron 通信
 import json
 import sys
 import os
+import uuid
 import logging
 import time
 import traceback
 from logging.handlers import RotatingFileHandler
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -533,6 +535,96 @@ def handle_db_health(params: dict) -> dict:
         return {"status": "ok", "tables": tables}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+@register_method("voucher.preview")
+def handle_voucher_preview(params: dict) -> dict:
+    """交易列表 → 凭证预览（含科目匹配 + 同类合并）。"""
+    try:
+        from finance_agent_backend.voucher_composer import VoucherComposer
+        from finance_agent_backend.models import Transaction
+
+        transactions_data = params.get("transactions", [])
+        subject_mapping = params.get("subject_mapping")
+
+        if not transactions_data:
+            return {"success": False, "error": "缺少 transactions 参数"}
+
+        transactions = [Transaction.from_dict(t) for t in transactions_data]
+        composer = VoucherComposer()
+        vouchers = composer.compose(transactions, subject_mapping)
+
+        warnings = []
+        for v in vouchers:
+            unmatched = [e for e in v["entries"] if e.get("match_source") == "unmatched" and e.get("direction") != "bank"]
+            if unmatched:
+                warnings.append(f"凭证#{v['voucher_no']}: {len(unmatched)} 条分录科目未匹配")
+
+        return {
+            "success": True,
+            "vouchers": vouchers,
+            "warnings": warnings,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@register_method("voucher.save_draft")
+def handle_voucher_save_draft(params: dict) -> dict:
+    """保存凭证草稿到 SQLite。"""
+    try:
+        from finance_agent_backend import db as _db
+
+        name = params.get("name", "")
+        period = params.get("period", "")
+        entries = params.get("entries", [])
+
+        if not entries:
+            return {"success": False, "error": "缺少 entries 参数"}
+
+        # 测试时可通过 db_path 参数覆盖
+        db_path = params.get("db_path")
+        conn = _db.get_db(db_path=db_path)
+        _db.init_db(conn)
+
+        draft_id = str(uuid.uuid4())[:8]
+        now = datetime.now(timezone.utc).isoformat()
+
+        conn.execute(
+            "INSERT INTO voucher_draft (id, name, period, status, created_at, updated_at) VALUES (?, ?, ?, 'draft', ?, ?)",
+            (draft_id, name, period, now, now),
+        )
+
+        for e in entries:
+            conn.execute(
+                """INSERT INTO voucher_draft_entry
+                   (draft_id, entry_seq, voucher_no, date, summary, subject_code, subject_name,
+                    debit_amount, credit_amount, direction, counterparty, match_source,
+                    original_summary, original_amount, is_manual)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    draft_id,
+                    e.get("entry_seq", 1),
+                    e.get("voucher_no", 1),
+                    e.get("date", ""),
+                    e.get("summary", ""),
+                    e.get("subject_code", ""),
+                    e.get("subject_name", ""),
+                    e.get("debit_amount"),
+                    e.get("credit_amount"),
+                    e.get("direction", ""),
+                    e.get("counterparty", ""),
+                    e.get("match_source", "unmatched"),
+                    e.get("original_summary", ""),
+                    e.get("original_amount", 0),
+                    1 if e.get("is_manual") else 0,
+                ),
+            )
+
+        conn.commit()
+        return {"success": True, "draft_id": draft_id}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def handle_request(request: dict) -> dict:
