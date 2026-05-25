@@ -66,18 +66,25 @@ def match(
     direction: str,
     counterparty: str = '',
     rules: str | dict | None = None,
+    repo: 'SubjectHistoryRepo | None' = None,
 ) -> MatchResult:
-    """将交易摘要匹配到会计科目（L1 JSON 规则）。
+    """将交易摘要匹配到会计科目（L1→L2→L3 三层串联）。
+
+    L1: JSON 规则（priority 排序 + 联合条件）
+    L2: TF-IDF 历史学习（需要 repo 实例）
+    L3: 兜底（unmatched）
 
     参数:
         summary: 交易摘要（如 "支付物业管理费"）
         direction: 交易方向 'expense' | 'income'
-        counterparty: 对方户名（可选，用于联合规则）
-        rules: 规则来源 — 文件路径(str)、规则 dict、或 None(默认配置文件)
+        counterparty: 对方户名（可选）
+        rules: 规则来源 — str(文件路径)、dict、或 None(默认)
+        repo: SubjectHistoryRepo 实例（optional，L2 历史匹配）
 
     返回:
         MatchResult，未命中时 source='unmatched'
     """
+    # ── L1: JSON 规则 ──
     if isinstance(rules, dict):
         data = rules
     elif isinstance(rules, str):
@@ -86,10 +93,9 @@ def match(
         data = _load_rules(_default_rules_path())
 
     direction_rules = data.get(direction, {})
-    rules = direction_rules.get("rules", [])
+    rules_list = direction_rules.get("rules", [])
 
-    # 按 priority 升序排序
-    sorted_rules = sorted(rules, key=lambda r: r.get("priority", 999))
+    sorted_rules = sorted(rules_list, key=lambda r: r.get("priority", 999))
 
     for rule in sorted_rules:
         if _match_rule(rule, summary, counterparty):
@@ -100,4 +106,11 @@ def match(
                 rule_id=rule.get("id", ""),
             )
 
+    # ── L2: 历史学习 ──
+    if repo:
+        result = repo.find_similar(summary, direction)
+        if result is not None:
+            return result
+
+    # ── L3: 兜底 ──
     return MatchResult()
