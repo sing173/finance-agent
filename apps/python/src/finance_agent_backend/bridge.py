@@ -627,6 +627,208 @@ def handle_voucher_save_draft(params: dict) -> dict:
         return {"success": False, "error": str(e)}
 
 
+@register_method("voucher.load_draft")
+def handle_voucher_load_draft(params: dict) -> dict:
+    """加载凭证草稿。"""
+    try:
+        from finance_agent_backend import db as _db
+
+        draft_id = params.get("draft_id")
+        if not draft_id:
+            return {"success": False, "error": "缺少 draft_id 参数"}
+
+        db_path = params.get("db_path")
+        conn = _db.get_db(db_path=db_path)
+        _db.init_db(conn)
+
+        draft = conn.execute(
+            "SELECT id, name, period, status, created_at, updated_at FROM voucher_draft WHERE id = ?",
+            (draft_id,),
+        ).fetchone()
+
+        if not draft:
+            return {"success": False, "error": f"草稿 {draft_id} 不存在"}
+
+        entry_rows = conn.execute(
+            """SELECT entry_seq, voucher_no, date, summary, subject_code, subject_name,
+                      debit_amount, credit_amount, direction, counterparty, match_source,
+                      original_summary, original_amount, is_manual
+               FROM voucher_draft_entry WHERE draft_id = ? ORDER BY voucher_no, entry_seq""",
+            (draft_id,),
+        ).fetchall()
+
+        return {
+            "success": True,
+            "draft": {
+                "id": draft["id"],
+                "name": draft["name"],
+                "period": draft["period"],
+                "status": draft["status"],
+                "created_at": draft["created_at"],
+                "updated_at": draft["updated_at"],
+                "entries": [dict(r) for r in entry_rows],
+            },
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@register_method("voucher.list_drafts")
+def handle_voucher_list_drafts(params: dict) -> dict:
+    """列出所有草稿。"""
+    try:
+        from finance_agent_backend import db as _db
+
+        db_path = params.get("db_path")
+        conn = _db.get_db(db_path=db_path)
+        _db.init_db(conn)
+
+        rows = conn.execute(
+            """SELECT d.id, d.name, d.period, d.status, d.created_at, d.updated_at,
+                      COUNT(e.id) as entry_count
+               FROM voucher_draft d
+               LEFT JOIN voucher_draft_entry e ON e.draft_id = d.id
+               GROUP BY d.id ORDER BY d.updated_at DESC"""
+        ).fetchall()
+
+        return {"success": True, "drafts": [dict(r) for r in rows]}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@register_method("voucher.delete_draft")
+def handle_voucher_delete_draft(params: dict) -> dict:
+    """删除草稿（CASCADE 删除关联分录）。"""
+    try:
+        from finance_agent_backend import db as _db
+
+        draft_id = params.get("draft_id")
+        if not draft_id:
+            return {"success": False, "error": "缺少 draft_id 参数"}
+
+        db_path = params.get("db_path")
+        conn = _db.get_db(db_path=db_path)
+        _db.init_db(conn)
+
+        conn.execute("DELETE FROM voucher_draft WHERE id = ?", (draft_id,))
+        conn.commit()
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@register_method("voucher.export")
+def handle_voucher_export(params: dict) -> dict:
+    """确认导出：生成 Excel + 写入审计日志 + 写入历史库。"""
+    try:
+        import json
+        from finance_agent_backend import db as _db
+        from finance_agent_backend.tools import excel_builder
+        from finance_agent_backend.models import Transaction
+        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+
+        draft_id = params.get("draft_id")
+        output_path = params.get("output_path", "voucher.xlsx")
+        period = params.get("period", "")
+        source_files = params.get("source_files", [])
+        if not draft_id:
+            return {"success": False, "error": "缺少 draft_id 参数"}
+
+        db_path = params.get("db_path")
+        conn = _db.get_db(db_path=db_path)
+        _db.init_db(conn)
+
+        # Load draft entries
+        entry_rows = conn.execute(
+            """SELECT * FROM voucher_draft_entry WHERE draft_id = ? ORDER BY voucher_no, entry_seq""",
+            (draft_id,),
+        ).fetchall()
+
+        if not entry_rows:
+            return {"success": False, "error": "草稿无分录数据"}
+
+        # Build mock transactions for excel_builder (reuse build_voucher)
+        txns = []
+        for r in entry_rows:
+            if r["direction"] == "bank":
+                continue
+            txns.append(Transaction(
+                date=__import__('datetime').datetime.strptime(r["date"], "%Y-%m-%d").date(),
+                description=r["original_summary"] or r["summary"],
+                amount=__import__('decimal').Decimal(str(r["debit_amount"] or r["credit_amount"] or 0)),
+                direction=r["direction"],
+                counterparty=r["counterparty"],
+            ).to_dict())
+
+        if txns:
+            builder = excel_builder.ExcelBuilder()
+            builder.build_voucher(
+                transactions=[Transaction.from_dict(t) for t in txns],
+                subjects={},
+                output_path=output_path,
+                period=period,
+            )
+
+        # Stats
+        sources = {}
+        for r in entry_rows:
+            src = r["match_source"] or "unmatched"
+            sources[src] = sources.get(src, 0) + 1
+
+        # Write export_log
+        now = __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()
+        conn.execute(
+            """INSERT INTO export_log (exported_at, period, file_path, voucher_count, entry_count,
+                       transaction_count, source_files, match_stats, draft_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (now, period, output_path,
+             1, len(entry_rows), len(txns),
+             json.dumps(source_files), json.dumps(sources), draft_id),
+        )
+
+        # Write subject_history (manual entries only)
+        # Close connection and let SubjectHistoryRepo use its own
+        conn.commit()
+        conn.close()
+        _db.close_db()
+        _db._conn = None
+
+        repo = SubjectHistoryRepo(db_path or _db._db_path or '')
+        for r in entry_rows:
+            if r["is_manual"]:
+                repo.insert(
+                    summary=r["original_summary"] or r["summary"],
+                    direction=r["direction"],
+                    subject_code=r["subject_code"],
+                    subject_name=r["subject_name"] or "",
+                    counterparty=r["counterparty"] or "",
+                    voucher_id=draft_id,
+                )
+
+        # Reopen connection for status update
+        conn = _db.get_db(db_path=db_path)
+        _db.init_db(conn)
+
+        # Mark draft as exported
+        conn.execute(
+            "UPDATE voucher_draft SET status = 'exported', updated_at = ? WHERE id = ?",
+            (now, draft_id),
+        )
+        conn.commit()
+
+        return {
+            "success": True,
+            "file_path": output_path,
+            "voucher_count": 1,
+            "entry_count": len(entry_rows),
+            "transaction_count": len(txns),
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
 def handle_request(request: dict) -> dict:
     method = request.get("method")
     params = request.get("params", {})
