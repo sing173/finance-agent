@@ -72,7 +72,8 @@ class TestDetectBankScanned:
         _skip_if_missing(path)
         info = _timed("工行扫描件 识别", detect_bank_from_pdf, path)
         assert info['bankCode'] == 'ICBC'
-        assert info['docType'] == '回单'
+        # 扫描流水：OCR 文本不含"回单号码""回单编号" → '流水'
+        assert info['docType'] == '流水'
 
     def test_detect_cmb_receipt_embedded(self):
         """招行回单2 嵌入式文本 — 含'出账回单'+'入账回单'"""
@@ -87,6 +88,7 @@ class TestDetectBankScanned:
         _skip_if_missing(path)
         info = _timed("工行回单 识别", detect_bank_from_pdf, path)
         assert info['bankCode'] == 'ICBC'
+        # 扫描回单：OCR 文本含"回单号码"或"回单编号" → '回单'
         assert info['docType'] == '回单'
 
     def test_ocr_instance_reuse_speedup(self):

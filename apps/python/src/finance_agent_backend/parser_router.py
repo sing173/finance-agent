@@ -165,8 +165,12 @@ def _detect_bank_by_ocr_account(doc, registry) -> tuple[str, str] | None:
     复用传入的 fitz doc，不重复读 PDF。
     RapidOCR 实例通过模块级单例复用。
     registry 由调用方传入，不依赖全局单例。
-    返回 (bankCode, '回单') 或 None。
+
+    账号匹配到 registry 后，检查 OCR 文本是否含回单关键字
+    （"回单号码""回单编号"）→ 回单；否则默认流水。
     """
+    RECEIPT_KEYWORDS = ['回单号码', '回单编号']
+
     try:
         import re
         from PIL import Image
@@ -189,7 +193,9 @@ def _detect_bank_by_ocr_account(doc, registry) -> tuple[str, str] | None:
         for acct in candidates:
             entry = registry.match_by_account(acct)
             if entry:
-                return (entry.bankCode, '回单')
+                is_receipt = any(kw in text for kw in RECEIPT_KEYWORDS)
+                doc_type = '回单' if is_receipt else '流水'
+                return (entry.bankCode, doc_type)
 
         return None
     except Exception:
