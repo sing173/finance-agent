@@ -178,24 +178,14 @@ class ExcelBuilder:
     def _match_subject_code(
         self, description: str, direction: str, subject_mapping: dict
     ) -> str:
-        """根据流水描述和方向，通过关键字映射匹配对方科目代码。
+        """根据流水描述和方向，通过 L1 JSON 规则匹配对方科目代码（Issue #32）。
 
-        匹配规则：
-          1. 按 direction 选取规则列表（expense / income）
-          2. 遍历 rules，description 包含任意 keyword 则返回对应 subject_code
-          3. 无匹配时返回空字符串（不使用兜底科目，由调用方决定如何处理）
+        委托 subject_matcher.match() — 支持 priority 排序 + 联合条件。
         """
-        direction_key = 'expense' if direction == 'expense' else 'income'
-        group = subject_mapping.get(direction_key, {})
-        rules = group.get('rules', [])
+        from finance_agent_backend.subject_matcher import match as _match
 
-        desc_lower = description.lower()
-        for rule in rules:
-            for kw in rule.get('keywords', []):
-                if kw in description or kw.lower() in desc_lower:
-                    return rule['subject_code']
-
-        return ''
+        result = _match(description, direction, '', rules=subject_mapping)
+        return result.subject_code
 
     def _match_bank_subject_code(
         self, transaction: Transaction, account_mapping: dict
