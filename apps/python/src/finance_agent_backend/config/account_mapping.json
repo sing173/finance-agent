@@ -1,11 +1,50 @@
 {
-  "_comment": "账号→银行科目映射配置。matchType: suffix(后缀匹配) / exact(精确匹配)。bankCode: ICBC/CMB/GFB。",
   "accounts": [
-    { "id": "acc_001", "matchType": "suffix", "pattern": "4363", "bank": "工商银行", "bankCode": "ICBC", "subjectCode": "1000201", "subjectName": "银行存款-工商银行（4363）" },
-    { "id": "acc_002", "matchType": "suffix", "pattern": "0146", "bank": "广发银行", "bankCode": "GFB", "subjectCode": "1000202", "subjectName": "银行存款-广发银行（0146）" },
-    { "id": "acc_003", "matchType": "suffix", "pattern": "0288", "bank": "招商银行", "bankCode": "CMB", "subjectCode": "1000203", "subjectName": "银行存款-招商银行（0288）" },
-    { "id": "acc_004", "matchType": "suffix", "pattern": "0118", "bank": "招商银行", "bankCode": "CMB", "subjectCode": "1000204", "subjectName": "银行存款-招商银行（0118）" },
-    { "id": "acc_005", "matchType": "suffix", "pattern": "7931", "bank": "工商银行", "bankCode": "ICBC", "subjectCode": "1000205", "subjectName": "银行存款-工商银行（7931）" }
+    {
+      "id": "acc_001",
+      "matchType": "suffix",
+      "pattern": "4363",
+      "bank": "工商银行",
+      "bankCode": "ICBC",
+      "subjectCode": "1000201",
+      "subjectName": "银行存款-工商银行（4363）"
+    },
+    {
+      "id": "acc_002",
+      "matchType": "suffix",
+      "pattern": "0146",
+      "bank": "广发银行",
+      "bankCode": "GFB",
+      "subjectCode": "1000202",
+      "subjectName": "银行存款-广发银行（0146）"
+    },
+    {
+      "id": "acc_003",
+      "matchType": "suffix",
+      "pattern": "0288",
+      "bank": "招商银行",
+      "bankCode": "CMB",
+      "subjectCode": "1000203",
+      "subjectName": "银行存款-招商银行（0288）"
+    },
+    {
+      "id": "acc_004",
+      "matchType": "suffix",
+      "pattern": "0118",
+      "bank": "招商银行",
+      "bankCode": "CMB",
+      "subjectCode": "1000204",
+      "subjectName": "银行存款-招商银行（0118）"
+    },
+    {
+      "id": "acc_005",
+      "matchType": "suffix",
+      "pattern": "7931",
+      "bank": "工商银行",
+      "bankCode": "ICBC",
+      "subjectCode": "1000205",
+      "subjectName": "银行存款-工商银行（7931）"
+    }
   ],
   "defaultBankSubjectCode": "10002"
 }

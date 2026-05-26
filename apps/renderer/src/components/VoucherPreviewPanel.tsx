@@ -1,6 +1,12 @@
-import { useState, useCallback } from 'react';
-import { Card, Table, Tag, Button, Space, Alert, message } from 'antd';
-import { WarningOutlined, ExportOutlined } from '@ant-design/icons';
+import { useState, useCallback, useEffect } from 'react';
+import { Card, Table, Tag, Button, Space, Alert, message, Dropdown, Popconfirm } from 'antd';
+import {
+  WarningOutlined,
+  ExportOutlined,
+  SwapOutlined,
+  SaveOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons';
 import { SubjectPickerModal } from './SubjectPickerModal';
 
 interface VoucherEntry {
@@ -14,11 +20,13 @@ interface VoucherEntry {
   credit_amount: number | null;
   direction: string;
   counterparty: string;
-  match_source: 'rule' | 'history' | 'manual' | 'unmatched';
+  match_source: string;
   original_summary: string;
   original_amount: number;
   is_manual: boolean;
 }
+
+export type { VoucherEntry };
 
 interface VoucherData {
   voucher_no: number;
@@ -31,7 +39,12 @@ interface VoucherData {
 
 interface VoucherPreviewPanelProps {
   vouchers: VoucherData[];
+  subjects: { code: string; name: string; category: string; direction: string; enabled: boolean }[];
+  onVouchersChange: (vouchers: VoucherData[]) => void;
+  onSaveDraft: () => void;
   onExport: () => void;
+  saveDisabled?: boolean;
+  exportDisabled?: boolean;
 }
 
 const MATCH_TAGS: Record<string, { color: string; label: string }> = {
@@ -41,13 +54,62 @@ const MATCH_TAGS: Record<string, { color: string; label: string }> = {
   unmatched: { color: 'red', label: '未匹配' },
 };
 
-export function VoucherPreviewPanel({ vouchers, onExport }: VoucherPreviewPanelProps) {
+const BATCH_SUBJECTS = [
+  { code: '5060203', name: '管理费用_物业管理费' },
+  { code: '5060202', name: '管理费用_办公费' },
+];
+
+export function VoucherPreviewPanel({
+  vouchers: propVouchers,
+  subjects,
+  onVouchersChange,
+  onSaveDraft,
+  onExport,
+  saveDisabled,
+  exportDisabled,
+}: VoucherPreviewPanelProps) {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [editingEntry, setEditingEntry] = useState<{ vno: number; seq: number } | null>(null);
 
-  const unmatchedCount = vouchers.reduce(
-    (s, v) => s + v.entries.filter(e => e.match_source === 'unmatched' && e.direction !== 'bank').length,
-    0,
+  // 内部可变副本
+  const [editedVouchers, setEditedVouchers] = useState<VoucherData[]>([]);
+
+  useEffect(() => {
+    setEditedVouchers(JSON.parse(JSON.stringify(propVouchers)));
+  }, [propVouchers]);
+
+  const updateEntry = useCallback(
+    (vno: number, seq: number, patch: Partial<VoucherEntry>) => {
+      setEditedVouchers((prev) => {
+        const next = prev.map((v) => {
+          if (v.voucher_no !== vno) return v;
+          return {
+            ...v,
+            entries: v.entries.map((e) => {
+              if (e.entry_seq !== seq) return e;
+              return { ...e, ...patch, is_manual: true, match_source: 'manual' as const };
+            }),
+          };
+        });
+        return next;
+      });
+    },
+    [],
+  );
+
+  // Subject picker 选择 → 回填科目
+  const handleSubjectSelect = useCallback(
+    (subject: { code: string; name: string }) => {
+      if (!editingEntry) return;
+      updateEntry(editingEntry.vno, editingEntry.seq, {
+        subject_code: subject.code,
+        subject_name: subject.name,
+      });
+      setPickerVisible(false);
+      setEditingEntry(null);
+      message.success(`已设置科目: ${subject.code} ${subject.name}`);
+    },
+    [editingEntry, updateEntry],
   );
 
   const handleSubjectClick = useCallback((vno: number, seq: number) => {
@@ -55,23 +117,62 @@ export function VoucherPreviewPanel({ vouchers, onExport }: VoucherPreviewPanelP
     setPickerVisible(true);
   }, []);
 
-  const handleSubjectSelect = useCallback((_subject: any) => {
-    setPickerVisible(false);
-    message.info('科目已选择（预览面板暂不支持实时更新，请保存草稿后刷新）');
-  }, []);
+  // 借贷方向翻转
+  const handleFlipDirection = useCallback(
+    (vno: number, seq: number, entry: VoucherEntry) => {
+      if (entry.debit_amount != null && entry.debit_amount > 0) {
+        updateEntry(vno, seq, { debit_amount: null, credit_amount: entry.debit_amount });
+      } else if (entry.credit_amount != null && entry.credit_amount > 0) {
+        updateEntry(vno, seq, { credit_amount: null, debit_amount: entry.credit_amount });
+      }
+    },
+    [updateEntry],
+  );
+
+  // 批量填充：对所有未匹配分录应用兜底科目
+  const handleBatchFill = useCallback(
+    (subject: { code: string; name: string }) => {
+      let count = 0;
+      setEditedVouchers((prev) => {
+        const next = prev.map((v) => ({
+          ...v,
+          entries: v.entries.map((e) => {
+            if (e.match_source === 'unmatched' && e.direction !== 'bank') {
+              count++;
+              return {
+                ...e,
+                subject_code: subject.code,
+                subject_name: subject.name,
+                is_manual: true,
+                match_source: 'manual' as const,
+              };
+            }
+            return e;
+          }),
+        }));
+        return next;
+      });
+      message.success(`批量填充完成: ${count} 条分录 → ${subject.name}`);
+    },
+    [],
+  );
+
+  // 变更同步给父组件（供自动保存）
+  useEffect(() => {
+    if (editedVouchers.length > 0) {
+      onVouchersChange(editedVouchers);
+    }
+  }, [editedVouchers, onVouchersChange]);
+
+  const unmatchedCount = editedVouchers.reduce(
+    (s, v) => s + v.entries.filter((e) => e.match_source === 'unmatched' && e.direction !== 'bank').length,
+    0,
+  );
 
   const columns = [
-    {
-      title: '序号',
-      dataIndex: 'entry_seq',
-      key: 'seq',
-      width: 50,
-    },
-    {
-      title: '摘要',
-      dataIndex: 'summary',
-      key: 'summary',
-    },
+    { title: '序号', dataIndex: 'entry_seq', key: 'seq', width: 50 },
+    { title: '日期', dataIndex: 'date', key: 'date', width: 85 },
+    { title: '摘要', dataIndex: 'summary', key: 'summary' },
     {
       title: '科目',
       key: 'subject',
@@ -94,20 +195,38 @@ export function VoucherPreviewPanel({ vouchers, onExport }: VoucherPreviewPanelP
       dataIndex: 'debit_amount',
       key: 'debit',
       width: 100,
-      render: (v: number | null) => v != null ? v.toLocaleString() : '',
+      render: (v: number | null) => (v != null ? v.toLocaleString() : ''),
     },
     {
       title: '贷方',
       dataIndex: 'credit_amount',
       key: 'credit',
       width: 100,
-      render: (v: number | null) => v != null ? v.toLocaleString() : '',
+      render: (v: number | null) => (v != null ? v.toLocaleString() : ''),
+    },
+    {
+      title: '翻转',
+      key: 'flip',
+      width: 60,
+      render: (_: any, r: VoucherEntry) =>
+        r.direction !== 'bank' ? (
+          <Button
+            type="text"
+            size="small"
+            icon={<SwapOutlined />}
+            title="翻转借/贷方向"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleFlipDirection(r.voucher_no, r.entry_seq, r);
+            }}
+          />
+        ) : null,
     },
     {
       title: '来源',
       dataIndex: 'match_source',
       key: 'source',
-      width: 80,
+      width: 70,
       render: (s: string) => {
         const t = MATCH_TAGS[s] || { color: 'default', label: s };
         return <Tag color={t.color}>{t.label}</Tag>;
@@ -121,14 +240,14 @@ export function VoucherPreviewPanel({ vouchers, onExport }: VoucherPreviewPanelP
 
       {unmatchedCount > 0 && (
         <Alert
-          message={`有 ${unmatchedCount} 条分录未匹配到对方科目`}
+          message={`有 ${unmatchedCount} 条分录未匹配到对方科目，请点击科目列选择或使用批量填充`}
           type="warning"
           showIcon
           style={{ marginBottom: 16 }}
         />
       )}
 
-      {vouchers.map((v) => (
+      {editedVouchers.map((v) => (
         <Card
           key={v.voucher_no}
           title={`凭证 #${v.voucher_no} — ${v.date}`}
@@ -146,15 +265,47 @@ export function VoucherPreviewPanel({ vouchers, onExport }: VoucherPreviewPanelP
       ))}
 
       <Space style={{ marginTop: 16 }}>
-        <Button type="primary" icon={<ExportOutlined />} onClick={onExport}>
-          确认导出
+        {unmatchedCount > 0 && (
+          <Dropdown
+            menu={{
+              items: BATCH_SUBJECTS.map((s) => ({
+                key: s.code,
+                label: `${s.code} ${s.name}`,
+                onClick: () => handleBatchFill(s),
+              })),
+            }}
+          >
+            <Button icon={<ThunderboltOutlined />}>批量填充</Button>
+          </Dropdown>
+        )}
+        <Button type="default" icon={<SaveOutlined />} onClick={onSaveDraft} disabled={saveDisabled}>
+          保存草稿
         </Button>
+        <Popconfirm
+          title="确认导出"
+          description={
+            unmatchedCount > 0
+              ? `还有 ${unmatchedCount} 条分录未匹配科目，确认继续导出？`
+              : '确认导出所有凭证？'
+          }
+          onConfirm={onExport}
+          okText="确认导出"
+          cancelText="取消"
+        >
+          <Button type="primary" icon={<ExportOutlined />} disabled={exportDisabled}>
+            确认导出
+          </Button>
+        </Popconfirm>
       </Space>
 
       <SubjectPickerModal
         visible={pickerVisible}
-        onClose={() => setPickerVisible(false)}
+        onClose={() => {
+          setPickerVisible(false);
+          setEditingEntry(null);
+        }}
         onSelect={handleSubjectSelect}
+        subjects={subjects}
       />
     </div>
   );

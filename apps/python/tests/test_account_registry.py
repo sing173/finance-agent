@@ -423,3 +423,33 @@ def test_match_by_account_no_match():
     reg = AccountRegistry(repo.load())
     result = reg.match_by_account("0000000000")
     assert result is None
+
+
+def test_match_masked_account():
+    """脱敏账号（含*）仍能通过 suffix 匹配 — 过滤在 parser 层处理。"""
+    entries = [
+        {
+            "id": "acc_001", "matchType": "suffix", "pattern": "4363",
+            "bank": "工商银行", "bankCode": "ICBC",
+            "subjectCode": "1000201", "subjectName": "银行存款-工行",
+        },
+    ]
+    _, repo = _make_repo(entries)
+    reg = AccountRegistry(repo.load())
+    result = reg.match_by_account("6222****4363")
+    assert result is not None
+    assert result.bankCode == "ICBC"
+
+
+def test_match_empty_account():
+    """空账号不参与匹配。"""
+    entries = [
+        {
+            "id": "acc_001", "matchType": "suffix", "pattern": "4363",
+            "bank": "工商银行", "bankCode": "ICBC",
+            "subjectCode": "1000201", "subjectName": "银行存款-工行",
+        },
+    ]
+    _, repo = _make_repo(entries)
+    reg = AccountRegistry(repo.load())
+    assert reg.match_by_account("") is None

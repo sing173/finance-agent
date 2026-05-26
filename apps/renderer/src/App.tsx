@@ -8,8 +8,11 @@ import { ManualOverrideModal } from './components/ManualOverrideModal';
 import { BatchFileSelector } from './components/BatchFileSelector';
 import { BatchResultPanel } from './components/BatchResultPanel';
 import { AccountSubjectManager } from './components/AccountSubjectManager';
+import { VoucherPreviewPanel } from './components/VoucherPreviewPanel';
+import { VoucherDraftList } from './components/VoucherDraftList';
 import { useBatchOrchestrator } from './hooks/useBatchOrchestrator';
 import { useVoucherExport } from './hooks/useVoucherExport';
+import { useVoucherFlow } from './hooks/useVoucherFlow';
 import type { BatchResult, Transaction, ParseFileParams, ParseFileResult, DetectBanksResult, DetectSupportedBanksResult, DocType } from '@shared/types';
 
 const { Header, Content, Footer } = Layout;
@@ -70,6 +73,9 @@ function App() {
 
   // ====== 凭证导出（单文件 + 批量统一） ======
   const voucherExport = useVoucherExport();
+
+  // ====== 凭证预览 + 草稿 (#35) ======
+  const voucherFlow = useVoucherFlow();
 
   // ====== 科目管理 ======
   const [importSubjectsLoading, setImportSubjectsLoading] = useState(false);
@@ -431,12 +437,23 @@ function App() {
 
               {/* 交易列表 */}
               {currentResult?.success && currentResult.transactions?.length > 0 && (
-                <Card title="交易列表">
-                  <TransactionTable
-                    transactions={currentResult.transactions}
-                    loading={loading}
-                  />
-                </Card>
+                <>
+                  <Card title="交易列表">
+                    <TransactionTable
+                      transactions={currentResult.transactions}
+                      loading={loading}
+                    />
+                  </Card>
+                  <Space>
+                    <Button
+                      type="primary"
+                      loading={voucherFlow.previewLoading}
+                      onClick={() => voucherFlow.preview(currentResult.transactions)}
+                    >
+                      凭证预览
+                    </Button>
+                  </Space>
+                </>
               )}
 
             </div>
@@ -465,8 +482,38 @@ function App() {
                   files={batchResult.files}
                   onRetry={handleBatchRetry}
                   onExportVoucher={handleBatchExportVoucher}
+                  onPreviewVoucher={() => {
+                    const txns = getTransactionsForExport();
+                    if (txns.length === 0) { message.warning('没有成功的交易数据'); return; }
+                    voucherFlow.preview(txns);
+                  }}
                 />
               )}
+            </div>
+          )}
+
+          {/* ====== 凭证预览 + 草稿 (#35) ====== */}
+          {voucherFlow.showPanel && voucherFlow.vouchers.length > 0 && (
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 600 }}>
+                <VoucherPreviewPanel
+                  vouchers={voucherFlow.vouchers}
+                  subjects={voucherFlow.subjects}
+                  onVouchersChange={voucherFlow.onVouchersChange}
+                  onSaveDraft={voucherFlow.handleSaveDraft}
+                  onExport={voucherFlow.handleExport}
+                  saveDisabled={voucherFlow.saving}
+                  exportDisabled={!voucherFlow.currentDraftId}
+                />
+              </div>
+              <div style={{ width: 320, flexShrink: 0 }}>
+                <VoucherDraftList
+                  drafts={voucherFlow.drafts}
+                  onLoad={voucherFlow.handleLoadDraft}
+                  onDelete={voucherFlow.handleDeleteDraft}
+                  loading={voucherFlow.draftsLoading}
+                />
+              </div>
             </div>
           )}
         </div>
