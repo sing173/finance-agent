@@ -1,6 +1,6 @@
 import { Layout, Typography, Button, Card, message, Space, Modal } from 'antd';
 import { useState, useEffect, useCallback } from 'react';
-import { SettingOutlined } from '@ant-design/icons';
+import { SettingOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { FileDropZone } from './components/FileDropZone';
 import { TransactionTable } from './components/TransactionTable';
 import { ResultCard } from './components/ResultCard';
@@ -9,7 +9,6 @@ import { BatchFileSelector } from './components/BatchFileSelector';
 import { BatchResultPanel } from './components/BatchResultPanel';
 import { AccountSubjectManager } from './components/AccountSubjectManager';
 import { VoucherPreviewPanel } from './components/VoucherPreviewPanel';
-import { VoucherDraftList } from './components/VoucherDraftList';
 import { useBatchOrchestrator } from './hooks/useBatchOrchestrator';
 import { useVoucherFlow } from './hooks/useVoucherFlow';
 import type { BatchResult, Transaction, ParseFileParams, ParseFileResult, DetectBanksResult, DetectSupportedBanksResult, DocType } from '@shared/types';
@@ -61,7 +60,6 @@ function App() {
 
   // ====== 加载 ======
   const [loading, setLoading] = useState(false);  // 单文件解析
-  const [connecting, setConnecting] = useState(false);  // 测试连接
 
   // ====== 批量编排 ======
   const batch = useBatchOrchestrator({
@@ -112,21 +110,6 @@ function App() {
       else if (status === 'online') setBackendStatus('正常（已恢复）');
       else if (status === 'error') setBackendStatus('错误');
     });
-  }, []);
-
-  // ====== 连接测试 ======
-  const testConnection = useCallback(async () => {
-    setConnecting(true);
-    try {
-      const result = await window.electronAPI.health();
-      setBackendStatus(`正常 (v${result.version})`);
-      message.success('后端连接成功！');
-    } catch (error: unknown) {
-      setBackendStatus(`离线: ${error instanceof Error ? error.message : String(error)}`);
-      message.error('后端连接失败');
-    } finally {
-      setConnecting(false);
-    }
   }, []);
 
   // ====== 统一入口：选择文件 → 根据数量决定模式 ======
@@ -342,6 +325,37 @@ function App() {
   // ====== 辅助 ======
   const detectUnknown = detectState === 'unknown';
 
+  // ====== 凭证生成子页面 ======
+  if (voucherFlow.showPage) {
+    return (
+      <Layout style={{ minHeight: '100vh' }}>
+        <Header style={{ background: '#001529', padding: '0 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <Button
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            onClick={voucherFlow.closePage}
+            style={{ color: '#fff', fontSize: 16 }}
+          >
+            返回
+          </Button>
+          <Title level={4} style={{ color: '#fff', margin: 0 }}>凭证生成</Title>
+        </Header>
+        <Content style={{ padding: '20px 24px' }}>
+          <VoucherPreviewPanel
+            vouchers={voucherFlow.vouchers}
+            subjects={voucherFlow.subjects}
+            onVouchersChange={voucherFlow.onVouchersChange}
+            onSaveDraft={voucherFlow.handleSaveDraft}
+            onExport={voucherFlow.handleExport}
+            onCancel={voucherFlow.closePage}
+            saveDisabled={voucherFlow.saving}
+            loading={voucherFlow.previewLoading}
+          />
+        </Content>
+      </Layout>
+    );
+  }
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Header style={{ background: '#001529', padding: '0 24px' }}>
@@ -361,9 +375,6 @@ function App() {
                 <Text strong>{backendStatus}</Text>
               </div>
               <Space style={{ marginBottom: 16 }}>
-                <Button type="primary" loading={connecting} onClick={testConnection}>
-                  测试连接
-                </Button>
                 <Button loading={importSubjectsLoading} onClick={handleImportSubjects}>
                   导入科目表
                 </Button>
@@ -470,30 +481,6 @@ function App() {
             </div>
           )}
 
-          {/* ====== 凭证预览 + 草稿 (#35) ====== */}
-          {voucherFlow.showPanel && voucherFlow.vouchers.length > 0 && (
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 600 }}>
-                <VoucherPreviewPanel
-                  vouchers={voucherFlow.vouchers}
-                  subjects={voucherFlow.subjects}
-                  onVouchersChange={voucherFlow.onVouchersChange}
-                  onSaveDraft={voucherFlow.handleSaveDraft}
-                  onExport={voucherFlow.handleExport}
-                  saveDisabled={voucherFlow.saving}
-                  exportDisabled={!voucherFlow.currentDraftId}
-                />
-              </div>
-              <div style={{ width: 320, flexShrink: 0 }}>
-                <VoucherDraftList
-                  drafts={voucherFlow.drafts}
-                  onLoad={voucherFlow.handleLoadDraft}
-                  onDelete={voucherFlow.handleDeleteDraft}
-                  loading={voucherFlow.draftsLoading}
-                />
-              </div>
-            </div>
-          )}
         </div>
       </Content>
       <Footer style={{ textAlign: 'center' }}>

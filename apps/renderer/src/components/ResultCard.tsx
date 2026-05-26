@@ -133,13 +133,13 @@ export function ResultCard({
           {afterParse ? '重新解析' : '开始解析'}
         </Button>
 
-        {/* 导出凭证 → 凭证预览 — 仅解析成功后可见 */}
+        {/* 凭证生成 → 凭证预览 — 仅解析成功后可见 */}
         {isSuccess && onPreviewVoucher && (
           <Button
             style={{ background: '#52c41a', color: '#fff', borderColor: '#52c41a' }}
             onClick={onPreviewVoucher}
           >
-            导出凭证
+            凭证生成
           </Button>
         )}
       </Space>

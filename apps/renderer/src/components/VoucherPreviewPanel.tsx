@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Card, Table, Tag, Button, Space, Alert, message, Dropdown, Popconfirm } from 'antd';
+import { Card, Table, Tag, Button, Space, Alert, message, Dropdown, Popconfirm, Tooltip, Spin } from 'antd';
 import {
   WarningOutlined,
   ExportOutlined,
-  SwapOutlined,
   SaveOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
+// SwapOutlined — 翻转列暂时隐藏
 import { SubjectPickerModal } from './SubjectPickerModal';
 
 interface VoucherEntry {
@@ -43,8 +43,9 @@ interface VoucherPreviewPanelProps {
   onVouchersChange: (vouchers: VoucherData[]) => void;
   onSaveDraft: () => void;
   onExport: () => void;
+  onCancel?: () => void;
   saveDisabled?: boolean;
-  exportDisabled?: boolean;
+  loading?: boolean;
 }
 
 const MATCH_TAGS: Record<string, { color: string; label: string }> = {
@@ -52,6 +53,7 @@ const MATCH_TAGS: Record<string, { color: string; label: string }> = {
   history: { color: 'green', label: '历史' },
   manual: { color: 'orange', label: '手动' },
   unmatched: { color: 'red', label: '未匹配' },
+  auto: { color: 'default', label: '自动' },
 };
 
 const BATCH_SUBJECTS = [
@@ -65,8 +67,9 @@ export function VoucherPreviewPanel({
   onVouchersChange,
   onSaveDraft,
   onExport,
+  onCancel,
   saveDisabled,
-  exportDisabled,
+  loading = false,
 }: VoucherPreviewPanelProps) {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [editingEntry, setEditingEntry] = useState<{ vno: number; seq: number } | null>(null);
@@ -117,18 +120,7 @@ export function VoucherPreviewPanel({
     setPickerVisible(true);
   }, []);
 
-  // 借贷方向翻转
-  const handleFlipDirection = useCallback(
-    (vno: number, seq: number, entry: VoucherEntry) => {
-      if (entry.debit_amount != null && entry.debit_amount > 0) {
-        updateEntry(vno, seq, { debit_amount: null, credit_amount: entry.debit_amount });
-      } else if (entry.credit_amount != null && entry.credit_amount > 0) {
-        updateEntry(vno, seq, { credit_amount: null, debit_amount: entry.credit_amount });
-      }
-    },
-    [updateEntry],
-  );
-
+  
   // 批量填充：对所有未匹配分录应用兜底科目
   const handleBatchFill = useCallback(
     (subject: { code: string; name: string }) => {
@@ -170,63 +162,78 @@ export function VoucherPreviewPanel({
   );
 
   const columns = [
-    { title: '序号', dataIndex: 'entry_seq', key: 'seq', width: 50 },
-    { title: '日期', dataIndex: 'date', key: 'date', width: 85 },
-    { title: '摘要', dataIndex: 'summary', key: 'summary' },
+    { title: '序号', dataIndex: 'entry_seq', key: 'seq', width: '6%' as any },
+    { title: '日期', dataIndex: 'date', key: 'date', width: '10%' as any },
+    {
+      title: '摘要',
+      dataIndex: 'summary',
+      key: 'summary',
+      width: '24%' as any,
+      ellipsis: { showTitle: false },
+      render: (v: string) => (
+        <Tooltip title={v} placement="topLeft">
+          <span>{v}</span>
+        </Tooltip>
+      ),
+    },
     {
       title: '科目',
       key: 'subject',
-      render: (_: any, r: VoucherEntry) => (
-        <span onClick={() => handleSubjectClick(r.voucher_no, r.entry_seq)} style={{ cursor: 'pointer' }}>
-          {r.match_source === 'unmatched' && r.direction !== 'bank' ? (
-            <span style={{ color: 'red' }}>
-              <WarningOutlined /> 点击选择科目
+      width: '22%' as any,
+      ellipsis: { showTitle: false },
+      render: (_: any, r: VoucherEntry) => {
+        const text = r.match_source === 'unmatched' && r.direction !== 'bank'
+          ? '点击选择科目'
+          : `${r.subject_code} ${r.subject_name}`;
+        const isUnmatched = r.match_source === 'unmatched' && r.direction !== 'bank';
+        return (
+          <Tooltip title={isUnmatched ? '点击选择科目' : text} placement="topLeft">
+            <span onClick={() => handleSubjectClick(r.voucher_no, r.entry_seq)} style={{ cursor: 'pointer' }}>
+              {isUnmatched ? (
+                <span style={{ color: 'red' }}>
+                  <WarningOutlined /> 点击选择科目
+                </span>
+              ) : (
+                <span>{text}</span>
+              )}
             </span>
-          ) : (
-            <span>
-              {r.subject_code} {r.subject_name}
-            </span>
-          )}
-        </span>
-      ),
+          </Tooltip>
+        );
+      },
     },
     {
       title: '借方',
       dataIndex: 'debit_amount',
       key: 'debit',
-      width: 100,
+      width: '10%' as any,
+      align: 'right' as const,
       render: (v: number | null) => (v != null ? v.toLocaleString() : ''),
     },
     {
       title: '贷方',
       dataIndex: 'credit_amount',
       key: 'credit',
-      width: 100,
+      width: '10%' as any,
+      align: 'right' as const,
       render: (v: number | null) => (v != null ? v.toLocaleString() : ''),
     },
     {
-      title: '翻转',
-      key: 'flip',
-      width: 60,
-      render: (_: any, r: VoucherEntry) =>
-        r.direction !== 'bank' ? (
-          <Button
-            type="text"
-            size="small"
-            icon={<SwapOutlined />}
-            title="翻转借/贷方向"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleFlipDirection(r.voucher_no, r.entry_seq, r);
-            }}
-          />
-        ) : null,
+      title: '对方名',
+      dataIndex: 'counterparty',
+      key: 'counterparty',
+      width: '12%' as any,
+      ellipsis: { showTitle: false },
+      render: (v: string) => (
+        <Tooltip title={v || ''} placement="topLeft">
+          <span>{v}</span>
+        </Tooltip>
+      ),
     },
     {
       title: '来源',
       dataIndex: 'match_source',
       key: 'source',
-      width: 70,
+      width: '6%' as any,
       render: (s: string) => {
         const t = MATCH_TAGS[s] || { color: 'default', label: s };
         return <Tag color={t.color}>{t.label}</Tag>;
@@ -235,9 +242,7 @@ export function VoucherPreviewPanel({
   ];
 
   return (
-    <div>
-      <h3>凭证预览</h3>
-
+    <Spin spinning={loading} tip="正在生成凭证...">
       {unmatchedCount > 0 && (
         <Alert
           message={`有 ${unmatchedCount} 条分录未匹配到对方科目，请点击科目列选择或使用批量填充`}
@@ -292,10 +297,13 @@ export function VoucherPreviewPanel({
           okText="确认导出"
           cancelText="取消"
         >
-          <Button type="primary" icon={<ExportOutlined />} disabled={exportDisabled}>
+          <Button type="primary" icon={<ExportOutlined />}>
             确认导出
           </Button>
         </Popconfirm>
+        {onCancel && (
+          <Button onClick={onCancel}>取消</Button>
+        )}
       </Space>
 
       <SubjectPickerModal
@@ -307,6 +315,6 @@ export function VoucherPreviewPanel({
         onSelect={handleSubjectSelect}
         subjects={subjects}
       />
-    </div>
+    </Spin>
   );
 }

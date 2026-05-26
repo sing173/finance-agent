@@ -37,9 +37,9 @@ def _make_txn(
 
 SAMPLE_TXNS = [
     _make_txn("2026-03-01", "支付启胜物业费1月", 1200.00, "expense",
-              counterparty="启胜物业", acct="622202****1234", ref="P001"),
+              counterparty="启胜物业", acct="622202****1234", ref="9550880004679001037"),
     _make_txn("2026-03-01", "支付启胜物业费2月", 1200.00, "expense",
-              counterparty="启胜物业", acct="622202****1234", ref="P002"),
+              counterparty="启胜物业", acct="622202****1234", ref="9550880004679001037"),
     _make_txn("2026-03-15", "收到客户货款", 50000.00, "income",
               counterparty="客户A", acct="622202****1234", ref="P003"),
 ]
@@ -156,6 +156,55 @@ class TestCompose:
                 f"Voucher {voucher['voucher_no']}: debit={total_debit}, credit={total_credit}"
             )
             assert total_debit > 0  # non-trivial voucher
+
+    def test_no_merge_different_counterparty_account(self, tmp_db):
+        """不同对方账号的相同科目不合并。"""
+        from finance_agent_backend.voucher_composer import VoucherComposer
+
+        txns = [
+            _make_txn("2026-03-20", "支付应付账款", 35000.00, "expense",
+                      counterparty="供应商A", acct="622202****1234", ref="ACC001"),
+            _make_txn("2026-03-20", "支付应付账款", 45500.00, "expense",
+                      counterparty="供应商B", acct="622202****1234", ref="ACC002"),
+        ]
+        mapping = {
+            "version": 2,
+            "expense": {
+                "rules": [
+                    {"id": "r1", "priority": 1, "match": {"keywords": ["应付账款"]},
+                     "subject_code": "20201", "subject_name": "应付账款"},
+                ],
+            },
+        }
+        composer = VoucherComposer(db_path=tmp_db)
+        result = composer.compose(txns, mapping)
+        # 不同对方账号 → 各一张凭证
+        assert len(result) == 2
+
+    def test_merge_same_counterparty_account(self, tmp_db):
+        """相同对方账号（含无值视为通配）相同科目合并。"""
+        from finance_agent_backend.voucher_composer import VoucherComposer
+
+        txns = [
+            _make_txn("2026-03-20", "支付应付账款", 35000.00, "expense",
+                      counterparty="供应商A", acct="622202****1234", ref="ACC001"),
+            _make_txn("2026-03-20", "支付应付账款", 45500.00, "expense",
+                      counterparty="供应商A", acct="622202****1234", ref="ACC001"),
+        ]
+        mapping = {
+            "version": 2,
+            "expense": {
+                "rules": [
+                    {"id": "r1", "priority": 1, "match": {"keywords": ["应付账款"]},
+                     "subject_code": "20201", "subject_name": "应付账款"},
+                ],
+            },
+        }
+        composer = VoucherComposer(db_path=tmp_db)
+        result = composer.compose(txns, mapping)
+        # 相同对方账号 → 合并为一张凭证
+        assert len(result) == 1
+        assert len(result[0]["entries"]) == 3  # 2 对方分录 + 1 银行分录
 
 
 class TestPreviewRPC:

@@ -57,7 +57,6 @@ describe('VoucherPreviewPanel', () => {
         onExport={vi.fn()}
       />
     );
-    expect(screen.getByText('凭证预览')).toBeInTheDocument();
     expect(screen.getByText('支付启胜物业费1月')).toBeInTheDocument();
     expect(screen.getByText((content: string) => content.includes('管理费用_物业管理费'))).toBeInTheDocument();
   });
@@ -88,21 +87,7 @@ describe('VoucherPreviewPanel', () => {
     expect(screen.getByText('点击选择科目')).toBeInTheDocument();
   });
 
-  it('shows flip direction button for non-bank entries', () => {
-    render(
-      <VoucherPreviewPanel
-        vouchers={mockVouchers}
-        subjects={mockSubjects}
-        onVouchersChange={vi.fn()}
-        onSaveDraft={vi.fn()}
-        onExport={vi.fn()}
-      />
-    );
-    const flipBtns = document.querySelectorAll('[title="翻转借/贷方向"]');
-    // 2 non-bank entries → 2 flip buttons
-    expect(flipBtns.length).toBe(2);
-  });
-
+  
   it('calls onSaveDraft when save button clicked', () => {
     const onSaveDraft = vi.fn();
     render(

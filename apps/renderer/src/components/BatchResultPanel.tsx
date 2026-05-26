@@ -136,7 +136,7 @@ export function BatchResultPanel({
 
         <Space>
           <Button type="primary" onClick={onPreviewVoucher} disabled={successFiles.length === 0}>
-            导出凭证
+            凭证生成
           </Button>
         </Space>
       </div>

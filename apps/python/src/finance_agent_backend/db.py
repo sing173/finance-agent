@@ -118,7 +118,7 @@ SCHEMA_STATEMENTS: list[str] = [
         credit_amount   REAL,
         direction       TEXT,
         counterparty    TEXT,
-        match_source    TEXT CHECK (match_source IN ('rule', 'history', 'manual', 'unmatched')),
+        match_source    TEXT CHECK (match_source IN ('rule', 'history', 'manual', 'unmatched', 'auto')),
         original_summary TEXT,
         original_amount  REAL,
         is_manual       INTEGER DEFAULT 0
@@ -147,7 +147,44 @@ SCHEMA_STATEMENTS: list[str] = [
     )""",
 ]
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
+
+
+def _migrate_v2(conn: sqlite3.Connection) -> None:
+    """v2 迁移: 重建 voucher_draft_entry 表，放宽 match_source CHECK 约束允许 'auto'。"""
+    conn.execute("""CREATE TABLE IF NOT EXISTS voucher_draft_entry_v2 (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        draft_id        TEXT NOT NULL REFERENCES voucher_draft(id) ON DELETE CASCADE,
+        entry_seq       INTEGER NOT NULL,
+        voucher_no      INTEGER NOT NULL,
+        date            TEXT NOT NULL,
+        summary         TEXT NOT NULL,
+        subject_code    TEXT NOT NULL,
+        subject_name    TEXT,
+        debit_amount    REAL,
+        credit_amount   REAL,
+        direction       TEXT,
+        counterparty    TEXT,
+        match_source    TEXT CHECK (match_source IN ('rule', 'history', 'manual', 'unmatched', 'auto')),
+        original_summary TEXT,
+        original_amount  REAL,
+        is_manual       INTEGER DEFAULT 0
+    )""")
+    # 迁移数据
+    old_exists = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='voucher_draft_entry'"
+    ).fetchone()
+    if old_exists:
+        conn.execute(
+            "INSERT OR IGNORE INTO voucher_draft_entry_v2 SELECT * FROM voucher_draft_entry"
+        )
+        conn.execute("DROP TABLE voucher_draft_entry")
+        conn.execute("ALTER TABLE voucher_draft_entry_v2 RENAME TO voucher_draft_entry")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_draft_entry ON voucher_draft_entry(draft_id)")
+    conn.execute(
+        "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (?, ?)",
+        (2, datetime.now(timezone.utc).isoformat()),
+    )
 
 
 def init_db(conn: sqlite3.Connection) -> None:
@@ -155,16 +192,20 @@ def init_db(conn: sqlite3.Connection) -> None:
     for stmt in SCHEMA_STATEMENTS:
         conn.execute(stmt)
 
-    # 写入 schema version（首次）
+    # ── schema 迁移 ──
     existing = conn.execute(
-        "SELECT version FROM schema_version WHERE version = ?",
-        (CURRENT_SCHEMA_VERSION,),
+        "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1",
     ).fetchone()
+    current = existing[0] if existing else 0
 
-    if existing is None:
+    if current < 1:
         conn.execute(
             "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
-            (CURRENT_SCHEMA_VERSION, datetime.now(timezone.utc).isoformat()),
+            (1, datetime.now(timezone.utc).isoformat()),
         )
+
+    if current < 2:
+        # v2: 放宽 match_source CHECK 约束，允许 'auto'
+        _migrate_v2(conn)
 
     conn.commit()

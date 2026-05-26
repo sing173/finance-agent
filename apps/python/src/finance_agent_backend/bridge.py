@@ -551,8 +551,18 @@ def handle_voucher_preview(params: dict) -> dict:
             return {"success": False, "error": "缺少 transactions 参数"}
 
         transactions = [Transaction.from_dict(t) for t in transactions_data]
+
+        # 加载账号注册表供银行科目匹配
+        from finance_agent_backend.account_registry import AccountMappingRepository, AccountRegistry, _default_config_path
+        account_registry = None
+        try:
+            repo = AccountMappingRepository(_default_config_path())
+            account_registry = AccountRegistry(repo.load())
+        except Exception:
+            pass
+
         composer = VoucherComposer()
-        vouchers = composer.compose(transactions, subject_mapping)
+        vouchers = composer.compose(transactions, subject_mapping, account_registry)
 
         warnings = []
         for v in vouchers:
@@ -724,7 +734,6 @@ def handle_voucher_export(params: dict) -> dict:
         import json
         from finance_agent_backend import db as _db
         from finance_agent_backend.tools import excel_builder
-        from finance_agent_backend.models import Transaction
         from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
 
         draft_id = params.get("draft_id")
@@ -747,24 +756,28 @@ def handle_voucher_export(params: dict) -> dict:
         if not entry_rows:
             return {"success": False, "error": "草稿无分录数据"}
 
-        # Build mock transactions for excel_builder (reuse build_voucher)
-        txns = []
+        # 直接从 DB 分录导出 Excel，与预览完全一致
+        entry_dicts = []
         for r in entry_rows:
-            if r["direction"] == "bank":
-                continue
-            txns.append(Transaction(
-                date=__import__('datetime').datetime.strptime(r["date"], "%Y-%m-%d").date(),
-                description=r["original_summary"] or r["summary"],
-                amount=__import__('decimal').Decimal(str(r["debit_amount"] or r["credit_amount"] or 0)),
-                direction=r["direction"],
-                counterparty=r["counterparty"],
-            ).to_dict())
+            entry_dicts.append({
+                "entry_seq": r["entry_seq"],
+                "voucher_no": r["voucher_no"],
+                "date": r["date"],
+                "summary": r["summary"],
+                "subject_code": r["subject_code"],
+                "subject_name": r["subject_name"],
+                "debit_amount": r["debit_amount"],
+                "credit_amount": r["credit_amount"],
+                "direction": r["direction"],
+                "counterparty": r["counterparty"],
+            })
 
-        if txns:
+        txns_count = sum(1 for r in entry_rows if r["direction"] != "bank")
+
+        if entry_dicts:
             builder = excel_builder.ExcelBuilder()
-            builder.build_voucher(
-                transactions=[Transaction.from_dict(t) for t in txns],
-                subjects={},
+            builder.build_voucher_from_entries(
+                entries=entry_dicts,
                 output_path=output_path,
                 period=period,
             )
@@ -782,7 +795,7 @@ def handle_voucher_export(params: dict) -> dict:
                        transaction_count, source_files, match_stats, draft_id)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (now, period, output_path,
-             1, len(entry_rows), len(txns),
+             1, len(entry_rows), txns_count,
              json.dumps(source_files), json.dumps(sources), draft_id),
         )
 
@@ -821,7 +834,7 @@ def handle_voucher_export(params: dict) -> dict:
             "file_path": output_path,
             "voucher_count": 1,
             "entry_count": len(entry_rows),
-            "transaction_count": len(txns),
+            "transaction_count": txns_count,
         }
     except Exception as e:
         import traceback

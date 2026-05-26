@@ -82,14 +82,14 @@ def test_voucher_full_pipeline(tmp_db, export_dir):
     assert len(detect["results"]) == 1
     bank = detect["results"][0]["bank"]
     doc_type = detect["results"][0]["docType"]
-    print(f"  ✓ 检测到: {bank} · {doc_type}")
+    print(f"  [OK] 检测到: {bank} · {doc_type}")
 
     # ══ Phase 2: 解析 PDF ═══════════════════════════════════
     print("[2/7] parse_pdf...")
     parse = _call("parse_pdf", {"filePath": REAL_CMB_PDF, "bank": bank, "docType": doc_type})
     assert parse["success"] is True
     assert len(parse["transactions"]) >= 1
-    print(f"  ✓ 解析成功: {len(parse['transactions'])} 笔交易")
+    print(f"  [OK] 解析成功: {len(parse['transactions'])} 笔交易")
 
     # ══ Phase 3: 凭证预览 ═══════════════════════════════════
     print("[3/7] voucher.preview...")
@@ -98,7 +98,7 @@ def test_voucher_full_pipeline(tmp_db, export_dir):
     })
     assert preview["success"] is True
     vouchers = preview["vouchers"]
-    print(f"  ✓ 生成 {len(vouchers)} 张凭证")
+    print(f"  [OK] 生成 {len(vouchers)} 张凭证")
     for v in vouchers:
         n_entries = len(v["entries"])
         n_unmatched = sum(1 for e in v["entries"] if e.get("match_source") == "unmatched")
@@ -124,7 +124,7 @@ def test_voucher_full_pipeline(tmp_db, export_dir):
     })
     assert draft["success"] is True
     draft_id = draft["draft_id"]
-    print(f"  ✓ 草稿 ID: {draft_id}")
+    print(f"  [OK] 草稿 ID: {draft_id}")
 
     # ══ Phase 5: 列出草稿 ═══════════════════════════════════
     print("[5/7] voucher.list_drafts...")
@@ -132,7 +132,7 @@ def test_voucher_full_pipeline(tmp_db, export_dir):
     assert drafts_list["success"] is True
     ids = [d["id"] for d in drafts_list["drafts"]]
     assert draft_id in ids
-    print(f"  ✓ 草稿列表中包含: {len(drafts_list['drafts'])} 个")
+    print(f"  [OK] 草稿列表中包含: {len(drafts_list['drafts'])} 个")
 
     # ══ Phase 6: 加载草稿 ═══════════════════════════════════
     print("[6/7] voucher.load_draft...")
@@ -140,7 +140,7 @@ def test_voucher_full_pipeline(tmp_db, export_dir):
     assert loaded["success"] is True
     assert loaded["draft"]["name"] == "全链路测试草稿"
     assert len(loaded["draft"]["entries"]) == len(all_entries)
-    print(f"  ✓ 加载成功: {loaded['draft']['name']} · {len(loaded['draft']['entries'])} 条分录")
+    print(f"  [OK] 加载成功: {loaded['draft']['name']} · {len(loaded['draft']['entries'])} 条分录")
 
     # ══ Phase 7: 导出 ═══════════════════════════════════════
     print("[7/7] voucher.export...")
@@ -163,7 +163,7 @@ def test_voucher_full_pipeline(tmp_db, export_dir):
     assert os.path.exists(export_path)
     size = os.path.getsize(export_path)
     assert size > 1000
-    print(f"  ✓ Excel 导出: {size} 字节")
+    print(f"  [OK] Excel 导出: {size} 字节")
 
     # 审计日志
     conn = _db.get_db(db_path=tmp_db)
@@ -173,7 +173,7 @@ def test_voucher_full_pipeline(tmp_db, export_dir):
     log = dict(logs[0])
     assert log["draft_id"] == draft_id
     assert log["period"] == "2026年测试期"
-    print(f"  ✓ 审计日志: 分录 {log['entry_count']}, 交易 {log['transaction_count']}")
+    print(f"  [OK] 审计日志: 分录 {log['entry_count']}, 交易 {log['transaction_count']}")
 
     # 草稿状态变为 exported
     conn = _db.get_db(db_path=tmp_db)
@@ -181,4 +181,4 @@ def test_voucher_full_pipeline(tmp_db, export_dir):
     conn.close()
     assert status[0] == "exported"
 
-    print(f"\n✅ 全链路通过: detect → parse → preview({len(vouchers)}张) → draft → export → audit_log")
+    print(f"\n[PASS] 全链路通过: detect → parse → preview({len(vouchers)}张) → draft → export → audit_log")

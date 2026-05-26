@@ -36,6 +36,17 @@ const HANDLERS: HandlerDef[] = [
   { channel: 'account_registry.update',  method: 'account_registry.update',  expose: true },
   { channel: 'account_registry.delete',  method: 'account_registry.delete',  expose: true },
 
+  // Issue #34-#36: 凭证预览 + 草稿 + 导出
+  { channel: 'voucher.preview',          method: 'voucher.preview',          expose: true },
+  { channel: 'voucher.save_draft',       method: 'voucher.save_draft',       expose: true },
+  { channel: 'voucher.load_draft',       method: 'voucher.load_draft',       expose: true },
+  { channel: 'voucher.list_drafts',      method: 'voucher.list_drafts',      expose: true },
+  { channel: 'voucher.delete_draft',     method: 'voucher.delete_draft',     expose: true },
+  { channel: 'voucher.export',           method: 'voucher.export',           expose: true },
+
+  // db.health — 数据库状态检查
+  { channel: 'db.health',                method: 'db.health',                expose: true },
+
   // Electron-side (no Python backend)
   { channel: 'select_file',             method: null,                  expose: true  },
   { channel: 'save_file_dialog',        method: null,                  expose: true  },

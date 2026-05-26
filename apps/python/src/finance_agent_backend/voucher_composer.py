@@ -25,30 +25,49 @@ class VoucherComposer:
         self,
         transactions: list[Transaction],
         subject_mapping: dict,
-        account_registry_entries: list | None = None,
+        account_registry=None,  # AccountRegistry | None
     ) -> list[dict]:
         """将交易组装为凭证列表。
 
-        合并规则: 相同对方科目+相同方向+相同银行科目 → 一张凭证。
-        银行科目从 Transaction.account_number 查 account_registry。
+        合并规则: 相同银行账号+相同对方科目+相同方向 → 一张凭证。
+        银行科目从 Transaction.account_number 查 account_registry 解析。
+        对方科目通过 subject_mapping 规则匹配。
         """
-        # 按 (bank_subject, counterpart_subject, direction) 分组
-        groups: dict[tuple[str, str, str], list[Transaction]] = {}
+        from finance_agent_backend.account_registry import AccountRegistry
+
+        if account_registry is None:
+            registry = AccountRegistry([])
+        else:
+            registry = account_registry
+
+        # 分组:
+        #   - 未匹配(__unmatched__): 不合并, 每条独立成凭证(用户需逐条手工审)
+        #   - 匹配到科目: 按 (账号, 对方科目, 对方账号, 方向) 合并
+        #     对方账号有值时必须一致才能合并, 为空则视为通配
+        groups: dict[tuple[str, str, str, str], list[Transaction]] = {}
 
         for txn in transactions:
             result = match_subject(txn.description, txn.direction, txn.counterparty or '', rules=subject_mapping)
             counter_code = result.subject_code or '__unmatched__'
-            counterpart_name = result.subject_name or ''
+            counter_name = result.subject_name or ''
 
-            bank_code = self._resolve_bank_subject(txn, account_registry_entries)
-            bank_name = bank_code  # simplified
+            acct = txn.account_number or ''
+            bank_entry = registry.match_by_account(acct)
+            bank_code = bank_entry.subjectCode if bank_entry else '10002'
 
-            key = (bank_code, counter_code, txn.direction)
+            # 对方账号(reference_number)有值时参与分组, 无值视为通配
+            counterparty_acct = txn.reference_number or ''
+
+            if counter_code == '__unmatched__':
+                # 未匹配时每条独立, 用 id(txn) 确保 key 唯一(转 str 塞入第4位)
+                key = (acct, counter_code, txn.direction, str(id(txn)))
+            else:
+                key = (acct, counter_code, txn.direction, counterparty_acct)
             groups.setdefault(key, []).append(txn)
 
         vouchers = []
         voucher_no = 0
-        for (bank_code, counter_code, direction), group_txns in groups.items():
+        for (acct, counter_code, direction, _), group_txns in groups.items():
             voucher_no += 1
             entries = []
             total = Decimal('0')
@@ -56,8 +75,12 @@ class VoucherComposer:
                 total += txn.amount
             amount = float(total)
 
+            bank_entry = registry.match_by_account(acct)
+            bank_code = bank_entry.subjectCode if bank_entry else '10002'
+            bank_name = bank_entry.subjectName if bank_entry else '银行存款'
+
             if direction == 'expense':
-                # 借 对方科目, 贷 银行科目
+                # 借 对方科目, 贷 银行科目（汇总）
                 for txn in group_txns:
                     result = match_subject(txn.description, txn.direction, txn.counterparty or '', rules=subject_mapping)
                     entries.append(self._entry(
@@ -66,14 +89,14 @@ class VoucherComposer:
                         float(txn.amount), None, result.source, '',
                     ))
                 entries.append(self._bank_entry(
-                    len(entries) + 1, voucher_no, txn.date,
-                    None, amount, bank_code, bank_code,
+                    len(entries) + 1, voucher_no, group_txns[0].date,
+                    None, amount, bank_code, bank_name,
                 ))
             else:  # income
-                # 借 银行科目, 贷 对方科目
+                # 借 银行科目（汇总）, 贷 对方科目
                 entries.append(self._bank_entry(
                     1, voucher_no, group_txns[0].date,
-                    amount, None, bank_code, bank_code,
+                    amount, None, bank_code, bank_name,
                 ))
                 for txn in group_txns:
                     result = match_subject(txn.description, txn.direction, txn.counterparty or '', rules=subject_mapping)
@@ -118,24 +141,8 @@ class VoucherComposer:
             "debit_amount": debit, "credit_amount": credit,
             "direction": "bank",
             "counterparty": "",
-            "match_source": "unmatched",
+            "match_source": "auto",
             "original_summary": "",
             "original_amount": 0.0,
             "is_manual": False,
         }
-
-    @staticmethod
-    def _resolve_bank_subject(txn: Transaction, entries: list | None) -> str:
-        """根据交易中的账号号码匹配银行科目。
-        简化实现: 从 account_mapping.json entries 中按 suffix 匹配。
-        """
-        if not entries:
-            return '10002'  # 默认银行存款
-
-        acct = txn.account_number or ''
-        # suffix match
-        for e in entries:
-            if e.get('matchType') == 'suffix' and acct.endswith(e.get('pattern', '')):
-                return e.get('subjectCode', '10002')
-
-        return '10002'
