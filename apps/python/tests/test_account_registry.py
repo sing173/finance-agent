@@ -374,19 +374,6 @@ def test_add_entry_bankcode_required():
 
 
 def test_add_entry():
-    """add() bankCode 为空时抛 ValueError。"""
-    path = _make_v2_json([])
-    try:
-        repo = AccountMappingRepository(path)
-        reg = AccountRegistry(repo.load())
-        with pytest.raises(ValueError, match="bankCode"):
-            reg.add(AccountEntry(
-                id="", matchType="suffix", pattern="4363",
-                bank="工商银行", bankCode="",
-                subjectCode="1000201", subjectName="银行存款-工行",
-            ))
-    finally:
-        os.unlink(path)
     """add() 新增条目，自动生成 id，保存后可 list_all 查到。"""
     path = _make_v2_json([])
     subjects_path = _make_subjects_json(["1000201"])
@@ -453,3 +440,111 @@ def test_match_empty_account():
     _, repo = _make_repo(entries)
     reg = AccountRegistry(repo.load())
     assert reg.match_by_account("") is None
+
+
+# ---------------------------------------------------------------------------
+# Bridge JSON-RPC — account_registry.*
+# ---------------------------------------------------------------------------
+
+from finance_agent_backend.bridge import handle_request
+import finance_agent_backend.account_registry as reg_module
+
+
+@pytest.fixture
+def _patch_config(temp_accounts_file):
+    """Monkey-patch _default_config_path → temp file."""
+    original = reg_module._default_config_path
+    reg_module._default_config_path = lambda: temp_accounts_file
+    yield
+    reg_module._default_config_path = original
+
+
+@pytest.fixture
+def temp_accounts_file():
+    """Create a temporary account_mapping.json with 2 entries."""
+    import json as _json
+    data = {
+        "accounts": [
+            {
+                "id": "acc_001", "matchType": "suffix", "pattern": "4363",
+                "bank": "工商银行", "bankCode": "ICBC",
+                "subjectCode": "1000201", "subjectName": "银行存款-工行基本户",
+            },
+            {
+                "id": "acc_002", "matchType": "suffix", "pattern": "0288",
+                "bank": "招商银行", "bankCode": "CMB",
+                "subjectCode": "1000203", "subjectName": "银行存款-招商银行（0288）",
+            },
+        ],
+        "defaultBankSubjectCode": "10002",
+    }
+    tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8')
+    _json.dump(data, tmp, ensure_ascii=False, indent=2)
+    tmp.close()
+    yield tmp.name
+    os.unlink(tmp.name)
+
+
+def _rpc(method, params=None):
+    """Shorthand: send JSON-RPC request, return result dict."""
+    response = handle_request({
+        "jsonrpc": "2.0", "id": 1, "method": method, "params": params or {},
+    })
+    return response.get("result", {})
+
+
+class TestBridgeAccountRegistry:
+    """account_registry.list / match / add / update / delete via bridge RPC."""
+
+    def test_list(self, _patch_config):
+        result = _rpc("account_registry.list")
+        assert "accounts" in result
+        assert len(result["accounts"]) == 2
+        assert result["accounts"][0]["bankCode"] == "ICBC"
+
+    def test_match_found(self, _patch_config):
+        result = _rpc("account_registry.match", {"accountNumber": "12345678904363"})
+        assert result["success"] is True
+        assert result["entry"]["bankCode"] == "ICBC"
+
+    def test_match_not_found(self, _patch_config):
+        result = _rpc("account_registry.match", {"accountNumber": "0000000000"})
+        assert result["success"] is True
+        assert result["entry"] is None
+
+    def test_add(self, _patch_config, temp_accounts_file):
+        result = _rpc("account_registry.add", {
+            "matchType": "suffix", "pattern": "7931",
+            "bank": "工商银行", "bankCode": "ICBC",
+            "subjectCode": "1000205", "subjectName": "银行存款-工商银行（7931）",
+        })
+        assert result["success"] is True
+        assert "id" in result
+        assert result["entry"]["bankCode"] == "ICBC"
+
+    def test_add_validation_bankcode(self, _patch_config):
+        result = _rpc("account_registry.add", {
+            "matchType": "suffix", "pattern": "7931",
+            "bank": "工商银行", "bankCode": "",
+            "subjectCode": "1000205", "subjectName": "测试",
+        })
+        assert result.get("success") is False
+        assert "bankCode" in result.get("error", "")
+
+    def test_update(self, _patch_config, temp_accounts_file):
+        result = _rpc("account_registry.update", {
+            "id": "acc_001", "matchType": "exact", "pattern": "4363",
+            "bank": "工商银行", "bankCode": "ICBC",
+            "subjectCode": "1000201", "subjectName": "银行存款-工行基本户（已更新）",
+        })
+        assert result["success"] is True
+        list_result = _rpc("account_registry.list")
+        updated = next(e for e in list_result["accounts"] if e["id"] == "acc_001")
+        assert updated["subjectName"] == "银行存款-工行基本户（已更新）"
+
+    def test_delete(self, _patch_config, temp_accounts_file):
+        result = _rpc("account_registry.delete", {"id": "acc_001"})
+        assert result["success"] is True
+        list_result = _rpc("account_registry.list")
+        assert len(list_result["accounts"]) == 1
+        assert list_result["accounts"][0]["id"] == "acc_002"
