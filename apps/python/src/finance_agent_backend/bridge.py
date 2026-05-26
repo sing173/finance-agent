@@ -495,7 +495,7 @@ def handle_account_registry_update(params: dict) -> dict:
         registry.update(entry)
         repo.save(registry.list_all(), "10002")
 
-        return {"success": True}
+        return {"success": True, "entry": _serialize_account_entry(entry)}
     except ValueError as e:
         return {"success": False, "error": str(e)}
     except Exception as e:
