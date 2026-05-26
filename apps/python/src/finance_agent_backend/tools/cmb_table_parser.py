@@ -251,8 +251,8 @@ def _parse_header_metadata(header_spans: list) -> Dict[str, Any]:
                     pending_key = raw_key
             continue
 
-    if CMBTableParser.OPENING_BALANCE_KEY in meta:
-        meta['opening_balance'] = parse_amount(meta.pop(CMBTableParser.OPENING_BALANCE_KEY))
+    if 'opening_balance' in meta:
+        meta['opening_balance'] = parse_amount(meta.pop('opening_balance'))
     if 'period' in meta:
         parts = meta['period'].split()
         if len(parts) >= 1:
