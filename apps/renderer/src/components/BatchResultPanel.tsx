@@ -9,14 +9,12 @@ const { Text } = Typography;
 interface BatchResultPanelProps {
   files: BatchFileResult[];
   onRetry: (filePaths: string[]) => void;
-  onExportVoucher: () => void;
-  onPreviewVoucher?: () => void;
+  onPreviewVoucher: () => void;
 }
 
 export function BatchResultPanel({
   files,
   onRetry,
-  onExportVoucher,
   onPreviewVoucher,
 }: BatchResultPanelProps) {
   const [expandAll, setExpandAll] = useState(false);
@@ -137,14 +135,9 @@ export function BatchResultPanel({
         </Space>
 
         <Space>
-          <Button onClick={onExportVoucher} disabled={successFiles.length === 0}>
-            全部导出凭证
+          <Button type="primary" onClick={onPreviewVoucher} disabled={successFiles.length === 0}>
+            导出凭证
           </Button>
-          {onPreviewVoucher && (
-            <Button type="primary" onClick={onPreviewVoucher} disabled={successFiles.length === 0}>
-              凭证预览
-            </Button>
-          )}
         </Space>
       </div>
 

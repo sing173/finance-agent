@@ -16,7 +16,7 @@ interface ResultCardProps {
   onRedetect: () => void;
   onModifyConfig: () => void;
   onStartParse: () => void;
-  onExportVoucher?: () => void;
+  onPreviewVoucher?: () => void;
 }
 
 const bankLabel = (bank: string) =>
@@ -34,7 +34,7 @@ export function ResultCard({
   onRedetect,
   onModifyConfig,
   onStartParse,
-  onExportVoucher,
+  onPreviewVoucher,
 }: ResultCardProps) {
   const isSuccess = phase === 'success';
   const isFailed = phase === 'failed';
@@ -133,11 +133,11 @@ export function ResultCard({
           {afterParse ? '重新解析' : '开始解析'}
         </Button>
 
-        {/* 导出凭证 — 仅解析成功后可见 */}
-        {isSuccess && onExportVoucher && (
+        {/* 导出凭证 → 凭证预览 — 仅解析成功后可见 */}
+        {isSuccess && onPreviewVoucher && (
           <Button
             style={{ background: '#52c41a', color: '#fff', borderColor: '#52c41a' }}
-            onClick={onExportVoucher}
+            onClick={onPreviewVoucher}
           >
             导出凭证
           </Button>
