@@ -57,6 +57,7 @@ export function AccountSubjectManager({
     name: string;
   } | null>(null);
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [subjectsLoaded, setSubjectsLoaded] = useState(false);
   const [bankOptions, setBankOptions] = useState<{ code: string; name: string }[]>([]);
 
   const [form] = Form.useForm();
@@ -122,12 +123,12 @@ export function AccountSubjectManager({
     }
   }, [propAccounts, loadAccounts]);
 
-  // 打开科目选择器时加载科目列表
+  // 打开科目选择器时加载科目列表（延迟加载 + 缓存）
   useEffect(() => {
-    if (subjectPickerVisible) {
-      loadSubjects();
+    if (subjectPickerVisible && !subjectsLoaded) {
+      loadSubjects().then(() => setSubjectsLoaded(true));
     }
-  }, [subjectPickerVisible, loadSubjects]);
+  }, [subjectPickerVisible, subjectsLoaded, loadSubjects]);
 
   // 新增按钮
   const handleAdd = () => {

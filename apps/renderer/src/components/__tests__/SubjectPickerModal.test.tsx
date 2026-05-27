@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { SubjectPickerModal } from '../SubjectPickerModal';
 
 const mockSubjects = [
@@ -53,10 +53,18 @@ describe('SubjectPickerModal', () => {
     expect(screen.getByText('主营业务收入')).toBeInTheDocument();
   });
 
-  it('filters by search text', () => {
+  it('filters by search text', async () => {
     render(<SubjectPickerModal {...defaultProps} subjects={mockSubjects} />);
     const input = screen.getByPlaceholderText('搜索科目代码/名称');
+
+    // 输入搜索文本
     fireEvent.change(input, { target: { value: '银行存款' } });
+
+    // 等待防抖（150ms）
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    });
+
     expect(screen.getByText('银行存款-工行基本户')).toBeInTheDocument();
     expect(screen.getByText('银行存款-招商银行')).toBeInTheDocument();
     expect(screen.queryByText('主营业务收入')).not.toBeInTheDocument();

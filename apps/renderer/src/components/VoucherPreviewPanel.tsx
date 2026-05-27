@@ -120,7 +120,6 @@ export function VoucherPreviewPanel({
     setPickerVisible(true);
   }, []);
 
-  
   // 批量填充：对所有未匹配分录应用兜底科目
   const handleBatchFill = useCallback(
     (subject: { code: string; name: string }) => {
