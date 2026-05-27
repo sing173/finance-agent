@@ -97,10 +97,20 @@ class GFBTableParser(BaseStatementParser):
         # 步骤 5: 解析表头元数据（传入 self 以使用子类 HEADER_KEYS）
         meta = _parse_header_metadata(self, header_spans, table_spans)
         opening_balance = meta.get('opening_balance')
+        account_no = meta.get('account_no')
+        account_name = meta.get('account_name')
         # 步骤 6: 从页脚提取本期余额
         closing_balance = _extract_closing_balance_gfb(self, footer_spans)
         # 步骤 7: 解析表格数据行
         transactions, errors = self._parse_table_rows(table_spans)
+
+        # 附加本方账号信息到所有交易
+        if account_no or account_name:
+            for tx in transactions:
+                if account_no:
+                    tx.account_number = account_no
+                if account_name:
+                    tx.account_name = account_name
 
         statement_date = transactions[-1].date if transactions else None
 
@@ -119,13 +129,15 @@ class GFBTableParser(BaseStatementParser):
         算法步骤：
         1. 将所有 span 按 (y0, x0) 排序，保证同一行内按 x 坐标有序
         2. 按 y 坐标聚类：相邻 span 的 y0 差 ≤ gap(2.5pt) 视为同一行
-        3. 对每一行调用 _row_to_transaction() 转换为 Transaction 对象
-        4. 最后按日期升序排序
+        3. 跨行合并：检测 continuation 行（有 date 但无 expense/income 的行），合并到前一行
+        4. 对每行调用 _row_to_transaction() 转换为 Transaction 对象
+        5. 最后按日期升序排序
         """
         spans = sorted(spans, key=lambda s: (s['y0'], s['x0']))
         rows = cluster_by_y(spans, gap=2.5)
+        merged_rows = self._merge_continuation_rows(rows)
         transactions, errors = [], []
-        for row_spans in rows:
+        for row_spans in merged_rows:
             try:
                 tx = self._row_to_transaction(row_spans)
                 if tx:
@@ -135,6 +147,50 @@ class GFBTableParser(BaseStatementParser):
                 self.confidence -= 0.01
         transactions.sort(key=lambda t: t.date)
         return transactions, errors
+
+    def _merge_continuation_rows(self, rows: list) -> list:
+        """合并跨行 continuation 行
+
+        GFB 特有逻辑：
+        - 判断依据：有 date 但无 expense/income → continuation
+        - GFB 的 expense/income 是两列互斥，不同于 CMB 的 sign-based amount
+        - y 间距 > 15pt 视为区域边界（footer/header），终止当前 buffer
+        """
+        merged = []
+        buffer_row = None
+
+        for row_spans in rows:
+            cols = self._classify_spans(row_spans)
+            has_date = bool(cols.get('date', '').strip())
+            has_expense = bool(cols.get('expense', '').strip())
+            has_income = bool(cols.get('income', '').strip())
+            has_amount = has_expense or has_income
+
+            # y 间距过大 → 区域边界，终止 buffer
+            if buffer_row is not None:
+                buf_y = max(s['y0'] for s in buffer_row)
+                cur_y = min(s['y0'] for s in row_spans)
+                if cur_y - buf_y > 15:
+                    merged.append(buffer_row)
+                    buffer_row = None
+
+            if has_date and has_amount:
+                # 新交易行
+                if buffer_row is not None:
+                    merged.append(buffer_row)
+                buffer_row = row_spans
+            else:
+                # Continuation 行（跨行），合并到前一行
+                if buffer_row is not None:
+                    buffer_row.extend(row_spans)
+                else:
+                    # 第一行就缺少 date/amount（异常），丢弃
+                    pass
+
+        if buffer_row is not None:
+            merged.append(buffer_row)
+
+        return merged
 
     def _row_to_transaction(self, row_spans: list) -> Optional[Transaction]:
         """将一行 spans 转换为 Transaction 对象

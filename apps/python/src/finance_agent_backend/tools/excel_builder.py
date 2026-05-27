@@ -178,24 +178,14 @@ class ExcelBuilder:
     def _match_subject_code(
         self, description: str, direction: str, subject_mapping: dict
     ) -> str:
-        """根据流水描述和方向，通过关键字映射匹配对方科目代码。
+        """根据流水描述和方向，通过 L1 JSON 规则匹配对方科目代码（Issue #32）。
 
-        匹配规则：
-          1. 按 direction 选取规则列表（expense / income）
-          2. 遍历 rules，description 包含任意 keyword 则返回对应 subject_code
-          3. 无匹配时返回空字符串（不使用兜底科目，由调用方决定如何处理）
+        委托 subject_matcher.match() — 支持 priority 排序 + 联合条件。
         """
-        direction_key = 'expense' if direction == 'expense' else 'income'
-        group = subject_mapping.get(direction_key, {})
-        rules = group.get('rules', [])
+        from finance_agent_backend.subject_matcher import match as _match
 
-        desc_lower = description.lower()
-        for rule in rules:
-            for kw in rule.get('keywords', []):
-                if kw in description or kw.lower() in desc_lower:
-                    return rule['subject_code']
-
-        return ''
+        result = _match(description, direction, '', rules=subject_mapping)
+        return result.subject_code
 
     def _match_bank_subject_code(
         self, transaction: Transaction, account_mapping: dict
@@ -323,6 +313,81 @@ class ExcelBuilder:
             )
 
         return [entry1, entry2]
+
+    def build_voucher_from_entries(
+        self,
+        entries: list[dict],
+        output_path: str = 'voucher.xlsx',
+        period: str = '',
+    ) -> str:
+        """直接从分录 dict 列表导出凭证 Excel —— 不做科目重新匹配。
+
+        用于 export 保持与预览完全一致。
+        """
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        sheet_name = f'凭证列表#{period}' if period else '凭证列表'
+        ws.title = sheet_name
+
+        HEADERS = [
+            '日期', '凭证字', '凭证号', '附件数', '分录序号',
+            '摘要', '科目代码', '科目名称', '借方金额', '贷方金额',
+            '客户', '供应商', '职员', '项目', '部门', '存货',
+            '自定义辅助核算类别', '自定义辅助核算编码',
+            '自定义辅助核算类别1', '自定义辅助核算编码1',
+            '数量', '单价', '原币金额', '币别', '汇率',
+        ]
+
+        for col, header in enumerate(HEADERS, start=1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = Font(bold=True, color='FFFFFF')
+            cell.fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+
+        for i in range(1, len(HEADERS) + 1):
+            ws.column_dimensions[get_column_letter(i)].width = 15
+
+        for row_idx, e in enumerate(entries, start=2):
+            ws.cell(row=row_idx, column=1, value=str(e.get('date', '')))
+            ws.cell(row=row_idx, column=2, value='记')
+            ws.cell(row=row_idx, column=3, value=e.get('voucher_no', 1))
+            ws.cell(row=row_idx, column=4, value=0)
+            ws.cell(row=row_idx, column=5, value=e.get('entry_seq', 1))
+            ws.cell(row=row_idx, column=6, value=e.get('summary', ''))
+            ws.cell(row=row_idx, column=7, value=e.get('subject_code', ''))
+            ws.cell(row=row_idx, column=8, value=e.get('subject_name', ''))
+
+            debit = e.get('debit_amount')
+            cell_debit = ws.cell(row=row_idx, column=9)
+            if debit is not None:
+                cell_debit.value = float(debit)
+                cell_debit.number_format = '#,##0.00'
+
+            credit = e.get('credit_amount')
+            cell_credit = ws.cell(row=row_idx, column=10)
+            if credit is not None:
+                cell_credit.value = float(credit)
+                cell_credit.number_format = '#,##0.00'
+
+            for c in [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
+                ws.cell(row=row_idx, column=c, value=None)
+            # 数量
+            ws.cell(row=row_idx, column=21, value=None)
+            # 单价
+            ws.cell(row=row_idx, column=22, value=None)
+            # 原币金额
+            orig = e.get('original_amount')
+            cell_orig = ws.cell(row=row_idx, column=23)
+            if orig is not None:
+                cell_orig.value = float(orig)
+                cell_orig.number_format = '##.00#####'
+            ws.cell(row=row_idx, column=24, value='RMB')
+            cell_rate = ws.cell(row=row_idx, column=25, value=1.0)
+            cell_rate.number_format = '##.00#####'
+
+        ws.freeze_panes = 'A2'
+        wb.save(output_path)
+        return output_path
 
     def _write_voucher_sheet(self, ws, entries: List[VoucherEntry]):
         """将凭证分录列表写入 worksheet，含表头和数字格式。

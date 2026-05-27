@@ -5,12 +5,16 @@
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 import time
+import traceback
 import fitz  # 足够轻量，可直接导入
 
 from finance_agent_backend.models import ParseResult
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # 银行代码与中文名称双向映射
@@ -310,6 +314,13 @@ def _dispatch_registry_parser(
     """
     registry = PARSER_REGISTRY[bank_code]
 
+    # ── Bug #37 fix: ICBC 流水跳过 receipt parser ────────────────────────
+    # ICBCReceiptGridParser 只对回单文件有效，对流水文件返回空结果，
+    # 白白浪费 0.5-2s。已知 doc_type='流水' 时跳过。
+    if bank_code == 'ICBC' and doc_type == '流水':
+        registry = [e for e in registry
+                    if not (isinstance(e, tuple) and e[0] == 'icbc_receipt_grid_parser')]
+
     for entry in registry:
         t0 = time.time()
         try:
@@ -323,6 +334,12 @@ def _dispatch_registry_parser(
             else:
                 result = None
         except Exception:
+            # ── Bug #37 fix: 输出异常日志，便于调试 ──────────────────────
+            logger.exception(
+                "Parser %s failed for %s",
+                entry if isinstance(entry, tuple) else entry,
+                file_path,
+            )
             result = None
 
         # 日志标签
@@ -342,13 +359,22 @@ def _dispatch_registry_parser(
 
 def _try_parser(module_name: str, class_name: str, file_path: str) -> ParseResult | None:
     """延迟导入解析器模块并调用其 parse() 方法。"""
-    mod = __import__(
-        f'finance_agent_backend.tools.{module_name}',
-        fromlist=[class_name],
-    )
-    cls = getattr(mod, class_name)
-    parser = cls()
-    return parser.parse(file_path)
+    try:
+        mod = __import__(
+            f'finance_agent_backend.tools.{module_name}',
+            fromlist=[class_name],
+        )
+        cls = getattr(mod, class_name)
+        parser = cls()
+        return parser.parse(file_path)
+    except Exception:
+        logger.exception(
+            "Parser %s.%s failed for %s",
+            module_name,
+            class_name,
+            file_path,
+        )
+        return None
 
 
 def _detect_cmb_pdf_subtype(file_path: str) -> str:

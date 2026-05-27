@@ -74,19 +74,19 @@ export function TransactionTable({ transactions, loading, onEdit, onDelete }: Tr
       key: 'account_number',
       width: 200,
     },
-    {
-      title: '本方户名',
-      dataIndex: 'account_name',
-      key: 'account_name',
-      ellipsis: true,
-      width: 200,
-    },
-    {
-      title: '流水号',
-      dataIndex: 'reference_number',
-      key: 'reference_number',
-      width: 150,
-    },
+    // {
+    //   title: '本方户名',
+    //   dataIndex: 'account_name',
+    //   key: 'account_name',
+    //   ellipsis: true,
+    //   width: 200,
+    // },
+    // {
+    //   title: '流水号',
+    //   dataIndex: 'reference_number',
+    //   key: 'reference_number',
+    //   width: 150,
+    // },
     {
       title: '操作',
       key: 'action',

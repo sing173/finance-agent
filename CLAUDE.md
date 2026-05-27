@@ -109,19 +109,13 @@ npm run package
 ### Running Tests
 
 ```bash
-# Electron integration tests
+# Electron integration test (全功能，8 Phase / 31 step)
 cd apps/electron
-node tests/integration/bridge-ipc.test.js        # Health check
-node tests/integration/ipc-methods.test.js        # Full IPC methods
-node tests/integration/icbc-csv.test.js           # ICBC CSV parsing
-node tests/integration/icbc-ocr-workflow.test.js   # OCR workflow
-node tests/integration/full-workflow.test.js       # End-to-end flow
-node tests/integration/v020-e2e.test.js            # v0.2.0 e2e: detectBanks + batch parsing
-node tests/integration/detect-banks.test.js        # Bank auto-detection
+node tests/integration/v030-e2e.test.js
 ```
 
 ```bash
-# Python tests (no tests directory yet — placeholder)
+# Python tests
 cd apps/python
 pytest
 

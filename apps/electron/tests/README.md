@@ -5,23 +5,32 @@
 ## 目录分类
 
 ### `integration/` 集成测试
+
 测试 Electron 主进程与 Python 后端的完整 IPC 通信流程。
 
-- `bridge-ipc.test.js` - 验证 JSON-RPC 2.0 连接（health 方法）
-- `ipc-methods.test.js` - 完整 IPC 方法测试（health/parse_pdf/generate_excel/parse_csv）
+**`v030-e2e.test.js`** — v0.3.0 全功能集成测试（整合版，31 步 / 8 Phase）
 
 运行方式：
 ```bash
 cd apps/electron
-node tests/integration/bridge-ipc.test.js
-node tests/integration/ipc-methods.test.js
+node tests/integration/v030-e2e.test.js
 ```
 
-### `unit/` 单元测试
-待补充：对独立模块（如 PythonProcessManager）的单元测试。
+覆盖范围：
+| Phase | 内容 |
+|-------|------|
+| Phase 1 | db.health — SQLite 5 表结构验证 |
+| Phase 2 | detect_banks — 空/不存在/多无效/CMB/GFB/混合/重复 |
+| Phase 3 | parse_pdf — CMB PDF + ICBC CSV 自动路由 + parse_csv 直连 |
+| Phase 4 | ICBC OCR — 回单网格解析 + 交易流水表格线解析 |
+| Phase 5 | 全凭证链路 — preview → save/load/list/delete draft |
+| Phase 6 | account_registry — CRUD + match |
+| Phase 7 | generate_excel — 正常导出 |
+| Phase 8 | 参数验证回归 — parse_pdf/generate_excel 缺参 + health/detect_supported_banks |
 
-### `e2e/` 端到端测试
-已合并到 `integration/` 目录。
+### `unit/` 单元测试
+
+待补充：对独立模块（如 PythonProcessManager）的单元测试。
 
 ## Python Bridge 可用方法
 
@@ -31,30 +40,21 @@ node tests/integration/ipc-methods.test.js
 |------|------|
 | `health` | 返回后端状态、版本、Python 版本 |
 | `parse_pdf` | 解析 PDF 银行流水或 ICBC CSV 对账流水（自动识别文件类型） |
-| `parse_csv` | 直接解析 ICBC CSV 对账流水（快捷方法） |
-| `generate_excel` | 将交易列表导出为 Excel 文件（.xlsx） |
-| `ocr_pdf` | OCR 识别扫描件/图片型 PDF |
-
-**文件类型路由**：
-- `.csv` → 自动路由到 `ICBCCSVParser`（支持 ICBC 对账流水格式）
-- `.pdf` → 自动检测银行类型和文档类型，路由到对应解析器
-
-### ICBC CSV 解析器特性
-- 编码：GBK
-- 分隔符：逗号（字段内含 Tab 字符需清理）
-- 输出字段：凭证号、本方账号、对方账号、交易时间、起息日、借/贷、借方发生额、贷方发生额、对方行名、摘要、附言、用途、对方单位名称、余额
-- 返回额外字段：`opening_balance`、`closing_balance`（期初/期末余额）
-
-### 前端支持的文件类型
-- **PDF**（银行流水扫描件/文字型 PDF）
-- **CSV**（ICBC 对账流水，`.csv`）
-- **Excel**（仅导出，`.xlsx`/`.xls`）
-
-## 测试脚本规范
-
-- 测试文件使用 `.test.js` 后缀
-- 文件名格式：`<模块>-<场景>.test.js`
-- 示例：`python-process-start.test.js`
+| `parse_csv` | 直接解析 ICBC CSV 对账流水 |
+| `generate_excel` | 将交易列表导出为 Excel 文件 |
+| `generate_voucher_excel` | 导出金蝶精斗云凭证模板 |
+| `import_subjects` | 导入会计科目 |
+| `get_subjects_info` | 查询内置科目表信息 |
+| `detect_banks` | 批量检测 PDF 银行类型 |
+| `detect_supported_banks` | 查询支持的银行列表 |
+| `db.health` | 验证 SQLite 数据库状态 |
+| `voucher.preview` | 交易列表 → 凭证预览（含科目匹配+同类合并） |
+| `voucher.save_draft` | 保存凭证草稿到 SQLite |
+| `voucher.load_draft` | 加载草稿（往返验证） |
+| `voucher.list_drafts` | 列出所有草稿 |
+| `voucher.delete_draft` | 删除草稿（CASCADE 删除关联分录） |
+| `voucher.export` | 确认导出（Excel + 审计日志 + 历史写入） |
+| `account_registry.*` | 账号映射 CRUD + 匹配 |
 
 ## 测试输出管理
 
@@ -67,19 +67,4 @@ node tests/integration/ipc-methods.test.js
 运行集成测试前确保：
 1. Python 依赖已安装：`cd apps/python && pip install -e ".[dev]"`
 2. Python bridge 可执行：配置 `PYTHON_CMD` 环境变量或使用 venv
-3. 如需测试 ICBC CSV 解析：准备测试 CSV 文件（GBK 编码）
-4. 如需测试 PDF 解析：准备测试 PDF 文件（银行流水）
-
-## 测试覆盖矩阵
-
-| 测试项 | bridge-ipc.test.js | ipc-methods.test.js | icbc-csv.test.js |
-|--------|-------------------|---------------------|------------------|
-| Python 进程启动 | ✅ | ✅ | ✅ |
-| health 方法 | ✅ | ✅ | |
-| parse_pdf 参数验证 | | ✅ | |
-| parse_pdf 自动路由 CSV | | | ✅ |
-| parse_csv 直接解析 | | | ✅ |
-| generate_excel 参数验证 | | ✅ | |
-| generate_excel 文件生成 | | ✅ | |
-| ocr_pdf 方法 | | ⬜ | |
-| 进程状态管理 | | ✅ | |
+3. 真实测试文件位于 `C:\Users\dell\Desktop\finance agent`

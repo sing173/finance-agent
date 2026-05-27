@@ -1,6 +1,6 @@
-import { Layout, Typography, Button, Card, message, Space, Modal, Form, Input } from 'antd';
+import { Layout, Typography, Button, Card, message, Space, Modal } from 'antd';
 import { useState, useEffect, useCallback } from 'react';
-import { SettingOutlined } from '@ant-design/icons';
+import { SettingOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { FileDropZone } from './components/FileDropZone';
 import { TransactionTable } from './components/TransactionTable';
 import { ResultCard } from './components/ResultCard';
@@ -8,8 +8,9 @@ import { ManualOverrideModal } from './components/ManualOverrideModal';
 import { BatchFileSelector } from './components/BatchFileSelector';
 import { BatchResultPanel } from './components/BatchResultPanel';
 import { AccountSubjectManager } from './components/AccountSubjectManager';
+import { VoucherPreviewPanel } from './components/VoucherPreviewPanel';
 import { useBatchOrchestrator } from './hooks/useBatchOrchestrator';
-import { useVoucherExport } from './hooks/useVoucherExport';
+import { useVoucherFlow } from './hooks/useVoucherFlow';
 import type { BatchResult, Transaction, ParseFileParams, ParseFileResult, DetectBanksResult, DetectSupportedBanksResult, DocType } from '@shared/types';
 
 const { Header, Content, Footer } = Layout;
@@ -59,7 +60,6 @@ function App() {
 
   // ====== 加载 ======
   const [loading, setLoading] = useState(false);  // 单文件解析
-  const [connecting, setConnecting] = useState(false);  // 测试连接
 
   // ====== 批量编排 ======
   const batch = useBatchOrchestrator({
@@ -68,8 +68,8 @@ function App() {
     },
   });
 
-  // ====== 凭证导出（单文件 + 批量统一） ======
-  const voucherExport = useVoucherExport();
+  // ====== 凭证预览 + 草稿 (#35) ======
+  const voucherFlow = useVoucherFlow();
 
   // ====== 科目管理 ======
   const [importSubjectsLoading, setImportSubjectsLoading] = useState(false);
@@ -112,21 +112,6 @@ function App() {
     });
   }, []);
 
-  // ====== 连接测试 ======
-  const testConnection = useCallback(async () => {
-    setConnecting(true);
-    try {
-      const result = await window.electronAPI.health();
-      setBackendStatus(`正常 (v${result.version})`);
-      message.success('后端连接成功！');
-    } catch (error: unknown) {
-      setBackendStatus(`离线: ${error instanceof Error ? error.message : String(error)}`);
-      message.error('后端连接失败');
-    } finally {
-      setConnecting(false);
-    }
-  }, []);
-
   // ====== 统一入口：选择文件 → 根据数量决定模式 ======
   const handleFilesSelected = useCallback((filePaths: string[]) => {
     if (!filePaths || filePaths.length === 0) return;
@@ -139,7 +124,6 @@ function App() {
     } else {
       // 批量模式
       setMode('batch');
-      voucherExport.closeModal();
       batch.clearFiles();
       batch.addFiles(filePaths);
     }
@@ -338,13 +322,38 @@ function App() {
     );
   }, [mode, currentResult, batchResult]);
 
-  const handleBatchExportVoucher = useCallback(async () => {
-    const allTxns = getTransactionsForExport();
-    await voucherExport.exportVoucher(allTxns);
-  }, [getTransactionsForExport, voucherExport]);
-
   // ====== 辅助 ======
   const detectUnknown = detectState === 'unknown';
+
+  // ====== 凭证生成子页面 ======
+  if (voucherFlow.showPage) {
+    return (
+      <Layout style={{ minHeight: '100vh' }}>
+        <Header style={{ background: '#001529', padding: '0 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <Button
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            onClick={voucherFlow.closePage}
+            style={{ color: '#fff', fontSize: 16 }}
+          >
+            返回
+          </Button>
+          <Title level={4} style={{ color: '#fff', margin: 0 }}>凭证生成</Title>
+        </Header>
+        <Content style={{ padding: '20px 24px' }}>
+          <VoucherPreviewPanel
+            vouchers={voucherFlow.vouchers}
+            subjects={voucherFlow.subjects}
+            onSaveDraft={voucherFlow.handleSaveDraft}
+            onExport={voucherFlow.handleExport}
+            onCancel={voucherFlow.closePage}
+            saveDisabled={voucherFlow.saving}
+            loading={voucherFlow.previewLoading}
+          />
+        </Content>
+      </Layout>
+    );
+  }
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -365,9 +374,6 @@ function App() {
                 <Text strong>{backendStatus}</Text>
               </div>
               <Space style={{ marginBottom: 16 }}>
-                <Button type="primary" loading={connecting} onClick={testConnection}>
-                  测试连接
-                </Button>
                 <Button loading={importSubjectsLoading} onClick={handleImportSubjects}>
                   导入科目表
                 </Button>
@@ -425,7 +431,7 @@ function App() {
                   onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
                   onModifyConfig={openSingleOverride}
                   onStartParse={handleSingleConfirmParse}
-                  onExportVoucher={() => voucherExport.openModal(currentResult?.transactions || [])}
+                  onPreviewVoucher={() => voucherFlow.preview(currentResult?.transactions || [])}
                 />
               )}
 
@@ -464,11 +470,16 @@ function App() {
                 <BatchResultPanel
                   files={batchResult.files}
                   onRetry={handleBatchRetry}
-                  onExportVoucher={handleBatchExportVoucher}
+                  onPreviewVoucher={() => {
+                    const txns = getTransactionsForExport();
+                    if (txns.length === 0) { message.warning('没有成功的交易数据'); return; }
+                    voucherFlow.preview(txns);
+                  }}
                 />
               )}
             </div>
           )}
+
         </div>
       </Content>
       <Footer style={{ textAlign: 'center' }}>
@@ -506,33 +517,6 @@ function App() {
             });
           }}
         />
-      </Modal>
-
-      {/* 导出凭证弹窗 */}
-      <Modal
-        title="导出凭证（金蝶精斗云格式）"
-        open={voucherExport.voucherModalOpen}
-        onCancel={voucherExport.closeModal}
-        footer={[
-          <Button key="cancel" onClick={voucherExport.closeModal}>取消</Button>,
-          <Button key="export" type="primary" loading={voucherExport.voucherLoading} onClick={() => voucherExport.exportVoucher(getTransactionsForExport())}>
-            选择保存路径并导出
-          </Button>,
-        ]}
-        width={420}
-      >
-        <Form layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item
-            label="期间名称（用于 Sheet 名）"
-            help="例如：2026年3月、2026年第3期"
-          >
-            <Input
-              value={voucherExport.period}
-              onChange={e => voucherExport.setPeriod(e.target.value)}
-              placeholder="2026年3月"
-            />
-          </Form.Item>
-        </Form>
       </Modal>
     </Layout>
   );

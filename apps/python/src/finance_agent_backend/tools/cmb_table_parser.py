@@ -56,6 +56,10 @@ class CMBTableParser(BaseStatementParser):
     OPENING_BALANCE_KEY = '上页余额'
     CLOSING_BALANCE_KEY = '期末余额'
 
+    # y0 间距阈值（pt），同行的两个 key/value span 的 y0 差通常 < 2pt
+    # 如果 pending_key 的 y0 和当前 span 的 y0 差过大，说明 pending_key 已过期
+    PENDING_KEY_Y_GAP = 3.0
+
     def __init__(self, tolerance: int = 20):
         self.tolerance = tolerance
         self.confidence = 1.0
@@ -91,10 +95,20 @@ class CMBTableParser(BaseStatementParser):
         # 步骤 5: 解析表头元数据
         meta = _parse_header_metadata(header_spans)
         opening_balance = meta.get('opening_balance')
+        account_no = meta.get('account_no')
+        account_name = meta.get('account_name')
         # 步骤 6: 从页脚提取期末余额
         closing_balance = _extract_closing_balance(footer_spans)
         # 步骤 7: 解析表格数据行
         transactions, errors = self._parse_table_rows(table_spans)
+
+        # 附加本方账号信息到所有交易
+        if account_no or account_name:
+            for tx in transactions:
+                if account_no:
+                    tx.account_number = account_no
+                if account_name:
+                    tx.account_name = account_name
 
         statement_date = transactions[-1].date if transactions else None
         return ParseResult(
@@ -112,13 +126,15 @@ class CMBTableParser(BaseStatementParser):
         算法步骤：
         1. 将所有 span 按 (y0, x0) 排序，保证同一行内按 x 坐标有序
         2. 按 y 坐标聚类：相邻 span 的 y0 差 ≤ gap(2.5pt) 视为同一行
-        3. 对每一行调用 _row_to_transaction() 转换为 Transaction 对象
-        4. 最后按日期升序排序
+        3. 跨行合并：检测 continuation 行（缺少 date/amount 的行），合并到前一行
+        4. 对每行调用 _row_to_transaction() 转换为 Transaction 对象
+        5. 最后按日期升序排序
         """
         spans = sorted(spans, key=lambda s: (s['y0'], s['x0']))
         rows = cluster_by_y(spans, gap=2.5)
+        merged_rows = self._merge_continuation_rows(rows)
         transactions, errors = [], []
-        for row_spans in rows:
+        for row_spans in merged_rows:
             try:
                 tx = self._row_to_transaction(row_spans)
                 if tx:
@@ -128,6 +144,46 @@ class CMBTableParser(BaseStatementParser):
                 self.confidence -= 0.01
         transactions.sort(key=lambda t: t.date)
         return transactions, errors
+
+    def _merge_continuation_rows(self, rows: list) -> list:
+        """合并跨行 continuation 行
+
+        逻辑：
+        - 如果某行同时包含 date 和 amount → 是独立交易，开启新 buffer
+        - 否则 → 该行是上一行的 continuation（描述/对方户名太长），合并到 buffer
+        - y 间距 > 15pt 视为区域边界（footer/header），终止当前 buffer
+        - 只保留包含完整字段的行，确保 _row_to_transaction 能正常解析
+        """
+        merged = []
+        buffer_row = None
+
+        for row_spans in rows:
+            cols = self._classify_spans(row_spans)
+            has_date = bool(cols.get('date', '').strip())
+            has_amount = bool(cols.get('amount', '').strip())
+
+            # y 间距过大 → 区域边界，终止 buffer
+            if buffer_row is not None:
+                buf_y = max(s['y0'] for s in buffer_row)
+                cur_y = min(s['y0'] for s in row_spans)
+                if cur_y - buf_y > 15:
+                    merged.append(buffer_row)
+                    buffer_row = None
+
+            if has_date and has_amount:
+                if buffer_row is not None:
+                    merged.append(buffer_row)
+                buffer_row = row_spans
+            else:
+                if buffer_row is not None:
+                    buffer_row.extend(row_spans)
+                else:
+                    pass
+
+        if buffer_row is not None:
+            merged.append(buffer_row)
+
+        return merged
 
     def _row_to_transaction(self, row_spans: list) -> Optional[Transaction]:
         """将一行 spans 转换为 Transaction 对象
@@ -223,36 +279,48 @@ def _partition_spans_cmb(spans: list) -> Tuple[list, list, list]:
 
 
 def _parse_header_metadata(header_spans: list) -> Dict[str, Any]:
-    """Extract account metadata from CMB header spans."""
+    """Extract account metadata from CMB header spans.
+
+    CMB 表头是多列布局（非单列 key-value 对）。使用 pending_keys 列表
+    支持并行等待多个 key 的 value，通过 x0 就近匹配解析值。
+    """
     meta: Dict[str, Any] = {}
     sorted_spans = sorted(header_spans, key=lambda s: (s['y0'], s['x0']))
-    pending_key = None
+    # [(中文键名, y0, x0), ...] — 待匹配 value 的 key 列表
+    pending_keys: list[tuple[str, float, float]] = []
 
     for s in sorted_spans:
         text = s['text'].strip()
         if not text:
             continue
 
-        if pending_key:
-            if pending_key in CMBTableParser.HEADER_KEYS:
-                meta[CMBTableParser.HEADER_KEYS[pending_key]] = text
-            pending_key = None
-            continue
-
         m = re.match(r'^(.+?):(.*)$', text)
         if m:
             raw_key = m.group(1).strip()
             val = m.group(2).strip()
+            if raw_key not in CMBTableParser.HEADER_KEYS:
+                continue
             if val:
-                if raw_key in CMBTableParser.HEADER_KEYS:
-                    meta[CMBTableParser.HEADER_KEYS[raw_key]] = val
+                # 同行 key:value → 直接存储
+                meta[CMBTableParser.HEADER_KEYS[raw_key]] = val
             else:
-                if raw_key in CMBTableParser.HEADER_KEYS:
-                    pending_key = raw_key
-            continue
+                # key 无 value → 入队等待下一行匹配
+                pending_keys.append((raw_key, s['y0'], s['x0']))
+        elif pending_keys:
+            # 无冒号 span → 可能是某 pending key 的值，按 x0 就近匹配
+            best_key, best_dist = None, float('inf')
+            for pk in pending_keys:
+                if s['x0'] > pk[2]:
+                    dist = s['x0'] - pk[2]
+                    if dist < best_dist:
+                        best_dist = dist
+                        best_key = pk
+            if best_key:
+                meta[CMBTableParser.HEADER_KEYS[best_key[0]]] = text
+                pending_keys.remove(best_key)
 
-    if CMBTableParser.OPENING_BALANCE_KEY in meta:
-        meta['opening_balance'] = parse_amount(meta.pop(CMBTableParser.OPENING_BALANCE_KEY))
+    if 'opening_balance' in meta:
+        meta['opening_balance'] = parse_amount(meta.pop('opening_balance'))
     if 'period' in meta:
         parts = meta['period'].split()
         if len(parts) >= 1:

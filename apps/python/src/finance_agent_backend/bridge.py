@@ -8,10 +8,12 @@ JSON-RPC 2.0 服务器，通过 stdio 与 Electron 通信
 import json
 import sys
 import os
+import uuid
 import logging
 import time
 import traceback
 from logging.handlers import RotatingFileHandler
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -493,7 +495,7 @@ def handle_account_registry_update(params: dict) -> dict:
         registry.update(entry)
         repo.save(registry.list_all(), "10002")
 
-        return {"success": True}
+        return {"success": True, "entry": _serialize_account_entry(entry)}
     except ValueError as e:
         return {"success": False, "error": str(e)}
     except Exception as e:
@@ -516,6 +518,317 @@ def handle_account_registry_delete(params: dict) -> dict:
         return {"success": True}
     except Exception as e:
         _log.error("account_registry.delete 异常: %s", traceback.format_exc())
+        return {"success": False, "error": str(e)}
+
+
+@register_method("db.health")
+def handle_db_health(params: dict) -> dict:
+    """验证数据库状态，返回所有表名。"""
+    try:
+        from finance_agent_backend import db as _db
+        conn = _db.connect()
+        tables = [
+            row[0] for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+            ).fetchall()
+        ]
+        return {"status": "ok", "tables": tables,
+                "expected_tables": _db.DIAGNOSTIC_TABLE_COUNT}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@register_method("voucher.preview")
+def handle_voucher_preview(params: dict) -> dict:
+    """交易列表 → 凭证预览（含科目匹配 + 同类合并）。"""
+    try:
+        from finance_agent_backend.voucher_composer import VoucherComposer
+        from finance_agent_backend.models import Transaction
+        from finance_agent_backend import db as _db
+
+        transactions_data = params.get("transactions", [])
+        subject_mapping = params.get("subject_mapping")
+
+        if not transactions_data:
+            return {"success": False, "error": "缺少 transactions 参数"}
+
+        transactions = [Transaction.from_dict(t) for t in transactions_data]
+
+        # 加载账号注册表供银行科目匹配
+        from finance_agent_backend.account_registry import AccountMappingRepository, AccountRegistry, _default_config_path
+        account_registry = None
+        try:
+            repo = AccountMappingRepository(_default_config_path())
+            account_registry = AccountRegistry(repo.load())
+        except Exception:
+            pass
+
+        composer = VoucherComposer(db_path=_db._db_path)
+        vouchers = composer.compose(transactions, subject_mapping, account_registry)
+
+        warnings = []
+        for v in vouchers:
+            unmatched = [e for e in v["entries"] if e.get("match_source") == "unmatched" and e.get("direction") != "bank"]
+            if unmatched:
+                warnings.append(f"凭证#{v['voucher_no']}: {len(unmatched)} 条分录科目未匹配")
+
+        return {
+            "success": True,
+            "vouchers": vouchers,
+            "warnings": warnings,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@register_method("voucher.save_draft")
+def handle_voucher_save_draft(params: dict) -> dict:
+    """保存凭证草稿到 SQLite。"""
+    try:
+        from finance_agent_backend import db as _db
+
+        name = params.get("name", "")
+        period = params.get("period", "")
+        entries = params.get("entries", [])
+
+        if not entries:
+            return {"success": False, "error": "缺少 entries 参数"}
+
+        # 测试时可通过 db_path 参数覆盖
+        db_path = params.get("db_path")
+        conn = _db.connect(db_path=db_path)
+
+        draft_id = str(uuid.uuid4())[:8]
+        now = datetime.now(timezone.utc).isoformat()
+
+        conn.execute(
+            "INSERT INTO voucher_draft (id, name, period, status, created_at, updated_at) VALUES (?, ?, ?, 'draft', ?, ?)",
+            (draft_id, name, period, now, now),
+        )
+
+        for e in entries:
+            conn.execute(
+                """INSERT INTO voucher_draft_entry
+                   (draft_id, entry_seq, voucher_no, date, summary, subject_code, subject_name,
+                    debit_amount, credit_amount, direction, counterparty, match_source,
+                    original_summary, original_amount, is_manual)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    draft_id,
+                    e.get("entry_seq", 1),
+                    e.get("voucher_no", 1),
+                    e.get("date", ""),
+                    e.get("summary", ""),
+                    e.get("subject_code", ""),
+                    e.get("subject_name", ""),
+                    e.get("debit_amount"),
+                    e.get("credit_amount"),
+                    e.get("direction", ""),
+                    e.get("counterparty", ""),
+                    e.get("match_source", "unmatched"),
+                    e.get("original_summary", ""),
+                    e.get("original_amount", 0),
+                    1 if e.get("is_manual") else 0,
+                ),
+            )
+
+        conn.commit()
+        return {"success": True, "draft_id": draft_id}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@register_method("voucher.load_draft")
+def handle_voucher_load_draft(params: dict) -> dict:
+    """加载凭证草稿。"""
+    try:
+        from finance_agent_backend import db as _db
+
+        draft_id = params.get("draft_id")
+        if not draft_id:
+            return {"success": False, "error": "缺少 draft_id 参数"}
+
+        db_path = params.get("db_path")
+        conn = _db.connect(db_path=db_path)
+
+        draft = conn.execute(
+            "SELECT id, name, period, status, created_at, updated_at FROM voucher_draft WHERE id = ?",
+            (draft_id,),
+        ).fetchone()
+
+        if not draft:
+            return {"success": False, "error": f"草稿 {draft_id} 不存在"}
+
+        entry_rows = conn.execute(
+            """SELECT entry_seq, voucher_no, date, summary, subject_code, subject_name,
+                      debit_amount, credit_amount, direction, counterparty, match_source,
+                      original_summary, original_amount, is_manual
+               FROM voucher_draft_entry WHERE draft_id = ? ORDER BY voucher_no, entry_seq""",
+            (draft_id,),
+        ).fetchall()
+
+        return {
+            "success": True,
+            "draft": {
+                "id": draft["id"],
+                "name": draft["name"],
+                "period": draft["period"],
+                "status": draft["status"],
+                "created_at": draft["created_at"],
+                "updated_at": draft["updated_at"],
+                "entries": [dict(r) for r in entry_rows],
+            },
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@register_method("voucher.list_drafts")
+def handle_voucher_list_drafts(params: dict) -> dict:
+    """列出所有草稿。"""
+    try:
+        from finance_agent_backend import db as _db
+
+        db_path = params.get("db_path")
+        conn = _db.connect(db_path=db_path)
+
+        rows = conn.execute(
+            """SELECT d.id, d.name, d.period, d.status, d.created_at, d.updated_at,
+                      COUNT(e.id) as entry_count
+               FROM voucher_draft d
+               LEFT JOIN voucher_draft_entry e ON e.draft_id = d.id
+               GROUP BY d.id ORDER BY d.updated_at DESC"""
+        ).fetchall()
+
+        return {"success": True, "drafts": [dict(r) for r in rows]}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@register_method("voucher.delete_draft")
+def handle_voucher_delete_draft(params: dict) -> dict:
+    """删除草稿（CASCADE 删除关联分录）。"""
+    try:
+        from finance_agent_backend import db as _db
+
+        draft_id = params.get("draft_id")
+        if not draft_id:
+            return {"success": False, "error": "缺少 draft_id 参数"}
+
+        db_path = params.get("db_path")
+        conn = _db.connect(db_path=db_path)
+
+        conn.execute("DELETE FROM voucher_draft WHERE id = ?", (draft_id,))
+        conn.commit()
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@register_method("voucher.export")
+def handle_voucher_export(params: dict) -> dict:
+    """确认导出：生成 Excel + 写入审计日志 + 写入历史库。"""
+    try:
+        import json
+        from finance_agent_backend import db as _db
+        from finance_agent_backend.tools import excel_builder
+        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+
+        draft_id = params.get("draft_id")
+        output_path = params.get("output_path", "voucher.xlsx")
+        period = params.get("period", "")
+        source_files = params.get("source_files", [])
+        if not draft_id:
+            return {"success": False, "error": "缺少 draft_id 参数"}
+
+        db_path = params.get("db_path")
+        conn = _db.connect(db_path=db_path)
+
+        # Load draft entries
+        entry_rows = conn.execute(
+            """SELECT * FROM voucher_draft_entry WHERE draft_id = ? ORDER BY voucher_no, entry_seq""",
+            (draft_id,),
+        ).fetchall()
+
+        if not entry_rows:
+            return {"success": False, "error": "草稿无分录数据"}
+
+        # 直接从 DB 分录导出 Excel，与预览完全一致
+        entry_dicts = []
+        for r in entry_rows:
+            entry_dicts.append({
+                "entry_seq": r["entry_seq"],
+                "voucher_no": r["voucher_no"],
+                "date": r["date"],
+                "summary": r["summary"],
+                "subject_code": r["subject_code"],
+                "subject_name": r["subject_name"],
+                "debit_amount": r["debit_amount"],
+                "credit_amount": r["credit_amount"],
+                "direction": r["direction"],
+                "counterparty": r["counterparty"],
+                "original_amount": r["original_amount"],
+            })
+
+        txns_count = sum(1 for r in entry_rows if r["direction"] != "bank")
+
+        if entry_dicts:
+            builder = excel_builder.ExcelBuilder()
+            builder.build_voucher_from_entries(
+                entries=entry_dicts,
+                output_path=output_path,
+                period=period,
+            )
+
+        # Stats
+        sources = {}
+        for r in entry_rows:
+            src = r["match_source"] or "unmatched"
+            sources[src] = sources.get(src, 0) + 1
+
+        # Write export_log
+        now = datetime.now(timezone.utc).isoformat()
+        conn.execute(
+            """INSERT INTO export_log (exported_at, period, file_path, voucher_count, entry_count,
+                       transaction_count, source_files, match_stats, draft_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (now, period, output_path,
+             1, len(entry_rows), txns_count,
+             json.dumps(source_files), json.dumps(sources), draft_id),
+        )
+        conn.commit()
+
+        # Write subject_history (manual entries only).
+        # SubjectHistoryRepo uses its own connection, so we commit ours first.
+        repo = SubjectHistoryRepo(db_path or _db._db_path or '')
+        for r in entry_rows:
+            if r["is_manual"]:
+                repo.insert(
+                    summary=r["original_summary"] or r["summary"],
+                    direction=r["direction"],
+                    subject_code=r["subject_code"],
+                    subject_name=r["subject_name"] or "",
+                    counterparty=r["counterparty"] or "",
+                    voucher_id=draft_id,
+                )
+
+        # Mark draft as exported
+        conn.execute(
+            "UPDATE voucher_draft SET status = 'exported', updated_at = ? WHERE id = ?",
+            (now, draft_id),
+        )
+        conn.commit()
+
+        return {
+            "success": True,
+            "file_path": output_path,
+            "voucher_count": 1,
+            "entry_count": len(entry_rows),
+            "transaction_count": txns_count,
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {"success": False, "error": str(e)}
 
 
