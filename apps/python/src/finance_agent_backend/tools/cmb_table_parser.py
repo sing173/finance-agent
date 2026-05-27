@@ -91,10 +91,20 @@ class CMBTableParser(BaseStatementParser):
         # 步骤 5: 解析表头元数据
         meta = _parse_header_metadata(header_spans)
         opening_balance = meta.get('opening_balance')
+        account_no = meta.get('account_no')
+        account_name = meta.get('account_name')
         # 步骤 6: 从页脚提取期末余额
         closing_balance = _extract_closing_balance(footer_spans)
         # 步骤 7: 解析表格数据行
         transactions, errors = self._parse_table_rows(table_spans)
+
+        # 附加本方账号信息到所有交易
+        if account_no or account_name:
+            for tx in transactions:
+                if account_no:
+                    tx.account_number = account_no
+                if account_name:
+                    tx.account_name = account_name
 
         statement_date = transactions[-1].date if transactions else None
         return ParseResult(

@@ -507,6 +507,13 @@ class ICBCReceiptGridParser(BaseStatementParser):
         # ref_no
         ref_no = fields.get("ref_no") or None
 
+        # 本方账号：根据匹配到的我方账户设置
+        my_account = None
+        if payer_match:
+            my_account = payer_account  # 付款账号是我方账户
+        elif payee_match:
+            my_account = payee_account  # 收款账号是我方账户
+
         # notes: 去掉 "备注：" 前缀，保留原始内容
         notes_raw = fields.get("notes", "")
         notes = notes_raw.removeprefix("备注：") if notes_raw else None
@@ -520,6 +527,7 @@ class ICBCReceiptGridParser(BaseStatementParser):
             counterparty=counterparty,
             reference_number=ref_no,
             notes=notes,
+            account_number=my_account,
         )
 
     # ── helpers ───────────────────────────────────────────────────
