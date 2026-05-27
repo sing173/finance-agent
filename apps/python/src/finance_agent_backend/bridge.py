@@ -543,6 +543,7 @@ def handle_voucher_preview(params: dict) -> dict:
     try:
         from finance_agent_backend.voucher_composer import VoucherComposer
         from finance_agent_backend.models import Transaction
+        from finance_agent_backend import db as _db
 
         transactions_data = params.get("transactions", [])
         subject_mapping = params.get("subject_mapping")
@@ -561,7 +562,7 @@ def handle_voucher_preview(params: dict) -> dict:
         except Exception:
             pass
 
-        composer = VoucherComposer()
+        composer = VoucherComposer(db_path=_db._db_path)
         vouchers = composer.compose(transactions, subject_mapping, account_registry)
 
         warnings = []

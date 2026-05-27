@@ -20,6 +20,7 @@ class VoucherComposer:
 
     def __init__(self, db_path: str | None = None):
         self._db_path = db_path
+        self._history_repo = None  # lazy-init in compose()
 
     def compose(
         self,
@@ -34,22 +35,36 @@ class VoucherComposer:
         对方科目通过 subject_mapping 规则匹配。
         """
         from finance_agent_backend.account_registry import AccountRegistry
+        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
 
         if account_registry is None:
             registry = AccountRegistry([])
         else:
             registry = account_registry
 
-        # 分组:
-        #   - 未匹配(__unmatched__): 不合并, 每条独立成凭证(用户需逐条手工审)
-        #   - 匹配到科目: 按 (账号, 对方科目, 对方账号, 方向) 合并
-        #     对方账号有值时必须一致才能合并, 为空则视为通配
+        # L2 历史仓库 — 按需初始化
+        if self._history_repo is None and self._db_path:
+            try:
+                conn = sqlite3.connect(self._db_path)
+                init_db(conn)
+                conn.close()
+                self._history_repo = SubjectHistoryRepo(self._db_path)
+            except Exception:
+                self._history_repo = None
+
+        # 分组 + 匹配（含 L1→L2→L3 串联），同时缓存匹配结果避免重复调用
         groups: dict[tuple[str, str, str, str], list[Transaction]] = {}
+        match_cache: dict[int, tuple[str, str, str]] = {}  # id(txn) → (code, name, source)
 
         for txn in transactions:
-            result = match_subject(txn.description, txn.direction, txn.counterparty or '', rules=subject_mapping)
+            result = match_subject(
+                txn.description, txn.direction, txn.counterparty or '',
+                rules=subject_mapping,
+                repo=self._history_repo,
+            )
             counter_code = result.subject_code or '__unmatched__'
             counter_name = result.subject_name or ''
+            match_cache[id(txn)] = (counter_code, counter_name, result.source)
 
             acct = txn.account_number or ''
             bank_entry = registry.match_by_account(acct)
@@ -82,11 +97,11 @@ class VoucherComposer:
             if direction == 'expense':
                 # 借 对方科目, 贷 银行科目（汇总）
                 for txn in group_txns:
-                    result = match_subject(txn.description, txn.direction, txn.counterparty or '', rules=subject_mapping)
+                    code, name, source = match_cache[id(txn)]
                     entries.append(self._entry(
                         len(entries) + 1, voucher_no, txn,
-                        result.subject_code or '', result.subject_name or '',
-                        float(txn.amount), None, result.source, '',
+                        code, name,
+                        float(txn.amount), None, source, '',
                     ))
                 entries.append(self._bank_entry(
                     len(entries) + 1, voucher_no, group_txns[0].date,
@@ -99,11 +114,11 @@ class VoucherComposer:
                     amount, None, bank_code, bank_name,
                 ))
                 for txn in group_txns:
-                    result = match_subject(txn.description, txn.direction, txn.counterparty or '', rules=subject_mapping)
+                    code, name, source = match_cache[id(txn)]
                     entries.append(self._entry(
                         len(entries) + 1, voucher_no, txn,
-                        result.subject_code or '', result.subject_name or '',
-                        None, float(txn.amount), result.source, '',
+                        code, name,
+                        None, float(txn.amount), source, '',
                     ))
 
             vouchers.append({
