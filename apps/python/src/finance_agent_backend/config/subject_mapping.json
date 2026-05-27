@@ -13,7 +13,7 @@
       {"id": "rule_e008", "priority": 8, "match": {"keywords": ["印花税", "缴纳印花税"]}, "subject_code": "5060220", "subject_name": "管理费用_印花税"},
       {"id": "rule_e009", "priority": 9, "match": {"keywords": ["所得税", "企业所得税"]}, "subject_code": "2022111", "subject_name": "应交税费_应交所得税"},
       {"id": "rule_e010", "priority": 10, "match": {"keywords": ["城建税", "城市维护建设税", "教育费附加", "附加税"]}, "subject_code": "50403", "subject_name": "税金及附加"},
-      {"id": "rule_e011", "priority": 11, "match": {"keywords": ["手续", "手续费", "汇款手续费", "转账手续费"]}, "subject_code": "1022120", "subject_name": "其他应收款_手续费"},
+      {"id": "rule_e011", "priority": 11, "match": {"keywords": ["手续费", "汇款手续费", "转账手续费"]}, "subject_code": "1022120", "subject_name": "其他应收款_手续费"},
       {"id": "rule_e012", "priority": 12, "match": {"keywords": ["水电费", "水费", "电费", "燃气费"]}, "subject_code": "5060204", "subject_name": "管理费用_水电费"},
       {"id": "rule_e013", "priority": 13, "match": {"keywords": ["房租", "租金", "租赁费", "厂房租金", "办公室租金"]}, "subject_code": "5060202", "subject_name": "管理费用_房租"},
       {"id": "rule_e014", "priority": 14, "match": {"keywords": ["电话费", "通讯费", "宽带费", "话费"]}, "subject_code": "5060201", "subject_name": "管理费用_办公费"},

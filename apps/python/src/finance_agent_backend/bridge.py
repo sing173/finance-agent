@@ -770,6 +770,7 @@ def handle_voucher_export(params: dict) -> dict:
                 "credit_amount": r["credit_amount"],
                 "direction": r["direction"],
                 "counterparty": r["counterparty"],
+                "original_amount": r["original_amount"],
             })
 
         txns_count = sum(1 for r in entry_rows if r["direction"] != "bank")
@@ -798,14 +799,10 @@ def handle_voucher_export(params: dict) -> dict:
              1, len(entry_rows), txns_count,
              json.dumps(source_files), json.dumps(sources), draft_id),
         )
-
-        # Write subject_history (manual entries only)
-        # Close connection and let SubjectHistoryRepo use its own
         conn.commit()
-        conn.close()
-        _db.close_db()
-        _db._conn = None
 
+        # Write subject_history (manual entries only).
+        # SubjectHistoryRepo uses its own connection, so we commit ours first.
         repo = SubjectHistoryRepo(db_path or _db._db_path or '')
         for r in entry_rows:
             if r["is_manual"]:
@@ -817,10 +814,6 @@ def handle_voucher_export(params: dict) -> dict:
                     counterparty=r["counterparty"] or "",
                     voucher_id=draft_id,
                 )
-
-        # Reopen connection for status update
-        conn = _db.get_db(db_path=db_path)
-        _db.init_db(conn)
 
         # Mark draft as exported
         conn.execute(

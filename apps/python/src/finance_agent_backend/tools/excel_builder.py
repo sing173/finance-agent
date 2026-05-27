@@ -369,8 +369,18 @@ class ExcelBuilder:
                 cell_credit.value = float(credit)
                 cell_credit.number_format = '#,##0.00'
 
-            for c in [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]:
+            for c in [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
                 ws.cell(row=row_idx, column=c, value=None)
+            # 数量
+            ws.cell(row=row_idx, column=21, value=None)
+            # 单价
+            ws.cell(row=row_idx, column=22, value=None)
+            # 原币金额
+            orig = e.get('original_amount')
+            cell_orig = ws.cell(row=row_idx, column=23)
+            if orig is not None:
+                cell_orig.value = float(orig)
+                cell_orig.number_format = '##.00#####'
             ws.cell(row=row_idx, column=24, value='RMB')
             cell_rate = ws.cell(row=row_idx, column=25, value=1.0)
             cell_rate.number_format = '##.00#####'
