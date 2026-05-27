@@ -526,13 +526,14 @@ def handle_db_health(params: dict) -> dict:
     """验证数据库状态，返回所有表名。"""
     try:
         from finance_agent_backend import db as _db
-        conn = _db.get_db()
+        conn = _db.connect()
         tables = [
             row[0] for row in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
             ).fetchall()
         ]
-        return {"status": "ok", "tables": tables}
+        return {"status": "ok", "tables": tables,
+                "expected_tables": _db.DIAGNOSTIC_TABLE_COUNT}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
@@ -595,8 +596,7 @@ def handle_voucher_save_draft(params: dict) -> dict:
 
         # 测试时可通过 db_path 参数覆盖
         db_path = params.get("db_path")
-        conn = _db.get_db(db_path=db_path)
-        _db.init_db(conn)
+        conn = _db.connect(db_path=db_path)
 
         draft_id = str(uuid.uuid4())[:8]
         now = datetime.now(timezone.utc).isoformat()
@@ -649,8 +649,7 @@ def handle_voucher_load_draft(params: dict) -> dict:
             return {"success": False, "error": "缺少 draft_id 参数"}
 
         db_path = params.get("db_path")
-        conn = _db.get_db(db_path=db_path)
-        _db.init_db(conn)
+        conn = _db.connect(db_path=db_path)
 
         draft = conn.execute(
             "SELECT id, name, period, status, created_at, updated_at FROM voucher_draft WHERE id = ?",
@@ -691,8 +690,7 @@ def handle_voucher_list_drafts(params: dict) -> dict:
         from finance_agent_backend import db as _db
 
         db_path = params.get("db_path")
-        conn = _db.get_db(db_path=db_path)
-        _db.init_db(conn)
+        conn = _db.connect(db_path=db_path)
 
         rows = conn.execute(
             """SELECT d.id, d.name, d.period, d.status, d.created_at, d.updated_at,
@@ -718,8 +716,7 @@ def handle_voucher_delete_draft(params: dict) -> dict:
             return {"success": False, "error": "缺少 draft_id 参数"}
 
         db_path = params.get("db_path")
-        conn = _db.get_db(db_path=db_path)
-        _db.init_db(conn)
+        conn = _db.connect(db_path=db_path)
 
         conn.execute("DELETE FROM voucher_draft WHERE id = ?", (draft_id,))
         conn.commit()
@@ -745,8 +742,7 @@ def handle_voucher_export(params: dict) -> dict:
             return {"success": False, "error": "缺少 draft_id 参数"}
 
         db_path = params.get("db_path")
-        conn = _db.get_db(db_path=db_path)
-        _db.init_db(conn)
+        conn = _db.connect(db_path=db_path)
 
         # Load draft entries
         entry_rows = conn.execute(
