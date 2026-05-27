@@ -154,6 +154,7 @@ class GFBTableParser(BaseStatementParser):
         GFB 特有逻辑：
         - 判断依据：有 date 但无 expense/income → continuation
         - GFB 的 expense/income 是两列互斥，不同于 CMB 的 sign-based amount
+        - y 间距 > 15pt 视为区域边界（footer/header），终止当前 buffer
         """
         merged = []
         buffer_row = None
@@ -164,6 +165,14 @@ class GFBTableParser(BaseStatementParser):
             has_expense = bool(cols.get('expense', '').strip())
             has_income = bool(cols.get('income', '').strip())
             has_amount = has_expense or has_income
+
+            # y 间距过大 → 区域边界，终止 buffer
+            if buffer_row is not None:
+                buf_y = max(s['y0'] for s in buffer_row)
+                cur_y = min(s['y0'] for s in row_spans)
+                if cur_y - buf_y > 15:
+                    merged.append(buffer_row)
+                    buffer_row = None
 
             if has_date and has_amount:
                 # 新交易行
