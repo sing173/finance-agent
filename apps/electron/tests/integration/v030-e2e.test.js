@@ -323,7 +323,7 @@ async function main() {
           assert(Math.abs(debitSum - creditSum) < 0.01,
             `凭证#${v.voucher_no} 借贷不平: 借${debitSum} ≠ 贷${creditSum}`);
           for (const e of v.entries) {
-            assert(['rule', 'history', 'manual', 'unmatched'].includes(e.match_source),
+            assert(['rule', 'history', 'manual', 'unmatched', 'auto'].includes(e.match_source),
               `match_source 无效: ${e.match_source}`);
           }
         }

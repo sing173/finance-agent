@@ -789,7 +789,7 @@ def handle_voucher_export(params: dict) -> dict:
             sources[src] = sources.get(src, 0) + 1
 
         # Write export_log
-        now = __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         conn.execute(
             """INSERT INTO export_log (exported_at, period, file_path, voucher_count, entry_count,
                        transaction_count, source_files, match_stats, draft_id)
