@@ -11,11 +11,8 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
-from dataclasses import dataclass
-
-logger = logging.getLogger(__name__)
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -36,16 +33,12 @@ def _default_rules_path() -> str:
 
 
 def _load_rules(path: str) -> dict:
+    """加载规则文件。读取失败返回空结构。"""
     try:
         with open(path, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except FileNotFoundError:
-        logger.warning("规则文件不存在: %s，使用空规则", path)
-    except json.JSONDecodeError as e:
-        logger.error("规则文件 JSON 格式错误: %s — %s", path, e)
     except Exception:
-        logger.exception("加载规则文件失败: %s", path)
-    return {"version": 0, "expense": {"rules": []}, "income": {"rules": []}}
+        return {"version": 0, "expense": {"rules": []}, "income": {"rules": []}}
 
 
 # ── 匹配逻辑 ──────────────────────────────────────────────────

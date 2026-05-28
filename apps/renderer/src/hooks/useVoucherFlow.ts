@@ -10,6 +10,7 @@ interface VoucherData {
 
 export function useVoucherFlow() {
   const [vouchers, setVouchers] = useState<VoucherData[]>([]);
+  const [editedVouchers, setEditedVouchers] = useState<VoucherData[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -20,6 +21,7 @@ export function useVoucherFlow() {
 
   const api = () => (window as any).electronAPI;
 
+  // ── load subjects ──
   const loadSubjects = useCallback(async () => {
     try {
       const r = await api()?.invoke?.('get_subjects_info', {});
@@ -29,6 +31,7 @@ export function useVoucherFlow() {
     } catch { /* ignore */ }
   }, []);
 
+  // ── preview: transactions → vouchers ──
   const preview = useCallback(async (transactions: any[], p?: string) => {
     setPreviewLoading(true);
     try {
@@ -50,18 +53,34 @@ export function useVoucherFlow() {
     }
   }, [loadSubjects]);
 
+  // ── close page ──
   const closePage = useCallback(() => {
     setShowPage(false);
   }, []);
 
-  const handleSaveDraft = useCallback(async (entries: VoucherEntry[]) => {
-    if (entries.length === 0) return;
+  // ── voucher changes (from panel user edits) ──
+  const onVouchersChange = useCallback((v: VoucherData[]) => {
+    setEditedVouchers(v);
+  }, []);
+
+  // ── manual save draft ──
+  const handleSaveDraft = useCallback(async () => {
+    const v = editedVouchers.length > 0 ? editedVouchers : vouchers;
+    if (v.length === 0) return;
+    const allEntries: any[] = [];
+    for (const vc of v) {
+      for (const e of vc.entries) {
+        allEntries.push(e);
+      }
+    }
+    if (allEntries.length === 0) return;
+
     setSaving(true);
     try {
       const r = await api()?.invoke?.('voucher.save_draft', {
         name: `凭证草稿_${period || Date.now()}`,
         period: period || '未命名期间',
-        entries,
+        entries: allEntries,
       });
       if (r?.success) {
         setCurrentDraftId(r.draft_id);
@@ -69,24 +88,33 @@ export function useVoucherFlow() {
       }
     } catch { /* ignore */ }
     finally { setSaving(false); }
-  }, [period]);
+  }, [editedVouchers, vouchers, period]);
 
-  const handleExport = useCallback(async (entries: VoucherEntry[]) => {
-    const unmatched = entries.filter(
-      e => e.match_source === 'unmatched' && e.direction !== 'bank',
-    ).length;
+  // ── export ──
+  const handleExport = useCallback(async () => {
+    const v = editedVouchers.length > 0 ? editedVouchers : vouchers;
+    const unmatched = v.reduce(
+      (s, vc) => s + vc.entries.filter(e => e.match_source === 'unmatched' && e.direction !== 'bank').length, 0,
+    );
     if (unmatched > 0) {
       message.warning(`还有 ${unmatched} 条分录未匹配科目`);
     }
 
     setExportLoading(true);
     try {
+      // 先保存草稿（无草稿时自动保存）
       let draftId = currentDraftId;
       if (!draftId) {
+        const allEntries: any[] = [];
+        for (const vc of v) {
+          for (const e of vc.entries) {
+            allEntries.push(e);
+          }
+        }
         const saveR = await api()?.invoke?.('voucher.save_draft', {
           name: `凭证草稿_${period || Date.now()}`,
           period: period || '未命名期间',
-          entries,
+          entries: allEntries,
         });
         if (saveR?.success) {
           draftId = saveR.draft_id;
@@ -120,11 +148,12 @@ export function useVoucherFlow() {
     } finally {
       setExportLoading(false);
     }
-  }, [currentDraftId, period, closePage]);
+  }, [currentDraftId, editedVouchers, vouchers, period, closePage]);
 
   return {
     vouchers, subjects, previewLoading, saving, exportLoading,
     currentDraftId, period, showPage, closePage,
     preview, handleSaveDraft, handleExport,
+    onVouchersChange,
   };
 }

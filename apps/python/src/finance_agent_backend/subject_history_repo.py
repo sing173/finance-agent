@@ -76,8 +76,7 @@ class SubjectHistoryRepo:
                 """SELECT summary, subject_code, subject_name
                    FROM subject_history
                    WHERE direction = ?
-                   ORDER BY confirmed_at DESC
-                   LIMIT 200""",
+                   ORDER BY confirmed_at DESC""",
                 (direction,),
             ).fetchall()
         finally:

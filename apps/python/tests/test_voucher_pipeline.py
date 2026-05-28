@@ -46,7 +46,9 @@ def export_dir():
 
 def _reset_db(db_path):
     """重置 db 模块单例，指向测试数据库。"""
-    _db.reset_db(db_path)
+    _db.close_db()
+    _db._conn = None
+    _db._db_path = db_path
 
 
 def _call(method: str, params: dict):

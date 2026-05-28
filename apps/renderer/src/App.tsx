@@ -344,6 +344,7 @@ function App() {
           <VoucherPreviewPanel
             vouchers={voucherFlow.vouchers}
             subjects={voucherFlow.subjects}
+            onVouchersChange={voucherFlow.onVouchersChange}
             onSaveDraft={voucherFlow.handleSaveDraft}
             onExport={voucherFlow.handleExport}
             onCancel={voucherFlow.closePage}

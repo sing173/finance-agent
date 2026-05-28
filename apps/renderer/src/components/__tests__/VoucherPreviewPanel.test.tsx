@@ -52,6 +52,7 @@ describe('VoucherPreviewPanel', () => {
       <VoucherPreviewPanel
         vouchers={mockVouchers}
         subjects={mockSubjects}
+        onVouchersChange={vi.fn()}
         onSaveDraft={vi.fn()}
         onExport={vi.fn()}
       />
@@ -65,6 +66,7 @@ describe('VoucherPreviewPanel', () => {
       <VoucherPreviewPanel
         vouchers={mockVouchers}
         subjects={mockSubjects}
+        onVouchersChange={vi.fn()}
         onSaveDraft={vi.fn()}
         onExport={vi.fn()}
       />
@@ -77,6 +79,7 @@ describe('VoucherPreviewPanel', () => {
       <VoucherPreviewPanel
         vouchers={mockVouchers}
         subjects={mockSubjects}
+        onVouchersChange={vi.fn()}
         onSaveDraft={vi.fn()}
         onExport={vi.fn()}
       />
@@ -91,6 +94,7 @@ describe('VoucherPreviewPanel', () => {
       <VoucherPreviewPanel
         vouchers={mockVouchers}
         subjects={mockSubjects}
+        onVouchersChange={vi.fn()}
         onSaveDraft={onSaveDraft}
         onExport={vi.fn()}
       />
@@ -99,11 +103,28 @@ describe('VoucherPreviewPanel', () => {
     expect(onSaveDraft).toHaveBeenCalled();
   });
 
+  it('calls onVouchersChange when vouchers are edited', async () => {
+    const onVouchersChange = vi.fn();
+    render(
+      <VoucherPreviewPanel
+        vouchers={mockVouchers}
+        subjects={mockSubjects}
+        onVouchersChange={onVouchersChange}
+        onSaveDraft={vi.fn()}
+        onExport={vi.fn()}
+      />
+    );
+    await waitFor(() => {
+      expect(onVouchersChange).toHaveBeenCalled();
+    });
+  });
+
   it('shows export popconfirm with unmatched warning', async () => {
     render(
       <VoucherPreviewPanel
         vouchers={mockVouchers}
         subjects={mockSubjects}
+        onVouchersChange={vi.fn()}
         onSaveDraft={vi.fn()}
         onExport={vi.fn()}
       />

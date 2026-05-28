@@ -70,47 +70,9 @@ def close_db() -> None:
         _db_path = None
 
 
-def connect(db_path: str | None = None) -> sqlite3.Connection:
-    """获取数据库连接并确保 schema 存在（幂等）。
-
-    替代 get_db() + init_db() 的两步手工调用。
-    """
-    conn = get_db(db_path=db_path)
-    init_db(conn)
-    return conn
-
-
-def reset_db(db_path: str) -> None:
-    """切换到新的数据库路径（用于测试）。关闭旧连接，设置新路径。"""
-    global _conn, _db_path
-    close_db()
-    _db_path = db_path
-
-
 # ---------------------------------------------------------------------------
 # Schema
 # ---------------------------------------------------------------------------
-
-_DDL_VOUCHER_DRAFT_ENTRY = """CREATE TABLE IF NOT EXISTS {TABLE} (
-        id              INTEGER PRIMARY KEY AUTOINCREMENT,
-        draft_id        TEXT NOT NULL REFERENCES voucher_draft(id) ON DELETE CASCADE,
-        entry_seq       INTEGER NOT NULL,
-        voucher_no      INTEGER NOT NULL,
-        date            TEXT NOT NULL,
-        summary         TEXT NOT NULL,
-        subject_code    TEXT NOT NULL,
-        subject_name    TEXT,
-        debit_amount    REAL,
-        credit_amount   REAL,
-        direction       TEXT,
-        counterparty    TEXT,
-        match_source    TEXT CHECK (match_source IN ('rule', 'history', 'manual', 'unmatched', 'auto')),
-        original_summary TEXT,
-        original_amount  REAL,
-        is_manual       INTEGER DEFAULT 0
-    )"""
-
-DIAGNOSTIC_TABLE_COUNT = 5  # expected table count for db.health
 
 SCHEMA_STATEMENTS: list[str] = [
     # ── 历史学习库 ──
@@ -142,8 +104,25 @@ SCHEMA_STATEMENTS: list[str] = [
         updated_at      TEXT NOT NULL
     )""",
 
-    # ── 草稿分录明细（DDL 也用于 schema 迁移，见 _migrate_v2） ──
-    _DDL_VOUCHER_DRAFT_ENTRY.replace('{TABLE}', 'voucher_draft_entry'),
+    # ── 草稿分录明细 ──
+    """CREATE TABLE IF NOT EXISTS voucher_draft_entry (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        draft_id        TEXT NOT NULL REFERENCES voucher_draft(id) ON DELETE CASCADE,
+        entry_seq       INTEGER NOT NULL,
+        voucher_no      INTEGER NOT NULL,
+        date            TEXT NOT NULL,
+        summary         TEXT NOT NULL,
+        subject_code    TEXT NOT NULL,
+        subject_name    TEXT,
+        debit_amount    REAL,
+        credit_amount   REAL,
+        direction       TEXT,
+        counterparty    TEXT,
+        match_source    TEXT CHECK (match_source IN ('rule', 'history', 'manual', 'unmatched', 'auto')),
+        original_summary TEXT,
+        original_amount  REAL,
+        is_manual       INTEGER DEFAULT 0
+    )""",
     """CREATE INDEX IF NOT EXISTS idx_draft_entry
         ON voucher_draft_entry(draft_id)""",
 
@@ -173,7 +152,24 @@ CURRENT_SCHEMA_VERSION = 2
 
 def _migrate_v2(conn: sqlite3.Connection) -> None:
     """v2 迁移: 重建 voucher_draft_entry 表，放宽 match_source CHECK 约束允许 'auto'。"""
-    conn.execute(_DDL_VOUCHER_DRAFT_ENTRY.replace('{TABLE}', 'voucher_draft_entry_v2'))
+    conn.execute("""CREATE TABLE IF NOT EXISTS voucher_draft_entry_v2 (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        draft_id        TEXT NOT NULL REFERENCES voucher_draft(id) ON DELETE CASCADE,
+        entry_seq       INTEGER NOT NULL,
+        voucher_no      INTEGER NOT NULL,
+        date            TEXT NOT NULL,
+        summary         TEXT NOT NULL,
+        subject_code    TEXT NOT NULL,
+        subject_name    TEXT,
+        debit_amount    REAL,
+        credit_amount   REAL,
+        direction       TEXT,
+        counterparty    TEXT,
+        match_source    TEXT CHECK (match_source IN ('rule', 'history', 'manual', 'unmatched', 'auto')),
+        original_summary TEXT,
+        original_amount  REAL,
+        is_manual       INTEGER DEFAULT 0
+    )""")
     # 迁移数据
     old_exists = conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='voucher_draft_entry'"

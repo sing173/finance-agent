@@ -56,10 +56,6 @@ class CMBTableParser(BaseStatementParser):
     OPENING_BALANCE_KEY = '上页余额'
     CLOSING_BALANCE_KEY = '期末余额'
 
-    # y0 间距阈值（pt），同行的两个 key/value span 的 y0 差通常 < 2pt
-    # 如果 pending_key 的 y0 和当前 span 的 y0 差过大，说明 pending_key 已过期
-    PENDING_KEY_Y_GAP = 3.0
-
     def __init__(self, tolerance: int = 20):
         self.tolerance = tolerance
         self.confidence = 1.0
@@ -151,7 +147,6 @@ class CMBTableParser(BaseStatementParser):
         逻辑：
         - 如果某行同时包含 date 和 amount → 是独立交易，开启新 buffer
         - 否则 → 该行是上一行的 continuation（描述/对方户名太长），合并到 buffer
-        - y 间距 > 15pt 视为区域边界（footer/header），终止当前 buffer
         - 只保留包含完整字段的行，确保 _row_to_transaction 能正常解析
         """
         merged = []
@@ -162,22 +157,17 @@ class CMBTableParser(BaseStatementParser):
             has_date = bool(cols.get('date', '').strip())
             has_amount = bool(cols.get('amount', '').strip())
 
-            # y 间距过大 → 区域边界，终止 buffer
-            if buffer_row is not None:
-                buf_y = max(s['y0'] for s in buffer_row)
-                cur_y = min(s['y0'] for s in row_spans)
-                if cur_y - buf_y > 15:
-                    merged.append(buffer_row)
-                    buffer_row = None
-
             if has_date and has_amount:
+                # 新交易行
                 if buffer_row is not None:
                     merged.append(buffer_row)
                 buffer_row = row_spans
             else:
+                # Continuation 行（跨行），合并到前一行
                 if buffer_row is not None:
                     buffer_row.extend(row_spans)
                 else:
+                    # 第一行就缺少 date/amount（异常），丢弃
                     pass
 
         if buffer_row is not None:
@@ -279,45 +269,33 @@ def _partition_spans_cmb(spans: list) -> Tuple[list, list, list]:
 
 
 def _parse_header_metadata(header_spans: list) -> Dict[str, Any]:
-    """Extract account metadata from CMB header spans.
-
-    CMB 表头是多列布局（非单列 key-value 对）。使用 pending_keys 列表
-    支持并行等待多个 key 的 value，通过 x0 就近匹配解析值。
-    """
+    """Extract account metadata from CMB header spans."""
     meta: Dict[str, Any] = {}
     sorted_spans = sorted(header_spans, key=lambda s: (s['y0'], s['x0']))
-    # [(中文键名, y0, x0), ...] — 待匹配 value 的 key 列表
-    pending_keys: list[tuple[str, float, float]] = []
+    pending_key = None
 
     for s in sorted_spans:
         text = s['text'].strip()
         if not text:
             continue
 
+        if pending_key:
+            if pending_key in CMBTableParser.HEADER_KEYS:
+                meta[CMBTableParser.HEADER_KEYS[pending_key]] = text
+            pending_key = None
+            continue
+
         m = re.match(r'^(.+?):(.*)$', text)
         if m:
             raw_key = m.group(1).strip()
             val = m.group(2).strip()
-            if raw_key not in CMBTableParser.HEADER_KEYS:
-                continue
             if val:
-                # 同行 key:value → 直接存储
-                meta[CMBTableParser.HEADER_KEYS[raw_key]] = val
+                if raw_key in CMBTableParser.HEADER_KEYS:
+                    meta[CMBTableParser.HEADER_KEYS[raw_key]] = val
             else:
-                # key 无 value → 入队等待下一行匹配
-                pending_keys.append((raw_key, s['y0'], s['x0']))
-        elif pending_keys:
-            # 无冒号 span → 可能是某 pending key 的值，按 x0 就近匹配
-            best_key, best_dist = None, float('inf')
-            for pk in pending_keys:
-                if s['x0'] > pk[2]:
-                    dist = s['x0'] - pk[2]
-                    if dist < best_dist:
-                        best_dist = dist
-                        best_key = pk
-            if best_key:
-                meta[CMBTableParser.HEADER_KEYS[best_key[0]]] = text
-                pending_keys.remove(best_key)
+                if raw_key in CMBTableParser.HEADER_KEYS:
+                    pending_key = raw_key
+            continue
 
     if 'opening_balance' in meta:
         meta['opening_balance'] = parse_amount(meta.pop('opening_balance'))

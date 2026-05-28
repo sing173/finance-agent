@@ -40,12 +40,12 @@ interface VoucherData {
 interface VoucherPreviewPanelProps {
   vouchers: VoucherData[];
   subjects: { code: string; name: string; category: string; direction: string; enabled: boolean }[];
-  onSaveDraft: (entries: VoucherEntry[]) => void;
-  onExport: (entries: VoucherEntry[]) => void;
+  onVouchersChange: (vouchers: VoucherData[]) => void;
+  onSaveDraft: () => void;
+  onExport: () => void;
   onCancel?: () => void;
   saveDisabled?: boolean;
   loading?: boolean;
-  batchSubjects?: { code: string; name: string }[];
 }
 
 const MATCH_TAGS: Record<string, { color: string; label: string }> = {
@@ -56,15 +56,20 @@ const MATCH_TAGS: Record<string, { color: string; label: string }> = {
   auto: { color: 'default', label: '自动' },
 };
 
+const BATCH_SUBJECTS = [
+  { code: '5060203', name: '管理费用_物业管理费' },
+  { code: '5060202', name: '管理费用_办公费' },
+];
+
 export function VoucherPreviewPanel({
   vouchers: propVouchers,
   subjects,
+  onVouchersChange,
   onSaveDraft,
   onExport,
   onCancel,
   saveDisabled,
   loading = false,
-  batchSubjects = [],
 }: VoucherPreviewPanelProps) {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [editingEntry, setEditingEntry] = useState<{ vno: number; seq: number } | null>(null);
@@ -85,12 +90,7 @@ export function VoucherPreviewPanel({
             ...v,
             entries: v.entries.map((e) => {
               if (e.entry_seq !== seq) return e;
-              const subjectChanged = patch.subject_code !== undefined
-                && patch.subject_code !== e.subject_code;
-              return {
-                ...e, ...patch,
-                ...(subjectChanged ? { is_manual: true, match_source: 'manual' as const } : {}),
-              };
+              return { ...e, ...patch, is_manual: true, match_source: 'manual' as const };
             }),
           };
         });
@@ -120,7 +120,6 @@ export function VoucherPreviewPanel({
     setPickerVisible(true);
   }, []);
 
-  
   // 批量填充：对所有未匹配分录应用兜底科目
   const handleBatchFill = useCallback(
     (subject: { code: string; name: string }) => {
@@ -149,16 +148,12 @@ export function VoucherPreviewPanel({
     [],
   );
 
-  // Return flattened entries for save/export
-  const getFlatEntries = useCallback((): VoucherEntry[] => {
-    const all: VoucherEntry[] = [];
-    for (const vc of editedVouchers) {
-      for (const e of vc.entries) {
-        all.push(e);
-      }
+  // 变更同步给父组件（供自动保存）
+  useEffect(() => {
+    if (editedVouchers.length > 0) {
+      onVouchersChange(editedVouchers);
     }
-    return all;
-  }, [editedVouchers]);
+  }, [editedVouchers, onVouchersChange]);
 
   const unmatchedCount = editedVouchers.reduce(
     (s, v) => s + v.entries.filter((e) => e.match_source === 'unmatched' && e.direction !== 'bank').length,
@@ -277,7 +272,7 @@ export function VoucherPreviewPanel({
         {unmatchedCount > 0 && (
           <Dropdown
             menu={{
-              items: batchSubjects.map((s) => ({
+              items: BATCH_SUBJECTS.map((s) => ({
                 key: s.code,
                 label: `${s.code} ${s.name}`,
                 onClick: () => handleBatchFill(s),
@@ -287,7 +282,7 @@ export function VoucherPreviewPanel({
             <Button icon={<ThunderboltOutlined />}>批量填充</Button>
           </Dropdown>
         )}
-        <Button type="default" icon={<SaveOutlined />} onClick={() => onSaveDraft(getFlatEntries())} disabled={saveDisabled}>
+        <Button type="default" icon={<SaveOutlined />} onClick={onSaveDraft} disabled={saveDisabled}>
           保存草稿
         </Button>
         <Popconfirm
@@ -297,7 +292,7 @@ export function VoucherPreviewPanel({
               ? `还有 ${unmatchedCount} 条分录未匹配科目，确认继续导出？`
               : '确认导出所有凭证？'
           }
-          onConfirm={() => onExport(getFlatEntries())}
+          onConfirm={onExport}
           okText="确认导出"
           cancelText="取消"
         >
