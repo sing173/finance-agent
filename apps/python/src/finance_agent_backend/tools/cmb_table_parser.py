@@ -273,28 +273,34 @@ def _parse_header_metadata(header_spans: list) -> Dict[str, Any]:
     meta: Dict[str, Any] = {}
     sorted_spans = sorted(header_spans, key=lambda s: (s['y0'], s['x0']))
     pending_key = None
+    pending_y: float = 0.0
 
     for s in sorted_spans:
         text = s['text'].strip()
         if not text:
             continue
 
-        if pending_key:
-            if pending_key in CMBTableParser.HEADER_KEYS:
-                meta[CMBTableParser.HEADER_KEYS[pending_key]] = text
-            pending_key = None
-            continue
+        if pending_key is not None:
+            m_new = re.match(r'^(.+?)[：:](.*)$', text)
+            is_known_key = m_new and m_new.group(1).strip() in CMBTableParser.HEADER_KEYS
+            if is_known_key and abs(s['y0'] - pending_y) <= 3:
+                pass
+            else:
+                if pending_key in CMBTableParser.HEADER_KEYS:
+                    meta[CMBTableParser.HEADER_KEYS[pending_key]] = text
+                pending_key = None
+                continue
 
-        m = re.match(r'^(.+?):(.*)$', text)
+        m = re.match(r'^(.+?)[：:](.*)$', text)
         if m:
             raw_key = m.group(1).strip()
             val = m.group(2).strip()
-            if val:
-                if raw_key in CMBTableParser.HEADER_KEYS:
+            if raw_key in CMBTableParser.HEADER_KEYS:
+                if val:
                     meta[CMBTableParser.HEADER_KEYS[raw_key]] = val
-            else:
-                if raw_key in CMBTableParser.HEADER_KEYS:
+                else:
                     pending_key = raw_key
+                    pending_y = s['y0']
             continue
 
     if 'opening_balance' in meta:
