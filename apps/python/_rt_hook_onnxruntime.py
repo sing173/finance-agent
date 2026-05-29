@@ -25,7 +25,7 @@ _dll_path = os.path.join(_capi, 'onnxruntime.dll')
 LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR = 0x00000100
 LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800
 
-if os.path.exists(_dll_path):
+if sys.platform == 'win32' and os.path.exists(_dll_path):
     try:
         os.add_dll_directory(_MEIPASS)
         h = ctypes.windll.kernel32.LoadLibraryExW(
