@@ -203,12 +203,14 @@ def cluster_by_y(spans: list, gap: float = 2.0) -> List[list]:
 
 def find_table_region(spans: list, col_titles: List[str],
                       fallback: Tuple[float, float] = (105.0, 165.0),
-                      require_all: bool = False) -> Tuple[float, float]:
+                      require_all: bool = False,
+                      gap: float = 2.5) -> Tuple[float, float]:
     """Find table y-range by locating column title spans.
 
-    Args:
-        require_all: If True, all col_titles must appear in a span to match.
-            If False, any col_title match suffices.
+    table_end is determined by the last data row (a y-clustered row that
+    contains both a date and a monetary amount), not by the last span on
+    the page. This prevents footer text from being swallowed into the
+    table region.
     """
     if require_all:
         y_list = [s['y0'] for s in spans
@@ -216,9 +218,20 @@ def find_table_region(spans: list, col_titles: List[str],
     else:
         y_list = [s['y0'] for s in spans
                   if any(k in s['text'] for k in col_titles)]
-    if not y_list:
-        return fallback
-    return min(y_list) - 5, max(s['y1'] for s in spans)
+    table_start = min(y_list) - 5 if y_list else fallback[0]
+
+    # Cluster all spans by y, then find the last cluster that looks like a
+    # data row (contains both a YYYYMMDD date and a monetary amount).
+    _date_re = re.compile(r'\d{8}')
+    _amt_re = re.compile(r'-?\d[\d,]*\.\d{2}')
+    data_end = table_start
+    for row in cluster_by_y(spans, gap):
+        texts = ' '.join(s['text'] for s in row)
+        if _date_re.search(texts) and _amt_re.search(texts):
+            data_end = max(s['y1'] for s in row)
+    table_end = data_end + 10 if data_end > table_start else max(s['y1'] for s in spans)
+
+    return table_start, table_end
 
 
 def partition_spans(spans: list, col_titles: List[str],
