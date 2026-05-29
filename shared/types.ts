@@ -19,14 +19,6 @@ export interface JSONRPCResponse<T = any> {
   error?: { code: number; message: string; data?: any };
 }
 
-/** 健康检查 */
-export interface HealthParams {}
-export interface HealthResult {
-  status: "ok";
-  version: string;
-  python_version: string;
-}
-
 /** 文档类型：统一使用中文 */
 export type DocType = '流水' | '回单' | 'unknown';
 

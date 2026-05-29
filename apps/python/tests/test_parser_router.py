@@ -286,11 +286,6 @@ from finance_agent_backend.bridge import handle_request
 
 
 class TestBridge:
-    def test_health(self):
-        r = handle_request({"jsonrpc": "2.0", "method": "health", "params": {}, "id": 1})
-        assert r["result"]["status"] == "ok"
-        assert r["result"]["version"] == "0.2.0"
-
     def test_unknown_method(self):
         r = handle_request({"jsonrpc": "2.0", "method": "nonexistent", "params": {}, "id": 2})
         assert r["error"]["code"] == -32601

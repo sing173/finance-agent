@@ -1,6 +1,5 @@
 [tool.poetry]
 name = "finance-agent-backend"
-version = "0.1.0"
 description = "Python backend for finance-agent"
 authors = ["Python C <dev@example.com>"]
 

@@ -65,15 +65,6 @@ def register_method(name: str):
     return decorator
 
 
-@register_method("health")
-def handle_health(params: dict) -> dict:
-    import sys
-    return {
-        "status": "ok",
-        "version": "0.2.0",
-        "python_version": sys.version,
-    }
-
 
 @register_method("parse_pdf")
 def handle_parse_pdf(params: dict) -> dict:

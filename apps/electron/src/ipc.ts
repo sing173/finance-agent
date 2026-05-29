@@ -20,7 +20,6 @@ interface HandlerDef {
 // handlers use method=null and provide their own implementation inline.
 const HANDLERS: HandlerDef[] = [
   // Pure Python delegation
-  { channel: 'health',                  method: 'health',             expose: true  },
   { channel: 'parse_pdf',               method: 'parse_pdf',           expose: true  },
   { channel: 'generate_excel',          method: 'generate_excel',      expose: true  },
   { channel: 'generate_voucher_excel',  method: 'generate_voucher_excel', expose: true },

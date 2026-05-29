@@ -497,14 +497,6 @@ async function main() {
       ok(`"${r.error}"`);
     }
 
-    run('health 版本检查');
-    {
-      const r = await pythonProcess.call('health', {});
-      assert(r.status === 'ok', 'status 应为 ok');
-      assert(r.version === '0.2.0', `version: ${r.version}`);
-      ok(`v${r.version} · Python ${r.python_version.split(' ')[0]}`);
-    }
-
     run('detect_supported_banks BankInfo 结构');
     {
       const r = await pythonProcess.call('detect_supported_banks', {});
@@ -532,7 +524,7 @@ async function main() {
     console.log('  ✅ account_registry CRUD + match');
     console.log('  ✅ generate_excel 回归');
     console.log('  ✅ parse_pdf / generate_excel 参数验证');
-    console.log('  ✅ health + detect_supported_banks 回归');
+    console.log('  ✅ detect_supported_banks 回归');
 
   } catch (err) {
     console.error(`\n❌ 测试失败 (第${step}步):`, err.message);

@@ -20,7 +20,6 @@ const { Title, Text } = Typography;
 declare global {
   interface Window {
     electronAPI: {
-      health: () => Promise<any>;
       parseFile: (params: ParseFileParams) => Promise<ParseFileResult>;
       generateExcel: (params: any) => Promise<any>;
       generateVoucher: (params: any) => Promise<any>;

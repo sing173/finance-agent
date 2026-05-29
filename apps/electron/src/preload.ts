@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  health: () => ipcRenderer.invoke('health'),
   parseFile: (params: any) => ipcRenderer.invoke('parse_pdf', params),
   generateExcel: (params: any) => ipcRenderer.invoke('generate_excel', params),
   generateVoucher: (params: any) => ipcRenderer.invoke('generate_voucher_excel', params),
