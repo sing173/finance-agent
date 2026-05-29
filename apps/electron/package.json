@@ -13,7 +13,8 @@
     "package:all": "npm run package:python && npm run package"
   },
   "devDependencies": {
-    "electron": "^32.3.3",
+    "7zip-bin": "^5.2.0",
+    "electron": "32.3.3",
     "electron-builder": "^24.13.3",
     "typescript": "^5.6.0"
   },
