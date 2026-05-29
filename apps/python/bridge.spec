@@ -27,10 +27,15 @@ if _config_src.exists():
         if src.exists():
             _config_datas.append((str(src), "finance_agent_backend/config"))
 
+# UCRT — onnxruntime 依赖 api-ms-win-crt-* forwarder，这些在 PyInstaller onefile
+# temp 目录中无法通过 API set 解析到 System32 的 ucrtbase.dll，必须显式打包。
+_ucrt_dll = r'C:\Windows\System32\ucrtbase.dll'
+_ucrt_binaries = [(_ucrt_dll, '.')] if os.path.exists(_ucrt_dll) else []
+
 a = Analysis(
     ['src/finance_agent_backend/bridge.py'],
     pathex=[],
-    binaries=[],
+    binaries=_ucrt_binaries,
     datas=_rapidocr_datas + _config_datas,
     hiddenimports=[
         'nanobot',
@@ -66,7 +71,7 @@ a = Analysis(
     ],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['_rt_hook_onnxruntime.py'],
     excludes=[],
     noarchive=False,
 )
