@@ -9,7 +9,7 @@ import {
 // SwapOutlined — 翻转列暂时隐藏
 import { SubjectPickerModal } from './SubjectPickerModal';
 import type { SubjectItem } from '@shared/types';
-import { isUnmatchedNonBank } from '@shared/types';
+import { isUnmatchedNonBank } from '../hooks/voucher_utils';
 
 interface VoucherEntry {
   entry_seq: number;

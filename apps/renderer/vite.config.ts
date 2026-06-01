@@ -7,7 +7,7 @@ export default defineConfig({
   base: './',  // Electron需要相对路径
   resolve: {
     alias: {
-      '@shared': path.resolve(__dirname, '../shared'),
+      '@shared': path.resolve(process.cwd(), '../../shared'),
     },
   },
   server: {

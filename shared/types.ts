@@ -152,10 +152,3 @@ export interface BatchResult {
   failedCount: number;
   totalTransactions: number;
 }
-
-// ========== 凭证工具函数 ==========
-
-/** 判断分录是否为「未匹配且非银行」条目 */
-export function isUnmatchedNonBank(e: { match_source: string; direction: string }): boolean {
-  return e.match_source === 'unmatched' && e.direction !== 'bank';
-}

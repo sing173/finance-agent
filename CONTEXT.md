@@ -71,6 +71,7 @@ Renderer (React)  ←IPC→  Electron (Node)  ←stdio JSON-RPC→  Python
 - `bridge.py`: JSON-RPC registry
 - All parsers return `ParseResult`
 - Config: `apps/python/src/finance_agent_backend/config/`
+- `shared/types.ts`: 仅类型定义（interface/type），零函数/常量导出。工具函数放各自就近模块（如 voucher 工具放 `hooks/voucher_utils.ts`）。
 
 ---
 

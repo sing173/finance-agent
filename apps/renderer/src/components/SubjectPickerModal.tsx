@@ -68,7 +68,6 @@ interface SubjectPickerModalProps {
   onClose: () => void;
   onSelect: (subject: SubjectItem) => void;
   subjects?: SubjectItem[];
-  loading?: boolean;
 }
 
 /**

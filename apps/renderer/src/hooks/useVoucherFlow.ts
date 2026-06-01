@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { message } from 'antd';
 import type { VoucherEntry } from '../components/VoucherPreviewPanel';
-import { isUnmatchedNonBank } from '@shared/types';
+import { isUnmatchedNonBank } from './voucher_utils';
 import { useSubjects } from './useSubjects';
 
 interface VoucherData {
