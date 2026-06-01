@@ -19,6 +19,7 @@ const mockSubjects = [
     direction: '借',
     is_cash: false,
     enabled: true,
+    full_name: '银行存款-招商银行',
   },
   {
     code: '6001001',
@@ -27,6 +28,7 @@ const mockSubjects = [
     direction: '贷',
     is_cash: false,
     enabled: true,
+    full_name: '主营业务收入',
   },
 ];
 
@@ -112,7 +114,9 @@ describe('SubjectPickerModal', () => {
         name: '已停用科目',
         category: '测试',
         direction: '借',
+        is_cash: false,
         enabled: false,
+        full_name: '已停用科目',
       },
     ];
     render(<SubjectPickerModal {...defaultProps} subjects={subjectsWithDisabled} />);

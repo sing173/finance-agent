@@ -21,6 +21,7 @@ import {
 } from '@ant-design/icons';
 import type { AccountEntry } from '@shared/types';
 import { SubjectPickerModal } from './SubjectPickerModal';
+import { useSubjects } from '../hooks/useSubjects';
 
 interface AccountSubjectManagerProps {
   /** 可选：从外部传入账号列表（由父组件通过 account_registry.list 获取） */
@@ -56,8 +57,7 @@ export function AccountSubjectManager({
     code: string;
     name: string;
   } | null>(null);
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [subjectsLoaded, setSubjectsLoaded] = useState(false);
+  const { subjects, reload: reloadSubjects } = useSubjects();
   const [bankOptions, setBankOptions] = useState<{ code: string; name: string }[]>([]);
 
   const [form] = Form.useForm();
@@ -84,17 +84,6 @@ export function AccountSubjectManager({
 
   // 初始加载：账号列表 + 银行选项
   useEffect(() => { loadBankOptions(); }, [loadBankOptions]);
-  const loadSubjects = useCallback(async () => {
-    try {
-      const result = await (window as any).electronAPI?.invoke('get_subjects_info', {});
-      if (result?.success && result.subjects) {
-        // get_subjects_info 返回 { success, count, subjects: [...] }
-        setSubjects(result.subjects || []);
-      }
-    } catch (err) {
-      console.error('加载科目列表失败:', err);
-    }
-  }, []);
 
   // 从 bridge 加载账号列表
   const loadAccounts = useCallback(async () => {
@@ -123,12 +112,12 @@ export function AccountSubjectManager({
     }
   }, [propAccounts, loadAccounts]);
 
-  // 打开科目选择器时加载科目列表（延迟加载 + 缓存）
+  // 打开科目选择器时刷新科目列表
   useEffect(() => {
-    if (subjectPickerVisible && !subjectsLoaded) {
-      loadSubjects().then(() => setSubjectsLoaded(true));
+    if (subjectPickerVisible) {
+      reloadSubjects();
     }
-  }, [subjectPickerVisible, subjectsLoaded, loadSubjects]);
+  }, [subjectPickerVisible, reloadSubjects]);
 
   // 新增按钮
   const handleAdd = () => {

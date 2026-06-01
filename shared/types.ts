@@ -86,6 +86,22 @@ export interface AccountEntry {
   full_name?: string;
 }
 
+// ========== 科目相关类型 ==========
+
+/** 会计科目条目（后端 get_subjects_info 返回） */
+export interface SubjectItem {
+  code: string;
+  name: string;
+  category: string;
+  direction: string;
+  /** 是否现金类科目 */
+  is_cash: boolean;
+  /** 是否启用 */
+  enabled: boolean;
+  /** 完整科目名称 */
+  full_name: string;
+}
+
 // ========== 文件上传方案新增类型 ==========
 
 /** 批量检测单个文件的返回 */
@@ -135,4 +151,11 @@ export interface BatchResult {
   successCount: number;
   failedCount: number;
   totalTransactions: number;
+}
+
+// ========== 凭证工具函数 ==========
+
+/** 判断分录是否为「未匹配且非银行」条目 */
+export function isUnmatchedNonBank(e: { match_source: string; direction: string }): boolean {
+  return e.match_source === 'unmatched' && e.direction !== 'bank';
 }

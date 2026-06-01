@@ -3,8 +3,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { VoucherPreviewPanel } from '../VoucherPreviewPanel';
 
 const mockSubjects = [
-  { code: '5060203', name: '管理费用_物业管理费', category: '管理费用', direction: '借', enabled: true },
-  { code: '5060201', name: '管理费用_租赁费', category: '管理费用', direction: '借', enabled: true },
+  { code: '5060203', name: '管理费用_物业管理费', category: '管理费用', direction: '借', is_cash: false, enabled: true, full_name: '管理费用_物业管理费' },
+  { code: '5060201', name: '管理费用_租赁费', category: '管理费用', direction: '借', is_cash: false, enabled: true, full_name: '管理费用_租赁费' },
 ];
 
 const mockVouchers = [

@@ -35,9 +35,9 @@ function defaultInvoke(api: string, _params: any) {
   if (api === 'get_subjects_info') {
     return Promise.resolve({
       success: true, count: 3, subjects: [
-        { code: '1000201', name: '银行存款-工行基本户', category: '资产', direction: '借', enabled: true },
-        { code: '1000203', name: '银行存款-招商银行', category: '资产', direction: '借', enabled: true },
-        { code: '6001001', name: '主营业务收入', category: '收入', direction: '贷', enabled: true },
+        { code: '1000201', name: '银行存款-工行基本户', category: '资产', direction: '借', is_cash: false, enabled: true, full_name: '银行存款-工商银行基本户' },
+        { code: '1000203', name: '银行存款-招商银行', category: '资产', direction: '借', is_cash: false, enabled: true, full_name: '银行存款-招商银行' },
+        { code: '6001001', name: '主营业务收入', category: '收入', direction: '贷', is_cash: false, enabled: true, full_name: '主营业务收入' },
       ],
     });
   }

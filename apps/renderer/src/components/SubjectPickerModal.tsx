@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { useState, useCallback, useMemo, memo } from 'react';
 import { Modal, Input, Select, Typography, Tag, Empty } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { FixedSizeList } from 'react-window';
 import { useDebounce } from '../hooks/useDebounce';
+import { useSubjects } from '../hooks/useSubjects';
+import type { SubjectItem } from '@shared/types';
 
 const { Text } = Typography;
 
@@ -61,16 +63,6 @@ const Row = memo(function Row({
   );
 });
 
-interface SubjectItem {
-  code: string;
-  name: string;
-  category: string;
-  direction: string;
-  is_cash?: boolean;
-  enabled: boolean;
-  full_name?: string;
-}
-
 interface SubjectPickerModalProps {
   visible: boolean;
   onClose: () => void;
@@ -97,34 +89,12 @@ export function SubjectPickerModal({
 }: SubjectPickerModalProps) {
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
-  const [subjects, setSubjects] = useState<SubjectItem[]>(propSubjects || []);
 
   // 防抖搜索文本（150ms延迟）
   const debouncedSearchText = useDebounce(searchText, 150);
 
-  // 同步外部 subjects 变化
-  useEffect(() => {
-    if (propSubjects) {
-      setSubjects(propSubjects);
-    }
-  }, [propSubjects]);
-
-  // 延迟加载：弹窗首次打开时自动加载科目数据
-  useEffect(() => {
-    if (visible && subjects.length === 0 && !propSubjects) {
-      // 通过 window.electronAPI 加载科目
-      (async () => {
-        try {
-          const r = await (window as any).electronAPI?.invoke('get_subjects_info', {});
-          if (r?.success && r.subjects) {
-            setSubjects(r.subjects);
-          }
-        } catch (err) {
-          console.error('加载科目失败:', err);
-        }
-      })();
-    }
-  }, [visible, subjects.length, propSubjects]);
+  // 科目数据：propSubjects 优先，否则自动 IPC 加载
+  const { subjects } = useSubjects(propSubjects);
 
   // 提取所有分类（useMemo缓存）
   const categories = useMemo(

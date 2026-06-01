@@ -8,6 +8,8 @@ import {
 } from '@ant-design/icons';
 // SwapOutlined — 翻转列暂时隐藏
 import { SubjectPickerModal } from './SubjectPickerModal';
+import type { SubjectItem } from '@shared/types';
+import { isUnmatchedNonBank } from '@shared/types';
 
 interface VoucherEntry {
   entry_seq: number;
@@ -39,7 +41,7 @@ interface VoucherData {
 
 interface VoucherPreviewPanelProps {
   vouchers: VoucherData[];
-  subjects: { code: string; name: string; category: string; direction: string; enabled: boolean }[];
+  subjects: SubjectItem[];
   onVouchersChange: (vouchers: VoucherData[]) => void;
   onSaveDraft: () => void;
   onExport: () => void;
@@ -128,7 +130,7 @@ export function VoucherPreviewPanel({
         const next = prev.map((v) => ({
           ...v,
           entries: v.entries.map((e) => {
-            if (e.match_source === 'unmatched' && e.direction !== 'bank') {
+            if (isUnmatchedNonBank(e)) {
               count++;
               return {
                 ...e,
@@ -156,7 +158,7 @@ export function VoucherPreviewPanel({
   }, [editedVouchers, onVouchersChange]);
 
   const unmatchedCount = editedVouchers.reduce(
-    (s, v) => s + v.entries.filter((e) => e.match_source === 'unmatched' && e.direction !== 'bank').length,
+    (s, v) => s + v.entries.filter((e) => isUnmatchedNonBank(e)).length,
     0,
   );
 
@@ -181,10 +183,10 @@ export function VoucherPreviewPanel({
       width: '22%' as any,
       ellipsis: { showTitle: false },
       render: (_: any, r: VoucherEntry) => {
-        const text = r.match_source === 'unmatched' && r.direction !== 'bank'
+        const text = isUnmatchedNonBank(r)
           ? '点击选择科目'
           : `${r.subject_code} ${r.subject_name}`;
-        const isUnmatched = r.match_source === 'unmatched' && r.direction !== 'bank';
+        const isUnmatched = isUnmatchedNonBank(r);
         return (
           <Tooltip title={isUnmatched ? '点击选择科目' : text} placement="topLeft">
             <span onClick={() => handleSubjectClick(r.voucher_no, r.entry_seq)} style={{ cursor: 'pointer' }}>

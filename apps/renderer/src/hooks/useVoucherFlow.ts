@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { message } from 'antd';
 import type { VoucherEntry } from '../components/VoucherPreviewPanel';
+import { isUnmatchedNonBank } from '@shared/types';
+import { useSubjects } from './useSubjects';
 
 interface VoucherData {
   voucher_no: number; date: string; direction: string;
@@ -11,7 +13,7 @@ interface VoucherData {
 export function useVoucherFlow() {
   const [vouchers, setVouchers] = useState<VoucherData[]>([]);
   const [editedVouchers, setEditedVouchers] = useState<VoucherData[]>([]);
-  const [subjects, setSubjects] = useState<any[]>([]);
+  const { subjects, reload: reloadSubjects } = useSubjects();
   const [previewLoading, setPreviewLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
@@ -20,16 +22,6 @@ export function useVoucherFlow() {
   const [showPage, setShowPage] = useState(false);
 
   const api = () => (window as any).electronAPI;
-
-  // ── load subjects ──
-  const loadSubjects = useCallback(async () => {
-    try {
-      const r = await api()?.invoke?.('get_subjects_info', {});
-      if (r?.success && r.subjects) {
-        setSubjects(r.subjects);
-      }
-    } catch { /* ignore */ }
-  }, []);
 
   // ── preview: transactions → vouchers ──
   const preview = useCallback(async (transactions: any[], p?: string) => {
@@ -42,7 +34,7 @@ export function useVoucherFlow() {
         const dates = transactions.map((t: any) => t.date).sort();
         setPeriod(p || (dates.length ? dates[0]?.slice(0, 7)?.replace('-', '年') + '月' : ''));
         setShowPage(true);
-        await loadSubjects();
+        await reloadSubjects();
       } else {
         message.error(`凭证生成失败: ${r?.error}`);
       }
@@ -51,7 +43,7 @@ export function useVoucherFlow() {
     } finally {
       setPreviewLoading(false);
     }
-  }, [loadSubjects]);
+  }, [reloadSubjects]);
 
   // ── close page ──
   const closePage = useCallback(() => {
@@ -94,7 +86,7 @@ export function useVoucherFlow() {
   const handleExport = useCallback(async () => {
     const v = editedVouchers.length > 0 ? editedVouchers : vouchers;
     const unmatched = v.reduce(
-      (s, vc) => s + vc.entries.filter(e => e.match_source === 'unmatched' && e.direction !== 'bank').length, 0,
+      (s, vc) => s + vc.entries.filter(e => isUnmatchedNonBank(e)).length, 0,
     );
     if (unmatched > 0) {
       message.warning(`还有 ${unmatched} 条分录未匹配科目`);
