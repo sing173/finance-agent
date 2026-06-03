@@ -29,8 +29,8 @@ class SubjectHistoryRepo:
         self._db_path = db_path
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._db_path)
-        conn.row_factory = sqlite3.Row
+        from finance_agent_backend import db as _db
+        conn = _db.get_db(db_path=self._db_path)
         init_db(conn)  # 确保 subject_history 等表已建（幂等）
         return conn
 

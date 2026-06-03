@@ -6,15 +6,10 @@
 """
 from __future__ import annotations
 
-import sqlite3
-import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from decimal import Decimal
-from typing import List
 
 from finance_agent_backend.models import Transaction
-from finance_agent_backend.db import init_db
 from finance_agent_backend.subject_matcher import match as match_subject
 
 
@@ -76,7 +71,11 @@ class VoucherGrouper:
             acct = txn.account_number or ''
             counterparty_acct = txn.reference_number or ''
 
-            key = (acct, counter_code, txn.direction, counterparty_acct)
+            if counter_code == '__unmatched__':
+                # 未匹配时每条独立，用 id(txn) 确保 key 唯一（用户需逐条手工审）
+                key = (acct, counter_code, txn.direction, str(id(txn)))
+            else:
+                key = (acct, counter_code, txn.direction, counterparty_acct)
             raw.setdefault(key, []).append(GroupedTxn(
                 txn=txn,
                 counter_code=counter_code,
@@ -122,67 +121,29 @@ class VoucherEntryFactory:
         if group.direction == 'expense':
             # 借 对方科目, 贷 银行科目（汇总）
             for gt in group.txns:
-                entries.append(VoucherComposer._entry(
+                entries.append(VoucherEntryFactory._entry(
                     len(entries) + 1, voucher_no, gt.txn,
                     gt.counter_code or '', gt.counter_name,
                     float(gt.txn.amount), None, gt.match_source,
                 ))
-            entries.append(VoucherComposer._bank_entry(
+            entries.append(VoucherEntryFactory._bank_entry(
                 len(entries) + 1, voucher_no, group.txns[0].txn.date,
                 None, total, group.bank_code, group.bank_name,
             ))
         else:
             # income: 借 银行科目（汇总）, 贷 对方科目
-            entries.append(VoucherComposer._bank_entry(
+            entries.append(VoucherEntryFactory._bank_entry(
                 1, voucher_no, group.txns[0].txn.date,
                 total, None, group.bank_code, group.bank_name,
             ))
             for gt in group.txns:
-                entries.append(VoucherComposer._entry(
+                entries.append(VoucherEntryFactory._entry(
                     len(entries) + 1, voucher_no, gt.txn,
                     gt.counter_code or '', gt.counter_name,
                     None, float(gt.txn.amount), gt.match_source,
                 ))
 
         return entries
-
-
-# ── 主类：编排层 ──────────────────────────────────────────────
-
-
-class VoucherComposer:
-    """凭证组装——编排 grouper + factory，生成凭证列表。"""
-
-    def __init__(self, db_path: str | None = None, repo=None):
-        self._db_path = db_path
-        self._repo = repo
-
-    def compose(
-        self,
-        transactions: list[Transaction],
-        subject_mapping: dict,
-        account_registry=None,
-    ) -> list[dict]:
-        """将交易组装为凭证列表。
-
-        compose() 仅做编排：grouper 负责分组+预匹配，factory 负责分录格式。
-        """
-        grouper = VoucherGrouper(repo=self._repo, account_registry=account_registry)
-        groups = grouper.group(transactions, subject_mapping)
-
-        vouchers = []
-        for voucher_no, group in enumerate(groups, start=1):
-            vouchers.append({
-                "voucher_no": voucher_no,
-                "date": str(group.txns[0].txn.date),
-                "direction": group.direction,
-                "bank_subject_code": group.bank_code,
-                "counterpart_subject_code": group.counter_code,
-                "entries": VoucherEntryFactory.build(group, voucher_no),
-            })
-        return vouchers
-
-    # ── 底层格式工具（被 VoucherEntryFactory 使用）───────────
 
     @staticmethod
     def _entry(seq, vno, txn, code, name, debit, credit, source, rule_id=''):
@@ -213,3 +174,38 @@ class VoucherComposer:
             "original_amount": 0.0,
             "is_manual": False,
         }
+
+
+# ── 主类：编排层 ──────────────────────────────────────────────
+
+
+class VoucherComposer:
+    """凭证组装——编排 grouper + factory，生成凭证列表。"""
+
+    def __init__(self, repo=None):
+        self._repo = repo
+
+    def compose(
+        self,
+        transactions: list[Transaction],
+        subject_mapping: dict,
+        account_registry=None,
+    ) -> list[dict]:
+        """将交易组装为凭证列表。
+
+        compose() 仅做编排：grouper 负责分组+预匹配，factory 负责分录格式。
+        """
+        grouper = VoucherGrouper(repo=self._repo, account_registry=account_registry)
+        groups = grouper.group(transactions, subject_mapping)
+
+        vouchers = []
+        for voucher_no, group in enumerate(groups, start=1):
+            vouchers.append({
+                "voucher_no": voucher_no,
+                "date": str(group.txns[0].txn.date),
+                "direction": group.direction,
+                "bank_subject_code": group.bank_code,
+                "counterpart_subject_code": group.counter_code,
+                "entries": VoucherEntryFactory.build(group, voucher_no),
+            })
+        return vouchers

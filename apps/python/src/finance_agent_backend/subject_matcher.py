@@ -65,9 +65,8 @@ class RuleMatcher:
                 return {"version": 0, "rules": []}
         # 默认内置配置
         try:
-            import finance_agent_backend
-            backend_dir = os.path.dirname(os.path.abspath(finance_agent_backend.__file__))
-            path = os.path.join(backend_dir, 'config', 'subject_mapping.json')
+            from finance_agent_backend.paths import get_config_path
+            path = get_config_path('subject_mapping.json')
             with open(path, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception:
@@ -163,6 +162,9 @@ class SubjectMatcher:
 # ── 向后兼容的便捷函数 ───────────────────────────────────────
 
 
+_default_rule_matcher: RuleMatcher | None = None
+
+
 def match(
     summary: str,
     direction: str,
@@ -182,7 +184,13 @@ def match(
     返回:
         MatchResult，未命中时 source='unmatched'
     """
-    rule_matcher = RuleMatcher(rules)
+    global _default_rule_matcher
+    if rules is None:
+        if _default_rule_matcher is None:
+            _default_rule_matcher = RuleMatcher()
+        rule_matcher = _default_rule_matcher
+    else:
+        rule_matcher = RuleMatcher(rules)
     history_matcher = HistoryMatcher(repo) if repo else None
     matcher = SubjectMatcher(rule_matcher=rule_matcher, history_matcher=history_matcher)
     return matcher.match(summary, direction, counterparty)
