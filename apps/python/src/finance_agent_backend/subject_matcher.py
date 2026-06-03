@@ -1,12 +1,20 @@
-"""L1 JSON 规则匹配引擎 (Issue #32).
+"""科目匹配引擎 (Issue #32).
 
-纯配置驱动的交易摘要→科目匹配。按 priority 升序尝试，首个命中即停。
+三层架构：
+  L1 RuleMatcher   — JSON 规则匹配（priority 排序 + 联合条件）
+  L2 HistoryMatcher — TF-IDF 历史库相似度匹配（需 SubjectHistoryRepo）
+  L3 兜底           — 返回 unmatched
 
 用法::
 
+    # 简洁模式（向后兼容）
     from finance_agent_backend.subject_matcher import match
     result = match("支付物业管理费", "expense", "启胜物业")
-    # → MatchResult(subject_code="5060203", source="rule", ...)
+
+    # 组合模式（可替换策略）
+    from finance_agent_backend.subject_matcher import SubjectMatcher, RuleMatcher
+    matcher = SubjectMatcher(repo=repo)
+    result = matcher.match("支付物业管理费", "expense", "启胜物业")
 """
 from __future__ import annotations
 
@@ -15,50 +23,144 @@ import os
 from dataclasses import dataclass, field
 
 
+# ── 数据模型 ──────────────────────────────────────────────────
+
+
 @dataclass
 class MatchResult:
-    subject_code: str = ''        # 科目代码，未命中为空
+    """单次匹配结果。"""
+    subject_code: str = ''
     subject_name: str = ''
     source: str = 'unmatched'    # 'rule' | 'history' | 'manual' | 'unmatched'
     rule_id: str = ''
 
 
-# ── 规则加载 ──────────────────────────────────────────────────
+# ── L1: 规则匹配器 ──────────────────────────────────────────
 
 
-def _default_rules_path() -> str:
-    import finance_agent_backend
-    backend_dir = os.path.dirname(os.path.abspath(finance_agent_backend.__file__))
-    return os.path.join(backend_dir, 'config', 'subject_mapping.json')
+class RuleMatcher:
+    """JSON 规则匹配策略。
+
+    构造函数一次性加载规则，match() 只做查询，无 I/O。
+    可替换为任何实现相同接口的对象（如远程规则服务）。
+    """
+
+    def __init__(self, rules: dict | str | None = None):
+        """初始化规则匹配器。
+
+        参数:
+            rules: dict（已加载的规则）、str（文件路径）、或 None（默认内置配置）
+        """
+        self._rules = self._load(rules)
+
+    @staticmethod
+    def _load(rules: dict | str | None) -> dict:
+        if isinstance(rules, dict):
+            return rules
+        if isinstance(rules, str):
+            try:
+                with open(rules, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception:
+                return {"version": 0, "rules": []}
+        # 默认内置配置
+        try:
+            import finance_agent_backend
+            backend_dir = os.path.dirname(os.path.abspath(finance_agent_backend.__file__))
+            path = os.path.join(backend_dir, 'config', 'subject_mapping.json')
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return {"version": 0, "rules": []}
+
+    def match(self, summary: str, direction: str, counterparty: str = '') -> MatchResult:
+        """按 priority 升序尝试规则，首个命中即停。"""
+        direction_rules = self._rules.get(direction, {})
+        rules_list = direction_rules.get("rules", [])
+
+        for rule in sorted(rules_list, key=lambda r: r.get("priority", 999)):
+            if self._matches(rule, summary, counterparty):
+                return MatchResult(
+                    subject_code=rule.get("subject_code", ""),
+                    subject_name=rule.get("subject_name", ""),
+                    source="rule",
+                    rule_id=rule.get("id", ""),
+                )
+        return MatchResult()
+
+    @staticmethod
+    def _matches(rule: dict, summary: str, counterparty: str) -> bool:
+        match_def = rule.get("match", {})
+        keywords = match_def.get("keywords", [])
+        if not any(kw in summary for kw in keywords):
+            return False
+        pattern = match_def.get("counterparty_pattern")
+        if pattern and pattern not in counterparty:
+            return False
+        return True
 
 
-def _load_rules(path: str) -> dict:
-    """加载规则文件。读取失败返回空结构。"""
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception:
-        return {"version": 0, "expense": {"rules": []}, "income": {"rules": []}}
+# ── L2: 历史匹配器 ──────────────────────────────────────────
 
 
-# ── 匹配逻辑 ──────────────────────────────────────────────────
+class HistoryMatcher:
+    """TF-IDF 历史库相似度匹配策略。
+
+    封装 SubjectHistoryRepo，提供统一 match() 接口。
+    可替换为任何实现相同接口的对象（如远程 ML 服务）。
+    """
+
+    def __init__(self, repo):
+        self._repo = repo
+
+    def match(self, summary: str, direction: str) -> MatchResult | None:
+        """返回 MatchResult 或 None（未命中）。"""
+        if self._repo is None:
+            return None
+        return self._repo.find_similar(summary, direction)
 
 
-def _match_rule(rule: dict, summary: str, counterparty: str) -> bool:
-    """单条规则是否匹配摘要/对方户名。"""
-    match_def = rule.get("match", {})
+# ── 编排层 ──────────────────────────────────────────────────
 
-    # 关键字：任一命中
-    keywords = match_def.get("keywords", [])
-    if not any(kw in summary for kw in keywords):
-        return False
 
-    # counterparty_pattern（可选）：存在时对方户名须包含
-    pattern = match_def.get("counterparty_pattern")
-    if pattern and pattern not in counterparty:
-        return False
+class SubjectMatcher:
+    """科目匹配编排器 — L1 → L2 → L3 串联。
 
-    return True
+    调用方只需 ``matcher.match(summary, direction, counterparty)``，
+    无需了解三层内部结构。
+    """
+
+    def __init__(
+        self,
+        rule_matcher: RuleMatcher | None = None,
+        history_matcher: HistoryMatcher | None = None,
+    ):
+        self._rules = rule_matcher or RuleMatcher()
+        self._history = history_matcher
+
+    def match(
+        self,
+        summary: str,
+        direction: str,
+        counterparty: str = '',
+    ) -> MatchResult:
+        """L1 规则 → L2 历史 → L3 兜底。"""
+        # L1
+        result = self._rules.match(summary, direction, counterparty)
+        if result.source == 'rule':
+            return result
+
+        # L2
+        if self._history:
+            hist = self._history.match(summary, direction)
+            if hist is not None:
+                return hist
+
+        # L3
+        return MatchResult()
+
+
+# ── 向后兼容的便捷函数 ───────────────────────────────────────
 
 
 def match(
@@ -66,51 +168,21 @@ def match(
     direction: str,
     counterparty: str = '',
     rules: str | dict | None = None,
-    repo: 'SubjectHistoryRepo | None' = None,
+    repo: object | None = None,
 ) -> MatchResult:
-    """将交易摘要匹配到会计科目（L1→L2→L3 三层串联）。
-
-    L1: JSON 规则（priority 排序 + 联合条件）
-    L2: TF-IDF 历史学习（需要 repo 实例）
-    L3: 兜底（unmatched）
+    """L1→L2→L3 三层串联匹配（向后兼容 API）。
 
     参数:
-        summary: 交易摘要（如 "支付物业管理费"）
-        direction: 交易方向 'expense' | 'income'
-        counterparty: 对方户名（可选）
-        rules: 规则来源 — str(文件路径)、dict、或 None(默认)
-        repo: SubjectHistoryRepo 实例（optional，L2 历史匹配）
+        summary: 交易摘要
+        direction: 'expense' | 'income'
+        counterparty: 对方户名
+        rules: 规则来源 — dict、文件路径、或 None（默认内置）
+        repo: SubjectHistoryRepo 实例（L2 历史匹配）
 
     返回:
         MatchResult，未命中时 source='unmatched'
     """
-    # ── L1: JSON 规则 ──
-    if isinstance(rules, dict):
-        data = rules
-    elif isinstance(rules, str):
-        data = _load_rules(rules)
-    else:
-        data = _load_rules(_default_rules_path())
-
-    direction_rules = data.get(direction, {})
-    rules_list = direction_rules.get("rules", [])
-
-    sorted_rules = sorted(rules_list, key=lambda r: r.get("priority", 999))
-
-    for rule in sorted_rules:
-        if _match_rule(rule, summary, counterparty):
-            return MatchResult(
-                subject_code=rule.get("subject_code", ""),
-                subject_name=rule.get("subject_name", ""),
-                source="rule",
-                rule_id=rule.get("id", ""),
-            )
-
-    # ── L2: 历史学习 ──
-    if repo:
-        result = repo.find_similar(summary, direction)
-        if result is not None:
-            return result
-
-    # ── L3: 兜底 ──
-    return MatchResult()
+    rule_matcher = RuleMatcher(rules)
+    history_matcher = HistoryMatcher(repo) if repo else None
+    matcher = SubjectMatcher(rule_matcher=rule_matcher, history_matcher=history_matcher)
+    return matcher.match(summary, direction, counterparty)

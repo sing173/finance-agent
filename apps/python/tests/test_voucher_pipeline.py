@@ -3,7 +3,7 @@
 覆盖：detect → parse → preview → save_draft → load_draft → export → audit_log
 每步通过 bridge.handle_request() 串联，模拟完整用户流程。
 """
-import os, sys, json, tempfile, uuid
+import os, sys, json, uuid
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
@@ -19,20 +19,18 @@ REAL_CMB_PDF = os.path.join(BASE, "cmb_statement.pdf")
 # ── 辅助 ──────────────────────────────────────────────────────
 
 @pytest.fixture
-def tmp_db():
-    fd, path = tempfile.mkstemp(suffix='.db')
-    os.close(fd)
-    yield path
-    try:
-        os.unlink(path)
-    except OSError:
-        pass
+def tmp_db(tmp_path):
+    """临时 SQLite 数据库（pytest 自动清理）。"""
+    path = str(tmp_path / "test.db")
+    return path
 
 
 @pytest.fixture
-def export_dir():
-    d = tempfile.mkdtemp()
-    yield d
+def export_dir(tmp_path):
+    """临时导出目录（pytest 自动清理）。"""
+    d = tmp_path / "export"
+    d.mkdir()
+    return str(d)
     for f in os.listdir(d):
         try:
             os.unlink(os.path.join(d, f))

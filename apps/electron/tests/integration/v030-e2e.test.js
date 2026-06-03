@@ -388,6 +388,122 @@ async function main() {
     }
 
     // ════════════════════════════════════════════
+    // Phase 5b: L2 历史学习匹配
+    // ════════════════════════════════════════════
+    phase('Phase 5b: L2 历史学习');
+
+    let l2DraftId = null;
+
+    // 构造 L1 无法匹配的交易（"AWS云主机"不在任何规则关键字中）
+    // rule_e002 虽有"服务费"但 counterparty_pattern="科技" 不匹配"阿里云计算"
+    const l2Txn = {
+      date: '2026-06-01',
+      description: '支付AWS云主机托管服务费',
+      amount: 1200.00,
+      currency: 'CNY',
+      direction: 'expense',
+      counterparty: '阿里云计算',
+      reference_number: 'L2TEST-001',
+      account_number: '6225123456789012',
+      account_name: '测试账户',
+    };
+
+    run('L2-1: 首次预览 → L1 未命中 → unmatched');
+    {
+      const r = await pythonProcess.call('voucher.preview', { transactions: [l2Txn], db_path: TEST_DB });
+      assert(r.success === true, `preview 应成功: ${JSON.stringify(r)}`);
+      assert(r.vouchers.length >= 1, '至少 1 张凭证');
+      const unmatched = r.vouchers[0].entries.filter(e => e.match_source === 'unmatched' && e.direction !== 'bank');
+      assert(unmatched.length >= 1, `应有 unmatched 分录，实际: ${r.vouchers[0].entries.map(e => e.match_source).join(',')}`);
+      ok(`unmatched: ${unmatched.length} 条`);
+    }
+
+    run('L2-2: 手工修正科目 → 保存草稿');
+    {
+      const previewR = await pythonProcess.call('voucher.preview', { transactions: [l2Txn], db_path: TEST_DB });
+      const entries = [];
+      for (const v of previewR.vouchers) {
+        for (const e of v.entries) {
+          if (e.direction !== 'bank') {
+            entries.push({
+              entry_seq: e.entry_seq,
+              voucher_no: e.voucher_no,
+              date: e.date,
+              summary: e.summary,
+              subject_code: '5060201',       // 手工指定: 管理费用_办公费
+              subject_name: '管理费用_办公费',
+              debit_amount: e.debit_amount,
+              credit_amount: e.credit_amount,
+              direction: e.direction,
+              counterparty: e.counterparty,
+              match_source: 'manual',
+              original_summary: e.summary,
+              original_amount: e.original_amount,
+              is_manual: 1,
+            });
+          }
+        }
+      }
+
+      const r = await pythonProcess.call('voucher.save_draft', {
+        db_path: TEST_DB,
+        name: 'L2历史学习测试草稿',
+        period: '2026年L2测试期',
+        entries: entries,
+      });
+      assert(r.success === true, `save_draft 应成功: ${JSON.stringify(r)}`);
+      l2DraftId = r.draft_id;
+      ok(`草稿 ID: ${l2DraftId}`);
+    }
+
+    run('L2-3: 导出草稿 → 写入 subject_history');
+    {
+      const exportPath = path.join(OUTPUT_DIR, 'l2_history_test.xlsx');
+      const r = await pythonProcess.call('voucher.export', {
+        draft_id: l2DraftId,
+        period: '2026年L2测试期',
+        output_path: exportPath,
+        db_path: TEST_DB,
+      });
+      assert(r.success === true, `export 应成功: ${JSON.stringify(r)}`);
+      assert(fs.existsSync(exportPath), 'Excel 文件应存在');
+      ok(`导出成功 (${fs.statSync(exportPath).size} 字节)`);
+    }
+
+    run('L2-4: 预览相似摘要 → L2 TF-IDF 应命中');
+    {
+      // 相似摘要: "支付AWS云主机托管服务费用" vs 历史 "支付AWS云主机托管服务费"
+      // 仅尾部多"用"字，2-gram 重合度 ~96%，余弦相似度 >> 0.75 阈值
+      const similarTxn = {
+        date: '2026-07-01',
+        description: '支付AWS云主机托管服务费用',
+        amount: 1200.00,
+        currency: 'CNY',
+        direction: 'expense',
+        counterparty: '阿里云计算',
+        reference_number: 'L2TEST-002',
+        account_number: '6225123456789012',
+        account_name: '测试账户',
+      };
+
+      const r = await pythonProcess.call('voucher.preview', { transactions: [similarTxn], db_path: TEST_DB });
+      assert(r.success === true, `preview 应成功: ${JSON.stringify(r)}`);
+      assert(r.vouchers.length >= 1, '至少 1 张凭证');
+
+      const nonBank = r.vouchers[0].entries.filter(e => e.direction !== 'bank');
+      const historyEntry = nonBank.find(e => e.match_source === 'history');
+      assert(historyEntry, `应有 L2 history 匹配，实际: ${nonBank.map(e => `${e.summary}→${e.match_source}`).join(', ')}`);
+      assert(historyEntry.subject_code === '5060201',
+        `L2 匹配科目应为 5060201，实际: ${historyEntry.subject_code}`);
+      ok(`L2 命中: ${historyEntry.subject_code} ${historyEntry.subject_name}`);
+    }
+
+    // 清理 L2 测试草稿
+    if (l2DraftId) {
+      await pythonProcess.call('voucher.delete_draft', { draft_id: l2DraftId, db_path: TEST_DB });
+    }
+
+    // ════════════════════════════════════════════
     // Phase 6: account_registry CRUD
     // ════════════════════════════════════════════
     phase('Phase 6: account_registry');

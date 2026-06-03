@@ -5,7 +5,6 @@ Tests verify behavior through public interface: init_db(), get_db(), close_db().
 import os
 import sys
 import sqlite3
-import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
@@ -14,15 +13,10 @@ from finance_agent_backend import db
 
 
 @pytest.fixture
-def tmp_db_path():
-    """临时数据库文件，测试后自动清理。"""
-    fd, path = tempfile.mkstemp(suffix='.db')
-    os.close(fd)
-    yield path
-    try:
-        os.unlink(path)
-    except OSError:
-        pass
+def tmp_db_path(tmp_path):
+    """临时数据库文件，pytest 自动清理。"""
+    path = str(tmp_path / "test.db")
+    return path
 
 
 @pytest.fixture(autouse=True)

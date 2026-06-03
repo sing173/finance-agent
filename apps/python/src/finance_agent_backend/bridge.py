@@ -53,6 +53,7 @@ else:
 from finance_agent_backend.tools import excel_builder as _excel_builder
 from finance_agent_backend.tools import subject_loader as _subject_loader
 from finance_agent_backend.models import Transaction
+from finance_agent_backend.paths import get_config_path
 
 # 方法注册表
 METHODS = {}  # type: dict
@@ -106,46 +107,6 @@ def handle_generate_excel(params: dict) -> dict:
         return {"success": False, "error": str(e)}
 
 
-@register_method("generate_voucher_excel")
-def handle_generate_voucher_excel(params: dict) -> dict:
-    """将银行流水按金蝶精斗云凭证导入模板格式导出 Excel。
-
-    params:
-        transactions  (list, required): 流水列表，格式同 generate_excel
-        output_path   (str,  optional): 输出文件路径，默认 voucher.xlsx
-        subject_mapping (dict, optional): 关键字映射配置；为空时读取内置默认配置
-        account_mapping (dict, optional): 账号映射配置；为空时读取内置默认配置
-        period        (str,  optional): 期间名称，用于 Sheet 名，如 '2026年第3期'
-    """
-    transactions_data = params.get("transactions")
-    output_path = params.get("output_path", "voucher.xlsx")
-    subject_mapping = params.get("subject_mapping")   # None = 读默认配置
-    account_mapping = params.get("account_mapping")   # None = 读默认配置
-    period = params.get("period", "")
-
-    if not transactions_data:
-        return {"success": False, "error": "缺少 transactions 参数"}
-
-    try:
-        transactions = [Transaction.from_dict(t) for t in transactions_data]
-
-        # 加载内置科目（config/subjects.json）
-        subjects = _load_built_in_subjects()
-
-        builder = _excel_builder.ExcelBuilder()
-        voucher_path = builder.build_voucher(
-            transactions=transactions,
-            subjects=subjects,
-            subject_mapping=subject_mapping,
-            account_mapping=account_mapping,
-            output_path=output_path,
-            period=period,
-        )
-        return {"success": True, "excel_path": voucher_path}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
 @register_method("parse_csv")
 def handle_parse_csv(params: dict) -> dict:
     """[DEPRECATED] 使用 parse_pdf 代替。保留此方法仅做向后兼容。"""
@@ -167,38 +128,10 @@ def _parse_icbc_csv(file_path: str) -> dict:
 
 
 def _get_config_dir() -> str:
-    """获取 config 目录的绝对路径。打包后用 sys._MEIPASS，开发用 _project_root。"""
-    if getattr(sys, 'frozen', False):
-        base = sys._MEIPASS
-    else:
-        base = _project_root
-    return os.path.join(base, 'finance_agent_backend', 'config')
+    """获取 config 目录的绝对路径（委托 paths 模块）。"""
+    return get_config_path()
 
 
-def _load_built_in_subjects() -> dict:
-    """从内置 config/subjects.json 加载科目字典。"""
-    config_dir = _get_config_dir()
-    subjects_path = os.path.join(config_dir, 'subjects.json')
-    if not os.path.exists(subjects_path):
-        return {}
-
-    with open(subjects_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-
-    from finance_agent_backend.models import Subject
-    subjects: dict = {}
-    for code, info in data.items():
-        subjects[code] = Subject(
-            code=info.get('code', code),
-            name=info.get('name', ''),
-            category=info.get('category', ''),
-            direction=info.get('direction', '借'),
-            aux_category=info.get('aux_category', ''),
-            is_cash=info.get('is_cash', False),
-            enabled=info.get('enabled', True),
-            full_name=info.get('full_name', info.get('name', '')),
-        )
-    return subjects
 
 
 @register_method("import_subjects")
@@ -535,9 +468,12 @@ def handle_voucher_preview(params: dict) -> dict:
     try:
         from finance_agent_backend.voucher_composer import VoucherComposer
         from finance_agent_backend.models import Transaction
+        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend import db as _db
 
         transactions_data = params.get("transactions", [])
         subject_mapping = params.get("subject_mapping")
+        db_path = params.get("db_path") or _db._default_db_path()
 
         if not transactions_data:
             return {"success": False, "error": "缺少 transactions 参数"}
@@ -548,12 +484,13 @@ def handle_voucher_preview(params: dict) -> dict:
         from finance_agent_backend.account_registry import AccountMappingRepository, AccountRegistry, _default_config_path
         account_registry = None
         try:
-            repo = AccountMappingRepository(_default_config_path())
-            account_registry = AccountRegistry(repo.load())
+            acc_repo = AccountMappingRepository(_default_config_path())
+            account_registry = AccountRegistry(acc_repo.load())
         except Exception:
             pass
 
-        composer = VoucherComposer()
+        repo = SubjectHistoryRepo(db_path)
+        composer = VoucherComposer(repo=repo)
         vouchers = composer.compose(transactions, subject_mapping, account_registry)
 
         warnings = []
@@ -793,9 +730,8 @@ def handle_voucher_export(params: dict) -> dict:
         )
         conn.commit()
 
-        # Write subject_history (manual entries only).
-        # SubjectHistoryRepo uses its own connection, so we commit ours first.
-        repo = SubjectHistoryRepo(db_path or _db._db_path or '')
+        # Write subject_history (manual entries only)
+        repo = SubjectHistoryRepo(db_path or _db._default_db_path())
         for r in entry_rows:
             if r["is_manual"]:
                 repo.insert(

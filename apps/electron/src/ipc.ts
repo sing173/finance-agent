@@ -22,7 +22,6 @@ const HANDLERS: HandlerDef[] = [
   // Pure Python delegation
   { channel: 'parse_pdf',               method: 'parse_pdf',           expose: true  },
   { channel: 'generate_excel',          method: 'generate_excel',      expose: true  },
-  { channel: 'generate_voucher_excel',  method: 'generate_voucher_excel', expose: true },
   { channel: 'import_subjects',         method: 'import_subjects',     expose: true  },
   { channel: 'get_subjects_info',       method: 'get_subjects_info',   expose: true  },
   { channel: 'detect_banks',            method: 'detect_banks',        expose: true  },

@@ -23,6 +23,8 @@ import sqlite3
 import sys
 from datetime import datetime, timezone
 
+from .paths import get_db_path
+
 # ---------------------------------------------------------------------------
 # 模块级单例
 # ---------------------------------------------------------------------------
@@ -32,25 +34,31 @@ _db_path: str | None = None
 
 
 def _default_db_path() -> str:
-    """推导默认数据库路径。"""
-    if getattr(sys, 'frozen', False):
-        base = os.environ.get('APPDATA', os.path.expanduser('~'))
-        return os.path.join(base, 'FinanceAssistant', 'data.db')
-    else:
-        # 开发环境：与 bridge.py 同级目录
-        import finance_agent_backend
-        backend_dir = os.path.dirname(os.path.abspath(finance_agent_backend.__file__))
-        return os.path.join(os.path.dirname(backend_dir), 'data.db')
+    """数据库默认路径（委托 paths 模块）。"""
+    return get_db_path()
 
 
 def get_db(db_path: str | None = None) -> sqlite3.Connection:
-    """获取数据库连接（模块级单例）。首次调用自动建表。"""
-    global _conn, _db_path
+    """获取数据库连接。
 
+    - 无参调用：返回模块级单例（生产环境默认路径，首次自动建表）。
+    - 传入 db_path：返回该路径的新连接（测试隔离 / 多数据库场景）。
+      调用方负责 close()。
+    """
+    if db_path is not None:
+        # 测试或多数据库场景：每次创建独立连接
+        conn = sqlite3.connect(db_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    # 生产单例路径
+    global _conn, _db_path
     if _conn is not None:
         return _conn
 
-    _db_path = db_path or _default_db_path()
+    _db_path = _default_db_path()
     os.makedirs(os.path.dirname(_db_path), exist_ok=True)
 
     _conn = sqlite3.connect(_db_path)

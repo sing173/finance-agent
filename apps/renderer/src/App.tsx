@@ -22,7 +22,6 @@ declare global {
     electronAPI: {
       parseFile: (params: ParseFileParams) => Promise<ParseFileResult>;
       generateExcel: (params: any) => Promise<any>;
-      generateVoucher: (params: any) => Promise<any>;
       importSubjects: (params: any) => Promise<any>;
       getSubjectsInfo: () => Promise<any>;
       selectFile: (filter?: string, allowMulti?: boolean) => Promise<string[] | string | null>;
@@ -482,9 +481,6 @@ function App() {
 
         </div>
       </Content>
-      <Footer style={{ textAlign: 'center' }}>
-        Finance Assistant ©2026 — Built with Electron + React + Python
-      </Footer>
 
       {/* 手动覆盖模态框（单文件 + 批量共用） */}
       {overrideContext && (

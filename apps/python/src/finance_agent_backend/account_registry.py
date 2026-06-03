@@ -7,6 +7,7 @@ import os
 from typing import List, Optional
 
 from finance_agent_backend.models import AccountEntry
+from finance_agent_backend.paths import get_config_path
 
 
 # ---------------------------------------------------------------------------
@@ -157,10 +158,5 @@ def get_registry() -> AccountRegistry:
 
 
 def _default_config_path() -> str:
-    """Resolve the default account_mapping.json path (dev vs packaged)."""
-    import sys
-    if getattr(sys, 'frozen', False):
-        base = sys._MEIPASS
-    else:
-        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base, 'finance_agent_backend', 'config', 'account_mapping.json')
+    """account_mapping.json 默认路径（委托 paths 模块）。"""
+    return get_config_path('account_mapping.json')

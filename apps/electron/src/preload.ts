@@ -3,7 +3,6 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 contextBridge.exposeInMainWorld('electronAPI', {
   parseFile: (params: any) => ipcRenderer.invoke('parse_pdf', params),
   generateExcel: (params: any) => ipcRenderer.invoke('generate_excel', params),
-  generateVoucher: (params: any) => ipcRenderer.invoke('generate_voucher_excel', params),
   importSubjects: (params: any) => ipcRenderer.invoke('import_subjects', params),
   getSubjectsInfo: () => ipcRenderer.invoke('get_subjects_info', {}),
   selectFile: (filter: string, allowMulti?: boolean) => ipcRenderer.invoke('select_file', { filter, allowMulti: !!allowMulti }),

@@ -6,7 +6,6 @@ voucher.save_draft RPC.
 import os
 import sys
 import json
-import tempfile
 import sqlite3
 from datetime import date
 from decimal import Decimal
@@ -65,17 +64,13 @@ SIMPLE_SUBJECT_MAPPING = {
 
 
 @pytest.fixture
-def tmp_db():
-    fd, path = tempfile.mkstemp(suffix='.db')
-    os.close(fd)
+def tmp_db(tmp_path):
+    """临时数据库（pytest 自动清理），初始化 schema。"""
+    path = str(tmp_path / "test.db")
     conn = sqlite3.connect(path)
     init_db(conn)
     conn.close()
-    yield path
-    try:
-        os.unlink(path)
-    except OSError:
-        pass
+    return path
 
 
 # ── 测试 ──────────────────────────────────────────────────────
