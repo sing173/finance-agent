@@ -13,7 +13,7 @@ import { useBatchOrchestrator } from './hooks/useBatchOrchestrator';
 import { useVoucherFlow } from './hooks/useVoucherFlow';
 import type { BatchResult, Transaction, ParseFileParams, ParseFileResult, DetectBanksResult, DetectSupportedBanksResult, DocType } from '@shared/types';
 
-const { Header, Content, Footer } = Layout;
+const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 
 // 声明 window.electronAPI 类型
