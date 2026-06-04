@@ -11,18 +11,27 @@ import sqlite3
 from collections import Counter
 from datetime import datetime, timezone
 
+from finance_agent_backend.db import init_db
 from finance_agent_backend.subject_matcher import MatchResult
+
+# L2 余弦相似度阈值：≥ 此值视为匹配
+DEFAULT_SIMILARITY_THRESHOLD = 0.75
 
 
 class SubjectHistoryRepo:
     """subject_history 表读写封装。"""
 
+    # 类级缓存：(db_path, direction) → (rows, doc_tokens_list, idf)
+    # insert() 写入后自动失效。
+    _cache: dict[tuple[str, str], tuple] = {}
+
     def __init__(self, db_path: str):
         self._db_path = db_path
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._db_path)
-        conn.row_factory = sqlite3.Row
+        from finance_agent_backend import db as _db
+        conn = _db.get_db(db_path=self._db_path)
+        init_db(conn)  # 确保 subject_history 等表已建（幂等）
         return conn
 
     def insert(
@@ -33,9 +42,18 @@ class SubjectHistoryRepo:
         subject_name: str,
         counterparty: str = '',
         voucher_id: str = '',
+        conn=None,
     ) -> None:
-        """写入一条手动修正记录（UNIQUE 约束去重）。"""
-        conn = self._connect()
+        """写入一条手动修正记录（UNIQUE 约束去重）。
+
+        参数:
+            conn: 外部 sqlite3.Connection（可选）。传入时复用该连接，
+                  不传入时自动打开新连接（原有行为不变）。
+        """
+        close_after = False
+        if conn is None:
+            conn = self._connect()
+            close_after = True
         try:
             conn.execute(
                 """INSERT OR IGNORE INTO subject_history
@@ -54,44 +72,67 @@ class SubjectHistoryRepo:
                 ),
             )
             conn.commit()
+            # 使对应 (db_path, direction) 的缓存失效
+            SubjectHistoryRepo._cache.pop((self._db_path, direction), None)
         finally:
-            conn.close()
+            if close_after:
+                conn.close()
 
     def find_similar(
         self,
         summary: str,
         direction: str,
-        threshold: float = 0.75,
+        threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
+        conn=None,
     ) -> MatchResult | None:
         """TF-IDF 余弦相似度 ≥ threshold 则返回最佳匹配科目。
 
         参数:
             summary: 待匹配摘要
             direction: 'expense' / 'income'（不同方向不交叉匹配）
-            threshold: 余弦相似度阈值（默认 0.75）
+            threshold: 余弦相似度阈值（默认 DEFAULT_SIMILARITY_THRESHOLD=0.75）
+            conn: 外部 sqlite3.Connection（可选）。传入时复用该连接。
         """
-        conn = self._connect()
-        try:
-            rows = conn.execute(
-                """SELECT summary, subject_code, subject_name
-                   FROM subject_history
-                   WHERE direction = ?
-                   ORDER BY confirmed_at DESC""",
-                (direction,),
-            ).fetchall()
-        finally:
-            conn.close()
+        # 检查缓存：命中时跳过 DB 查询
+        cache_key = (self._db_path, direction)
+        cached = SubjectHistoryRepo._cache.get(cache_key)
+        if cached is not None:
+            rows, doc_tokens_list, idf = cached
+        else:
+            close_after = False
+            if conn is None:
+                conn = self._connect()
+                close_after = True
+            try:
+                rows = conn.execute(
+                    """SELECT summary, subject_code, subject_name
+                       FROM subject_history
+                       WHERE direction = ?
+                       ORDER BY confirmed_at DESC""",
+                    (direction,),
+                ).fetchall()
+            finally:
+                if close_after:
+                    conn.close()
+
+            if not rows:
+                return None
+
+            doc_tokens_list = [_tokenize(row["summary"]) for row in rows]
+            idf = _compute_idf(doc_tokens_list)
+            SubjectHistoryRepo._cache[cache_key] = (rows, doc_tokens_list, idf)
 
         if not rows:
             return None
 
-        query_tokens = _tokenize(summary)
+        query_vec = _compute_tfidf(_tokenize(summary), idf)
+
         best_score = 0.0
         best_row = None
 
-        for row in rows:
-            doc_tokens = _tokenize(row["summary"])
-            score = _cosine_similarity(query_tokens, doc_tokens)
+        for row, doc_tokens in zip(rows, doc_tokens_list):
+            doc_vec = _compute_tfidf(doc_tokens, idf)
+            score = _cosine_similarity(query_vec, doc_vec)
             if score > best_score:
                 best_score = score
                 best_row = row
@@ -115,26 +156,49 @@ def _hash_summary(s: str) -> str:
 
 def _tokenize(text: str) -> Counter[str]:
     """中文 2-gram 字符切片分词（不需要 jieba）。"""
-    # 保留中文、字母、数字
     cleaned = ''.join(c for c in text if c.isalnum() or '一' <= c <= '鿿')
     if len(cleaned) < 2:
         return Counter({cleaned: 1}) if cleaned else Counter()
     return Counter(cleaned[i:i+2] for i in range(len(cleaned) - 1))
 
 
-def _cosine_similarity(a: Counter[str], b: Counter[str]) -> float:
-    """两个 Counter 向量的余弦相似度。
+def _compute_idf(doc_tokens_list: list[Counter[str]]) -> dict[str, float]:
+    """计算逆文档频率 IDF: log(N / df) + 1（平滑处理）。
 
-    返回 [0.0, 1.0] 范围内的值。空向量 → 0.0。
+    N = 文档总数，df = 包含该词的文档数。
+    +1 平滑确保即使 df=N（词在所有文档中都出现）时 IDF > 0，
+    且单文档场景（N=1）不会导致所有 IDF=0。
+    """
+    n = len(doc_tokens_list)
+    if n == 0:
+        return {}
+    df: dict[str, int] = {}
+    for tokens in doc_tokens_list:
+        for term in tokens:
+            df[term] = df.get(term, 0) + 1
+    return {term: math.log(n / count) + 1.0 for term, count in df.items()}
+
+
+def _compute_tfidf(tokens: Counter[str], idf: dict[str, float]) -> dict[str, float]:
+    """将词频 Counter 转为 TF-IDF 向量（dict）。"""
+    total = sum(tokens.values())
+    if total == 0:
+        return {}
+    return {term: (count / total) * idf.get(term, 0.0) for term, count in tokens.items()}
+
+
+def _cosine_similarity(a: dict[str, float], b: dict[str, float]) -> float:
+    """两个 TF-IDF 向量的余弦相似度。
+
+    输入应为 _compute_tfidf 返回的 dict（已含 TF-IDF 权重）。
+    返回 [0.0, 1.0]，空向量 → 0.0。
     """
     if not a or not b:
         return 0.0
 
-    # 公共项的 dot product
     common = set(a.keys()) & set(b.keys())
     dot = sum(a[k] * b[k] for k in common)
 
-    # 各自的 L2 范数
     norm_a = math.sqrt(sum(v ** 2 for v in a.values()))
     norm_b = math.sqrt(sum(v ** 2 for v in b.values()))
 

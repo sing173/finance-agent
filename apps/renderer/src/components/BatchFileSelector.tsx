@@ -45,7 +45,7 @@ export function BatchFileSelector({
   // Load batch config dynamically
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/batch_config.json', { signal: controller.signal })
+    fetch('./batch_config.json', { signal: controller.signal })
       .then((r) => r.json())
       .then((data) => setMaxFiles(data.maxBatchFiles || 5))
       .catch((err) => {

@@ -6,7 +6,6 @@ voucher.save_draft RPC.
 import os
 import sys
 import json
-import tempfile
 import sqlite3
 from datetime import date
 from decimal import Decimal
@@ -65,17 +64,13 @@ SIMPLE_SUBJECT_MAPPING = {
 
 
 @pytest.fixture
-def tmp_db():
-    fd, path = tempfile.mkstemp(suffix='.db')
-    os.close(fd)
+def tmp_db(tmp_path):
+    """临时数据库（pytest 自动清理），初始化 schema。"""
+    path = str(tmp_path / "test.db")
     conn = sqlite3.connect(path)
     init_db(conn)
     conn.close()
-    yield path
-    try:
-        os.unlink(path)
-    except OSError:
-        pass
+    return path
 
 
 # ── 测试 ──────────────────────────────────────────────────────
@@ -83,20 +78,20 @@ def tmp_db():
 class TestCompose:
     """VoucherComposer.compose() — 同类合并 + 借贷方向。"""
 
-    def test_basic_compose(self, tmp_db):
+    def test_basic_compose(self):
         from finance_agent_backend.voucher_composer import VoucherComposer
 
-        composer = VoucherComposer(db_path=tmp_db)
+        composer = VoucherComposer()
         result = composer.compose(SAMPLE_TXNS, SIMPLE_SUBJECT_MAPPING)
 
         # 2 笔物业费（同对方科目+同方向）→ 1 张凭证
         # 1 笔货款收入 → 1 张凭证
         assert len(result) == 2
 
-    def test_merge_same_counterparty(self, tmp_db):
+    def test_merge_same_counterparty(self):
         from finance_agent_backend.voucher_composer import VoucherComposer
 
-        composer = VoucherComposer(db_path=tmp_db)
+        composer = VoucherComposer()
         result = composer.compose(SAMPLE_TXNS, SIMPLE_SUBJECT_MAPPING)
 
         # 凭证 #1: 物业费（expense → 2 entries + 1 bank entry）
@@ -107,11 +102,11 @@ class TestCompose:
         assert len(entries) == 3  # 2. 物业费分录 + 1 bank 分录
         assert entries[0]["subject_code"] == "5060203"
 
-    def test_direction_expense_debit_counterpart(self, tmp_db):
+    def test_direction_expense_debit_counterpart(self):
         """支出→借方对方科目，贷方银行科目。"""
         from finance_agent_backend.voucher_composer import VoucherComposer
 
-        composer = VoucherComposer(db_path=tmp_db)
+        composer = VoucherComposer()
         result = composer.compose(SAMPLE_TXNS, SIMPLE_SUBJECT_MAPPING)
 
         voucher1 = result[0]  # expense
@@ -124,11 +119,11 @@ class TestCompose:
         assert bank_entry["credit_amount"] is not None
         assert bank_entry["debit_amount"] is None
 
-    def test_direction_income_credit_counterpart(self, tmp_db):
+    def test_direction_income_credit_counterpart(self):
         """收入→贷方对方科目，借方银行科目。"""
         from finance_agent_backend.voucher_composer import VoucherComposer
 
-        composer = VoucherComposer(db_path=tmp_db)
+        composer = VoucherComposer()
         result = composer.compose(SAMPLE_TXNS, SIMPLE_SUBJECT_MAPPING)
 
         voucher2 = result[1]  # income
@@ -138,11 +133,11 @@ class TestCompose:
         # 分录 2: 贷 对方科目
         assert entries[1]["credit_amount"] is not None
 
-    def test_totals_balance(self, tmp_db):
+    def test_totals_balance(self):
         """借方合计 = 贷方合计。"""
         from finance_agent_backend.voucher_composer import VoucherComposer
 
-        composer = VoucherComposer(db_path=tmp_db)
+        composer = VoucherComposer()
         result = composer.compose(SAMPLE_TXNS, SIMPLE_SUBJECT_MAPPING)
 
         for voucher in result:
@@ -157,7 +152,7 @@ class TestCompose:
             )
             assert total_debit > 0  # non-trivial voucher
 
-    def test_no_merge_different_counterparty_account(self, tmp_db):
+    def test_no_merge_different_counterparty_account(self):
         """不同对方账号的相同科目不合并。"""
         from finance_agent_backend.voucher_composer import VoucherComposer
 
@@ -176,12 +171,12 @@ class TestCompose:
                 ],
             },
         }
-        composer = VoucherComposer(db_path=tmp_db)
+        composer = VoucherComposer()
         result = composer.compose(txns, mapping)
         # 不同对方账号 → 各一张凭证
         assert len(result) == 2
 
-    def test_merge_same_counterparty_account(self, tmp_db):
+    def test_merge_same_counterparty_account(self):
         """相同对方账号（含无值视为通配）相同科目合并。"""
         from finance_agent_backend.voucher_composer import VoucherComposer
 
@@ -200,17 +195,59 @@ class TestCompose:
                 ],
             },
         }
-        composer = VoucherComposer(db_path=tmp_db)
+        composer = VoucherComposer()
         result = composer.compose(txns, mapping)
         # 相同对方账号 → 合并为一张凭证
         assert len(result) == 1
         assert len(result[0]["entries"]) == 3  # 2 对方分录 + 1 银行分录
 
 
+class TestUnmatchedIndependent:
+    """多条 unmatched 交易各自独立成凭证，不合并（P0 回归修复）。"""
+
+    def test_unmatched_transactions_not_merged(self):
+        from finance_agent_backend.voucher_composer import VoucherComposer
+
+        txns = [
+            _make_txn("2026-04-01", "支付AWS云主机托管服务费", 1200.00, "expense",
+                      counterparty="阿里云计算", acct="622202****1234", ref=""),
+            _make_txn("2026-04-02", "购买办公设备一批", 3500.00, "expense",
+                      counterparty="戴尔科技", acct="622202****1234", ref=""),
+            _make_txn("2026-04-03", "支付法律顾问费", 5000.00, "expense",
+                      counterparty="律师事务所", acct="622202****1234", ref=""),
+        ]
+        # 空规则：所有交易均无法匹配 → __unmatched__
+        mapping = {"version": 2, "expense": {"rules": []}, "income": {"rules": []}}
+        composer = VoucherComposer()
+        result = composer.compose(txns, mapping)
+        # 每条 unmatched 应独立成凭证
+        assert len(result) == 3, f"expected 3 independent vouchers, got {len(result)}"
+        for v in result:
+            # 每张凭证只有 1 条对方分录 + 1 条银行分录
+            non_bank = [e for e in v["entries"] if e.get("direction") != "bank"]
+            assert len(non_bank) == 1, f"voucher should have exactly 1 non-bank entry, got {len(non_bank)}"
+
+    def test_unmatched_same_account_different_descriptions_independent(self):
+        """相同账号+相同方向的多条 unmatched 交易各独立成凭证。"""
+        from finance_agent_backend.voucher_composer import VoucherComposer
+
+        txns = [
+            _make_txn("2026-04-01", "未知交易A", 100.00, "expense",
+                      counterparty="对手A", acct="622202****1234", ref=""),
+            _make_txn("2026-04-01", "未知交易B", 200.00, "expense",
+                      counterparty="对手B", acct="622202****1234", ref=""),
+        ]
+        mapping = {"version": 2, "expense": {"rules": []}, "income": {"rules": []}}
+        composer = VoucherComposer()
+        result = composer.compose(txns, mapping)
+        # 即使账号相同，unmatched 也各自独立
+        assert len(result) == 2, f"unmatched with same account should still be independent, got {len(result)}"
+
+
 class TestPreviewRPC:
     """voucher.preview JSON-RPC 方法。"""
 
-    def test_preview_returns_vouchers(self, tmp_db):
+    def test_preview_returns_vouchers(self):
         from finance_agent_backend.bridge import handle_request
 
         # Register composer handler (bridge already loads it)

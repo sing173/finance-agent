@@ -563,7 +563,6 @@ CREATE TABLE subject_history (
   subject_code    TEXT    NOT NULL,
   subject_name    TEXT,
   direction       TEXT    NOT NULL CHECK (direction IN ('expense', 'income')),
-  amount          REAL,
   counterparty    TEXT,
   confirmed_at    TEXT    NOT NULL,
   voucher_id      TEXT,
@@ -630,6 +629,8 @@ CREATE TABLE schema_version (
   applied_at TEXT NOT NULL
 );
 ```
+
+> **实现差异**：`voucher_draft.metadata_json` 和 `voucher_draft_entry.sort_order` 在 PRD 中有定义但 `db.py` 尚未实现，后续版本补充。
 
 #### 4.3 表职责
 

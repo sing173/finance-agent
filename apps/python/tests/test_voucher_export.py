@@ -2,7 +2,7 @@
 
 Tests: voucher.export, voucher.load_draft, voucher.list_drafts, voucher.delete_draft.
 """
-import os, sys, tempfile, sqlite3
+import os, sys, sqlite3
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
@@ -11,17 +11,13 @@ from finance_agent_backend.db import init_db
 
 
 @pytest.fixture
-def tmp_db():
-    fd, path = tempfile.mkstemp(suffix='.db')
-    os.close(fd)
+def tmp_db(tmp_path):
+    """临时数据库（pytest 自动清理），初始化 schema。"""
+    path = str(tmp_path / "test.db")
     conn = sqlite3.connect(path)
     init_db(conn)
     conn.close()
-    yield path
-    try:
-        os.unlink(path)
-    except OSError:
-        pass
+    return path
 
 
 @pytest.fixture
@@ -52,14 +48,9 @@ def draft_id(tmp_db):
 
 
 @pytest.fixture
-def export_path():
-    fd, path = tempfile.mkstemp(suffix='.xlsx')
-    os.close(fd)
-    yield path
-    try:
-        os.unlink(path)
-    except OSError:
-        pass
+def export_path(tmp_path):
+    """临时导出路径（pytest 自动清理）。"""
+    return str(tmp_path / "voucher.xlsx")
 
 
 class TestLoadDraft:
