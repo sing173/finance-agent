@@ -28,6 +28,20 @@ class SubjectHistoryRepo:
     def __init__(self, db_path: str):
         self._db_path = db_path
 
+    @classmethod
+    def clear_cache(cls, db_path: str | None = None) -> None:
+        """清空缓存（测试 teardown 使用）。
+
+        参数:
+            db_path: 若提供，仅清空该 db_path 相关的缓存；否则清空全部。
+        """
+        if db_path is None:
+            cls._cache.clear()
+        else:
+            keys_to_remove = [k for k in cls._cache if k[0] == db_path]
+            for k in keys_to_remove:
+                cls._cache.pop(k, None)
+
     def _connect(self) -> sqlite3.Connection:
         from finance_agent_backend import db as _db
         conn = _db.get_db(db_path=self._db_path)

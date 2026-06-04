@@ -213,15 +213,17 @@ class TestThreeLayerChain:
     def test_l1_miss_l2_hit(self, tmp_db):
         from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
 
-        # Insert a history entry
+        # Insert a history entry — 摘要避开所有 L1 规则关键词
         repo = SubjectHistoryRepo(tmp_db)
-        repo.insert("支付网银转账费用", "expense", "1022120",
-                    "其他应收款_手续费", "")
+        repo.insert("支付阿里云计算平台托管费", "expense", "5060201",
+                    "管理费用_办公费", "阿里云")
 
-        # "网银转账费用" doesn't match any L1 rule → L1 miss
-        # L2 should find similar "支付网银转账费用" ≈ "支付网银转账费用"
-        result = match("网银转账费用", "expense", "", repo=repo)
-        assert result.source in ("history", "rule")  # L1 might hit "手续" — check
+        # L1 无规则命中 → L2 应通过 TF-IDF 匹配
+        result = match("阿里云计算平台托管费支付", "expense", "阿里云", repo=repo)
+        assert result.source == "history", (
+            f"L2 应命中，实际: source={result.source}, code={result.subject_code}"
+        )
+        assert result.subject_code == "5060201"
 
     def test_both_miss_returns_unmatched(self, tmp_db):
         from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
