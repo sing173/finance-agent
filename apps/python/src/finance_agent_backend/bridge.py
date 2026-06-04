@@ -703,6 +703,7 @@ def handle_voucher_export(params: dict) -> dict:
             })
 
         txns_count = sum(1 for r in entry_rows if r["direction"] != "bank")
+        voucher_count = len({r["voucher_no"] for r in entry_rows})
 
         if entry_dicts:
             builder = excel_builder.ExcelBuilder()
@@ -725,7 +726,7 @@ def handle_voucher_export(params: dict) -> dict:
                        transaction_count, source_files, match_stats, draft_id)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (now, period, output_path,
-             1, len(entry_rows), txns_count,
+             voucher_count, len(entry_rows), txns_count,
              json.dumps(source_files), json.dumps(sources), draft_id),
         )
         conn.commit()
@@ -741,6 +742,7 @@ def handle_voucher_export(params: dict) -> dict:
                     subject_name=r["subject_name"] or "",
                     counterparty=r["counterparty"] or "",
                     voucher_id=draft_id,
+                    conn=conn,
                 )
 
         # Mark draft as exported
@@ -753,7 +755,7 @@ def handle_voucher_export(params: dict) -> dict:
         return {
             "success": True,
             "file_path": output_path,
-            "voucher_count": 1,
+            "voucher_count": voucher_count,
             "entry_count": len(entry_rows),
             "transaction_count": txns_count,
         }

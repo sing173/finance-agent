@@ -125,6 +125,7 @@ class VoucherEntryFactory:
                     len(entries) + 1, voucher_no, gt.txn,
                     gt.counter_code or '', gt.counter_name,
                     float(gt.txn.amount), None, gt.match_source,
+                    gt.match_rule_id,
                 ))
             entries.append(VoucherEntryFactory._bank_entry(
                 len(entries) + 1, voucher_no, group.txns[0].txn.date,
@@ -141,6 +142,7 @@ class VoucherEntryFactory:
                     len(entries) + 1, voucher_no, gt.txn,
                     gt.counter_code or '', gt.counter_name,
                     None, float(gt.txn.amount), gt.match_source,
+                    gt.match_rule_id,
                 ))
 
         return entries
@@ -155,6 +157,7 @@ class VoucherEntryFactory:
             "direction": txn.direction,
             "counterparty": txn.counterparty or '',
             "match_source": source,
+            "rule_id": rule_id,
             "original_summary": txn.description,
             "original_amount": float(txn.amount),
             "is_manual": False,

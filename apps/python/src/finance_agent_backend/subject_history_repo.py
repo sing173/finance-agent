@@ -93,35 +93,38 @@ class SubjectHistoryRepo:
             threshold: 余弦相似度阈值（默认 DEFAULT_SIMILARITY_THRESHOLD=0.75）
             conn: 外部 sqlite3.Connection（可选）。传入时复用该连接。
         """
-        close_after = False
-        if conn is None:
-            conn = self._connect()
-            close_after = True
-        try:
-            rows = conn.execute(
-                """SELECT summary, subject_code, subject_name
-                   FROM subject_history
-                   WHERE direction = ?
-                   ORDER BY confirmed_at DESC""",
-                (direction,),
-            ).fetchall()
-        finally:
-            if close_after:
-                conn.close()
+        # 检查缓存：命中时跳过 DB 查询
+        cache_key = (self._db_path, direction)
+        cached = SubjectHistoryRepo._cache.get(cache_key)
+        if cached is not None:
+            rows, doc_tokens_list, idf = cached
+        else:
+            close_after = False
+            if conn is None:
+                conn = self._connect()
+                close_after = True
+            try:
+                rows = conn.execute(
+                    """SELECT summary, subject_code, subject_name
+                       FROM subject_history
+                       WHERE direction = ?
+                       ORDER BY confirmed_at DESC""",
+                    (direction,),
+                ).fetchall()
+            finally:
+                if close_after:
+                    conn.close()
+
+            if not rows:
+                return None
+
+            doc_tokens_list = [_tokenize(row["summary"]) for row in rows]
+            idf = _compute_idf(doc_tokens_list)
+            SubjectHistoryRepo._cache[cache_key] = (rows, doc_tokens_list, idf)
 
         if not rows:
             return None
 
-        # 检查缓存：(db_path, direction) → (rows, doc_tokens_list, idf)
-        cache_key = (self._db_path, direction)
-        cached = SubjectHistoryRepo._cache.get(cache_key)
-        if cached is not None:
-            cached_rows, doc_tokens_list, idf = cached
-            rows = cached_rows  # 用缓存中的 rows（与当前查询结果一致）
-        else:
-            doc_tokens_list = [_tokenize(row["summary"]) for row in rows]
-            idf = _compute_idf(doc_tokens_list)
-            SubjectHistoryRepo._cache[cache_key] = (rows, doc_tokens_list, idf)
         query_vec = _compute_tfidf(_tokenize(summary), idf)
 
         best_score = 0.0

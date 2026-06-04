@@ -31,15 +31,6 @@ def export_dir(tmp_path):
     d = tmp_path / "export"
     d.mkdir()
     return str(d)
-    for f in os.listdir(d):
-        try:
-            os.unlink(os.path.join(d, f))
-        except OSError:
-            pass
-    try:
-        os.rmdir(d)
-    except OSError:
-        pass
 
 
 def _reset_db(db_path):
