@@ -1,425 +1,142 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件为 Claude Code 在此仓库中工作时提供指导。
 
-## Project Overview
+## 项目概述
 
-**FinanceAssistant** — A bank statement processing desktop application built with Electron + Python.
+**FinanceAssistant** — 桌面应用：银行流水（PDF/CSV/Excel）→ 交易明细 → Excel / 金蝶凭证。
 
-The application is a multi-process desktop app:
-- **Renderer** (React + TypeScript + Vite) — Frontend UI
-- **Electron** (Node.js + TypeScript) — Main process, window management, IPC
-- **Python** (custom tools) — PDF/CSV/Excel parsing, OCR, Excel export, voucher generation
+多进程架构：**Renderer**（React + TS + Vite）→ **Electron**（Node + TS）→ **Python**（stdio JSON-RPC）。
 
-**Note**: This project does NOT implement reconciliation (对账) functionality. Focus is on bank statement PDF/CSV/Excel parsing, OCR-based receipt extraction, and Excel/voucher export.
+**当前状态**：v0.3.0 — 凭证系统（三层科目匹配 + SQLite 草稿 + TF-IDF 历史学习）已上线。
 
-**Status**: v0.1.0 completed (demo phase). Starting v0.2.0 productization.
+**范围**：领域上下文详见 `CONTEXT.md`。
 
 ---
 
-## High-Level Project Status (v0.1.0 → v0.2.0)
+## 关键决策与约束
 
-### v0.1.0 Achievements (Demo Phase)
-- Multi-bank PDF statement parsing: ICBC (工商银行), CMB (招商银行), GFB (广发银行)
-- ICBC receipt (回单) OCR parsing via grid-line detection + RapidOCR
-- ICBC CSV account statement parsing (GBK encoding)
-- CMB Excel statement parsing (.xlsx)
-- CMB receipt parsing
-- Excel export for parsed transactions
-- Voucher (凭证) export in Kingdee Jingdouyun (金蝶精斗云) format
-- Subject (科目) management: import from xlsx, built-in config
-- File-based logging with rotation (10MB × 3)
-- PyInstaller packaging for Python backend (bridge.exe)
-- Electron + electron-builder packaging (NSIS installer)
-- Full integration test suite (bridge-ipc, ipc-methods, icbc-csv, icbc-ocr-workflow)
+### 路径解析
+- 所有路径逻辑集中在 `apps/python/src/finance_agent_backend/paths.py`（开发环境与打包环境 `sys._MEIPASS` 双模式）。
+- 禁止内联计算项目根路径 — 委托给 `paths.get_project_root()` / `get_config_path()` / `get_db_path()`。
 
-### v0.2.0 Goals (Productization)
-- Code quality: reduce duplication across 13 parser files
-- Error handling: consistent error propagation and user-facing messages
-- Configuration: externalize bank-specific parsing rules
-- Testing: expand coverage, add unit tests for individual parsers
-- Performance: optimize OCR pipeline, lazy-load heavy dependencies
-- UX: improve progress feedback, error display, file type guidance
-- Packaging: fix signing, reduce installer size, auto-update support
+### 数据库
+- `db.get_db()` 无参时返回单例，传入 `db_path` 时返回独立连接（测试隔离）。
+- WAL 模式，`foreign_keys=ON`，`sqlite3.Row` row factory。
+- Schema 版本由 `schema_version` 表追踪；迁移通过 `init_db()` 执行。
+- **测试必须传入 `db_path`** 获取隔离连接；不要在测试中依赖单例。
+
+### 科目匹配（三层）
+- L1：`RuleMatcher` — 从 `subject_mapping.json` 加载 JSON 规则
+- L2：`HistoryMatcher` — TF-IDF 余弦相似度（阈值 0.75），类级缓存以 `(db_path, direction)` 为 key，`insert()` 时自动失效
+- L3：`SubjectMatcher` — L1/L2 均未命中时返回 `unmatched`
+- **训练数据**：仅用户导出时 `is_manual=1` 的分录写入 `subject_history`。自动匹配结果不记录。
+- 完整匹配与训练细节见 `CONTEXT.md`。
+
+### IPC / JSON-RPC
+- 方法通过 `bridge.py` 中的 `@register_method("name")` 装饰器注册。
+- 当前有效 RPC 方法：`parse_pdf`、`detect_banks`、`detect_supported_banks`、`generate_excel`、`import_subjects`、`get_subjects_info`、`select_file`、`voucher.preview`、`voucher.save_draft`、`voucher.export`、`voucher.list_drafts`、`voucher.load_draft`、`voucher.delete_draft`、`db.health`。
+- 已删除：`health`（版本号改由 electron-builder 管理）、`generate_voucher_excel`（死代码，前端从未调用）、`parse_csv`（改用 `parse_pdf`）。
+- **未知银行 → 强制拒绝**。无通用兜底解析器。用户必须手动选择银行 / docType。
+
+### 解析器架构
+- `tools/` 下 11 个解析器，全部继承 `BaseStatementParser`。
+- `cmb_table_parser.py` 同时处理表格式流水和回单（内嵌 `_parse_receipt()` 方法）。
+- `parser_router.py` 延迟导入 — 每次请求只加载需要的解析器。
+- `detect_bank_from_pdf()` 返回 `dict{bankCode, bank, docType}`，而非裸 tuple。
+
+### 凭证管道
+- `voucher.preview` → `VoucherComposer` 按（账号, 对方科目, 方向, 对方账号）四元组合并。
+- `voucher.save_draft` → 写入 `voucher_draft` + `voucher_draft_entry`（批量 INSERT）。
+- `voucher.export` → 直接从 DB 分录导出 Excel（不重新匹配），写入 `export_log`，写入 `subject_history`（仅 manual），标记草稿为 `exported`。
+- `match_source` 枚举：`rule` / `history` / `manual` / `unmatched` / `auto`。
+
+### 前端
+- `shared/types.ts`：仅类型定义（interface / type），不含函数或常量。工具函数就近存放于消费侧模块（如 `hooks/voucher_utils.ts`）。
+- `useVoucherFlow.ts` 管理凭证状态机（idle → preview → saved → exported）。
+- `SubjectPickerModal` 使用虚拟滚动（react-window）— 297 条科目仅渲染约 10 个 DOM 节点。
 
 ---
 
-## Common Development Tasks
+## 项目结构
 
-### Prerequisites
+```
+apps/
+├── electron/src/        # IPC 注册中心、Python 进程管理、preload
+├── renderer/src/
+│   ├── hooks/           # useVoucherFlow, useBatchOrchestrator, useDebounce, useSubjects
+│   └── components/      # VoucherPreviewPanel, SubjectPickerModal, AccountSubjectManager, BatchFileSelector, BatchResultPanel, ...
+└── python/src/finance_agent_backend/
+    ├── bridge.py        # JSON-RPC 方法注册中心
+    ├── paths.py         # 统一路径解析（dev/packaged 双环境）
+    ├── db.py            # SQLite 单例 + schema 迁移
+    ├── account_registry.py   # 账号→科目 CRUD + match_by_account
+    ├── parser_router.py     # 按文件类型分发（延迟导入）
+    ├── base_parser.py       # 共享 PDF/结果工具类（所有解析器继承）
+    ├── subject_matcher.py   # RuleMatcher / HistoryMatcher / SubjectMatcher
+    ├── subject_history_repo.py  # TF-IDF 仓库（类级缓存）
+    ├── voucher_composer.py # 5 类组合器（GroupedTxn → VoucherGrouper → VoucherEntryFactory → VoucherComposer）
+    ├── tools/            # 11 个解析器 + excel_builder + subject_loader
+    └── config/           # subjects.json, subject_mapping.json, account_mapping.json
+shared/types.ts          # IPC/JSON-RPC schema, Transaction 模型
+docs/voucher-system-prd.md  # 凭证系统 PRD
+```
 
-- **Node.js**: >= 18.0.0
-- **Python**: >= 3.11
-- **Git**: any version
+---
 
-### Install Dependencies
+## 开发工作流
 
 ```bash
-# 1. Install Python dependencies
-cd apps/python
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
+# 初始化
+cd apps/python && python -m venv .venv && .venv\Scripts\activate && pip install -e ".[dev]"
+cd apps/electron && npm install
+cd apps/renderer && npm install
 
-# 2. Install Electron dependencies
-cd ../electron
-npm install
+# 开发模式
+# 终端 1：cd apps/python && .venv\Scripts\activate && python src/finance_agent_backend/bridge.py
+# 终端 2：cd apps/electron && npm run dev
 
-# 3. Install Renderer dependencies
-cd ../renderer
-npm install
+# 测试
+cd apps/python && pytest                                    # Python 单元测试
+cd apps/renderer && npm test                               # Vitest
+cd apps/electron && node tests/integration/v030-e2e.test.js # E2E（全功能）
+
+# Lint
+cd apps/python && ruff check . && black .
+cd apps/electron && npm run lint
+cd apps/renderer && npm run lint
 ```
 
-### One-shot setup (all apps)
-
-```bash
-# From repo root — installs all workspaces
-npm install
-cd apps/python && pip install -e ".[dev]"
-```
-
-### Development Mode
-
-```bash
-# Terminal 1: Start Python backend (standalone debugging)
-cd apps/python
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-python src/finance_agent_backend/bridge.py
-# Expected first output: {"jsonrpc":"2.0","result":{"status":"ok","version":"0.2.0",...}}
-
-# Terminal 2: Start Electron (connects to running Python)
-cd apps/electron
-npm run dev
-```
-
-### Build & Package
-
-```bash
-# Package Python backend
-cd apps/python
-python -m PyInstaller bridge.spec --onefile --clean
-# Output: dist/bridge.exe
-
-# Package Electron app
-cd ../electron
-npm run package
-# Output: release/FinanceAssistant Setup 0.1.0.exe
-```
-
-### Running Tests
-
-```bash
-# Electron integration test (全功能，8 Phase / 31 step)
-cd apps/electron
-node tests/integration/v030-e2e.test.js
-```
-
-```bash
-# Python tests
-cd apps/python
-pytest
-
-# Renderer unit tests (vitest)
-cd apps/renderer
-npm test
-```
-
-### Linting & Formatting
-
-```bash
-# Python (ruff + black — config in pyproject.toml)
-cd apps/python
-ruff check .
-black .
-
-# TypeScript/JavaScript
-cd apps/electron
-npm run lint
-cd apps/renderer
-npm run lint
-```
+### Windows 特有
+- Bash 路径：使用正斜杠（`D:/git/finance-agent/...`）。
+- 启动 Python 子进程时必须设置 `PYTHONIOENCODING=utf-8`。
+- PyMuPDF：使用 `fitz.open("pdf", bytes)` 而非 `fitz.open(file_path)` — 解决中文路径问题。
+- electron-builder 配置中 `asar: false`（`extraResources` 路径解析所必需）。
 
 ---
 
-## Architecture
+## 经验教训
 
-### High-Level Structure
+### 打包
+- PyInstaller C 启动器忽略 `PYTHONIOENCODING` → 在 bridge 启动时显式调用 `sys.stdin/stdout.reconfigure(encoding="utf-8")`。
+- RapidOCR ONNX 模型必须加入 PyInstaller `datas`，否则打包后 OCR 静默失败。
 
-```
-finance-assistant/
-├── apps/
-│   ├── electron/        # Electron main process (Node.js + TypeScript)
-│   │   ├── src/
-│   │   │   ├── main.ts              # Entry point, app lifecycle, window creation
-│   │   │   ├── ipc.ts               # ipcMain.handle() registry; forwards to Python
-│   │   │   ├── preload.ts           # contextBridge exposing electronAPI to renderer
-│   │   │   ├── pythonProcessManager.ts  # Spawns/manages Python bridge subprocess
-│   │   │   └── pathUtils.ts         # Python spawn path detection (dev vs packaged)
-│   │   └── tests/
-│   │       ├── integration/         # Integration tests
-│   │       │   ├── bridge-ipc.test.js
-│   │       │   ├── ipc-methods.test.js
-│   │       │   ├── icbc-csv.test.js
-│   │       │   ├── icbc-ocr-workflow.test.js
-│   │       │   └── full-workflow.test.js
-│   │       └── README.md            # Test documentation and coverage matrix
-│   ├── renderer/        # React frontend (TypeScript + Vite)
-│   │   └── src/
-│   │       ├── App.tsx                # Main UI: file select, parse, export, transaction table
-│   │       ├── main.tsx               # React entry point
-│   │       ├── hooks/
-│   │       │   └── useBatchOrchestrator.ts  # Batch file orchestration hook
-│   │       └── components/
-│   │           ├── FileDropZone.tsx    # File selection (PDF/CSV/Excel via Electron dialog)
-│   │           ├── TransactionTable.tsx # Paginated transaction table with filtering
-│   │           ├── ProgressSteps.tsx   # Step indicator (parse → export → done)
-│   │           ├── BatchFileSelector.tsx   # Batch file list with add/remove/parse
-│   │           ├── BatchResultPanel.tsx    # Batch result summary (success/failed counts)
-│   │           └── ManualOverrideModal.tsx # Manual bank/docType override for failed files
-│   └── python/          # Python backend
-│       ├── bridge.spec               # PyInstaller spec for bridge.exe
-│       └── src/finance_agent_backend/
-│           ├── bridge.py             # JSON-RPC 2.0 server over stdio (method registry + IPC routing)
-│           ├── models.py             # Transaction, ParseResult, Subject, VoucherEntry
-│           ├── config/               # Built-in configuration
-│           │   ├── subjects.json         # 会计科目字典
-│           │   ├── subject_mapping.json  # 科目映射规则
-│           │   └── account_mapping.json  # 账号映射规则
-│           ├── parser_router.py    # File-type-aware routing dispatch with lazy imports
-│           ├── base_parser.py       # BaseStatementParser: shared PDF/result/transaction utilities
-│           └── tools/               # 11 parser/builder tools
-│               ├── pdf_parser.py     # Generic bank statement PDF parser
-│               ├── cmb_parser.py     # CMB old columnar PDF parser
-│               ├── cmb_table_parser.py   # CMB table-format PDF parser (账务明细清单)
-│               ├── cmb_receipt_parser.py # CMB receipt PDF parser (回单)
-│               ├── cmb_excel_parser.py   # CMB Excel transaction parser (.xlsx)
-│               ├── icbc_parser.py        # ICBC statement PDF parser
-│               ├── icbc_csv_parser.py    # ICBC CSV account statement parser (GBK)
-│               ├── icbc_receipt_parser.py    # ICBC receipt parser (OCR-based)
-│               ├── icbc_receipt_grid_parser.py # ICBC receipt grid-line parser
-│               ├── gfb_table_parser.py   # GFB (广发银行) table-format PDF parser
-│               ├── excel_builder.py  # Transaction → Excel + voucher export
-│               └── subject_loader.py # Import accounting subjects from xlsx
-├── shared/              # Shared type definitions (TypeScript)
-│   └── types.ts         # IPC/JSON-RPC message schemas, Transaction model
-├── scripts/             # Build/packaging scripts
-│   ├── package.bat / package.sh   # Packaging scripts
-│   └── generate-test-cert.ps1     # Test cert generation
-├── docs/                # Detailed documentation
-│   ├── file-upload-design.md          # File upload + batch mode design
-│   ├── file-upload-plan.md            # File upload implementation plan
-│   ├── file-upload-prd.md             # File upload PRD
-│   ├── packaging-path-resolution.md   # Electron+Python cross-env path resolution
-│   ├── signing.md                     # Code signing guide
-│   └── export-excel-design.md         # Excel export design doc
-├── logs/                # Bridge log files (gitignored)
-├── .github/workflows/   # CI/CD pipelines
-│   └── ci.yml           # Build, test, package on push
-├── pyproject.toml       # Python package config (Poetry)
-├── package.json         # Root npm workspace config
-└── tsconfig.base.json   # Base TypeScript config for all TS projects
-```
+### 数据库测试隔离
+- `get_db(db_path=X)` 必须返回**新连接**，不能是单例。Bug 历史：曾返回缓存单例，污染测试结果。
 
-### IPC Communication Flow
+### 死代码识别
+- `generate_voucher_excel` 存在数月，前端从未调用。保留 bridge 方法前务必确认前端是否实际调用。
+- 删除方法时需同步检查：`preload.ts`、`ipc.ts`、`App.tsx`、`shared/types.ts`。
 
-1. **Renderer (React)** → **Electron main** via `window.electronAPI` (exposed by `preload.ts` using `contextBridge`)
-2. **Electron main** → **Python backend** via stdio JSON-RPC 2.0 (spawned subprocess managed by `pythonProcessManager.ts`)
-3. **Python backend** (`bridge.py`) routes method calls to registered handlers and returns results
-
-### File Upload Flow (v0.2.0)
-
-Single-file vs batch mode is determined automatically by the number of files selected:
-
-1. **User selects file(s)** via `FileDropZone` (click or drag-and-drop)
-2. **1 file** → single-file mode:
-   - `detectBanks([filePath])` → detect bank + docType
-   - User confirms or overrides bank/docType → `parseFile(params)` → display transactions
-3. **2+ files** → batch mode:
-   - `BatchFileSelector` shows file list with add/remove/clear
-   - "识别文件" → `detectBanks(filePaths)` on all pending files
-   - "开始解析" → `parseFile()` sequentially for each file
-   - Results aggregated in `BatchResultPanel` with success/failed counts
-4. **Export**: both modes share `useVoucherExport` hook for Kingdee Jingdouyun voucher generation
-
-Relevant docs: `docs/file-upload-design.md`, `docs/file-upload-plan.md`, `docs/file-upload-prd.md`
-
-### Registered JSON-RPC Methods
-
-| Method | Description | Added |
-|--------|-------------|-------|
-| `health` | Backend status, version, Python version | v0.1.0 |
-| `parse_pdf` | Parse bank statement — unified entry for PDF/CSV/Excel (auto-routes by extension and content) | v0.1.0 |
-| `parse_csv` | Direct ICBC CSV parsing shortcut (deprecated, use parse_pdf) | v0.1.0 |
-| `generate_excel` | Export transaction list to Excel (.xlsx) | v0.1.0 |
-| `generate_voucher_excel` | Export transactions as Kingdee Jingdouyun voucher template | v0.1.0 |
-| `import_subjects` | Import accounting subjects from xlsx → built-in subjects.json | v0.1.0 |
-| `get_subjects_info` | Query built-in subject table info | v0.1.0 |
-| `select_file` | Native file dialog (Electron-side, not JSON-RPC) | v0.1.0 |
-| `detect_banks` | Batch detect bank type from PDF files (returns bank + docType per file) | v0.2.0 |
-| `detect_supported_banks` | Query supported bank list dynamically from parser registry | v0.2.0 |
-
-### File Type Routing (parse_pdf)
-
-```
-User selects file
-  └── parser_router.route(file_path, bank?)    # File-type-aware dispatch (lazy imports)
-       ├── .xlsx → CMBExcelParser (招行Excel交易流水)
-       ├── .csv  → ICBCCSVParser (工行CSV对账流水)
-       └── .pdf
-            └── _detect_bank_from_pdf() → (bank, doc_type)
-                 ├── 扫描件 (no embedded text) or doc_type=receipt
-                 │    └── ICBCReceiptGridParser (grid-line OCR, self-validates)
-                 │         └── (fallback) ICBCParser (流水)
-                 ├── 工商银行 (statement)
-                 │    └── ICBCParser
-                 ├── 招商银行
-                 │    ├── receipt → CMBReceiptParser
-                 │    ├── table → CMBTableParser (账务明细清单)
-                 │    └── column → CMBParser (old format)
-                 ├── 广发银行 → GFBTableParser
-                 └── 未知银行 → BankStatementParser (generic)
-```
-
-### Bank Support Matrix
-
-| Bank | Statement (流水) | Receipt (回单) | CSV | Excel |
-|------|-----------------|---------------|-----|-------|
-| 工商银行 (ICBC) | `icbc_parser.py` | `icbc_receipt_grid_parser.py` | `icbc_csv_parser.py` | - |
-| 招商银行 (CMB) | `cmb_table_parser.py` / `cmb_parser.py` | `cmb_receipt_parser.py` | - | `cmb_excel_parser.py` |
-| 广发银行 (GFB) | `gfb_table_parser.py` | - | - | - |
+### 科目匹配
+- 训练数据质量很重要：只有手动修正的结果才应进入 `subject_history`，自动匹配的噪声会降低 TF-IDF 准确度。
+- 缓存失效必须在 `insert()` 路径上触发，不能只在 `find_similar()` 中处理。
 
 ---
 
-## Technology Stack
+## 参考
 
-- **Electron 32** — Cross-platform desktop shell
-- **React + Vite** — Frontend framework and bundler
-- **TypeScript 5.6** — Type safety across all layers
-- **Python 3.11+** — Business logic (PDF parsing, OCR, Excel generation)
-- **PyMuPDF (fitz) 1.24** — PDF text extraction
-- **RapidOCR (ONNX Runtime)** — OCR for scanned PDFs/receipts
-- **openpyxl 3.1** — Excel file generation
-- **opencv-python 4.8** — Image preprocessing for OCR
-- **PyInstaller** — Python binary packaging
-- **electron-builder 24** — Electron app packaging (NSIS on Windows)
-- **Poetry** — Python dependency management
-- **Ruff + Black** — Python lint/format
-- **ESLint + Prettier** — TS/JS lint/format
-
----
-
-## Conventions
-
-- Python source lives in `apps/python/src/finance_agent_backend/`
-- Electron main process code in `apps/electron/src/`
-- Renderer React code in `apps/renderer/src/`
-- Shared types in `shared/` — update these when IPC schemas change
-- Built-in config in `apps/python/src/finance_agent_backend/config/` (subjects.json, etc.)
-- Use named exports consistently; avoid default exports in shared types
-- Python virtualenv managed by Poetry, not committed
-- Never commit secrets — use `.env` (gitignored) with `.env.example` as template
-- **No reconciliation (对账) logic** — this project does not implement bank-ledger matching
-- Bridge methods registered via `@register_method("name")` decorator in `bridge.py`
-
-### Windows-specific
-
-- All bash paths must use forward slashes (e.g., `D:/git/finance-agent/...`)
-- Activate venv: `apps/python/.venv/Scripts/activate`
-- Python spawn in `pathUtils.ts` auto-detects the correct Python executable (venv or bundled bridge.exe)
-- PyMuPDF: use `fitz.open("pdf", bytes)` instead of `fitz.open(file_path)` to handle Unicode Windows paths
-- `PYTHONIOENCODING=utf-8` must be set when spawning Python subprocess to prevent Chinese garbled output
-- Electron packaging: `asar: false` (must be false for `extraResources` path resolution)
-- Code signing disabled in current electron-builder config (`signDlls: false`, `signAndEditExecutable: false`)
-
----
-
-## Key Lessons from v0.1.0
-
-### PyInstaller Packaging Pitfalls
-1. **Chinese path encoding**: PyInstaller's C bootloader may not respect `PYTHONIOENCODING`. Workaround: explicit `sys.stdin.reconfigure(encoding="utf-8")` and `sys.stdout.reconfigure(encoding="utf-8")` at bridge startup.
-2. **OCR model dependencies**: RapidOCR's ONNX model files must be explicitly added to PyInstaller `datas` or they won't be bundled. Missing models = silent OCR failure in packaged app.
-3. **SPECPATH**: Using `SPECPATH` in .spec files allows relative path resolution from the spec file location.
-
-### OCR Pipeline Complexity
-- ICBC receipts use grid-line detection to locate form fields — more reliable than pure text OCR
-- OCR character variants (e.g., `0` vs `O`, Chinese character substitutions) require simplified regex or direct matching
-- Multi-page PDFs: subsequent pages inherit header column mapping from the first page
-- OCR is slow (~1-2s per page); lazy-load RapidOCR only when needed
-
-### Parser Architecture (v0.2.0 improvements)
-
-- **`parser_router.py`**: Extracted from `bridge.py` (~110 lines). Handles file-extension-aware dispatch and lazy-imports all 11 parsers so only the needed module loads per request. `bridge.py` `handle_parse_pdf` reduced to a 4-line delegation.
-- **`base_parser.py`**: `BaseStatementParser` utility base class — shared `_read_pdf_bytes()`, `_build_result()`, `_build_transaction()`, `_parse_date()`, `_parse_amount()` methods. All 11 parsers now inherit from it, eliminating duplicated PDF bytes reading and result-building patterns.
-- **Tool count reduced from 13 to 11**: `cmb_receipt_parser.py` was inlined into `cmb_table_parser.py` as `_parse_receipt()` method; `cmb_table_parser.py` now handles both table-format statements and receipts.
-- All parsers share the same `ParseResult` return type — keeps bridge.py routing consistent
-- **Wire format**: All IPC parameter names and response fields unified to camelCase across Python → Electron → React (e.g. `file_path` → `filePath`, `statement_date` → `statementDate`).
-- **`BatchFileSelector.tsx`** split from self-orchestrating to pure UI: file list + add/remove/parse buttons; orchestration lives in `useBatchOrchestrator` hook + `App.tsx`.
-
-### CSV/Excel Handling
-- ICBC CSV uses GBK encoding, comma-delimited, with embedded Tab characters in fields
-- CMB Excel (.xlsx) statements use a different column layout than CMB PDF statements
-- File extension routing happens before content-based bank detection
-
----
-
-## Troubleshooting
-
-### Python backend not connecting
-- Ensure virtualenv is activated and dependencies installed: `pip install -e ".[dev]"`
-- Verify bridge starts: `echo '{"jsonrpc":"2.0","id":1,"method":"health","params":{}}' | python apps/python/src/finance_agent_backend/bridge.py`
-- Check `pathUtils.ts` resolves the correct Python executable
-- Set `PYTHON_CMD` env var to override: `PYTHON_CMD=D:/Python312/python.exe npm run dev`
-
-### Chinese path garbled (mojibake)
-- Two-layer fix: `PYTHONIOENCODING=utf-8` env var + explicit `toString('utf-8')` / `write(str, 'utf-8')` in TypeScript
-- PyMuPDF: read PDF as bytes via `open(path, 'rb')` then `fitz.open("pdf", pdf_bytes)` to bypass Unicode path limitation
-
-### PDF parsing returns no transactions
-- Debug: check `bridge.log` in `logs/` directory for parser routing and error messages
-- Scanned PDFs (no embedded text) → automatically routed through OCR pipeline
-- Bank type is auto-detected from PDF text; can be overridden with `bank` param
-- Each parser is tried in sequence; fallback to `BankStatementParser` if all fail
-
-### OCR not working in packaged app
-- Ensure RapidOCR ONNX models are included in PyInstaller build (check `bridge.spec` `datas` list)
-- OCR requires opencv-python and rapidocr-onnxruntime in Python dependencies
-- Check `bridge.log` for OCR initialization errors
-
-### PyInstaller build failures
-- Run from `apps/python/` directory: `python -m PyInstaller bridge.spec --onefile --clean`
-- SPECPATH should be set to the spec file's directory
-- Large model files may need `--add-data` flags
-
-### Port conflicts
-- Electron/Vite dev server uses port 5173 (strict)
-- Python bridge uses stdio — no port needed
-
----
-
-## References
-
-- [Electron docs](https://www.electronjs.org/docs) — Desktop app framework
-- [PyMuPDF docs](https://pymupdf.readthedocs.io/) — PDF library
-- [RapidOCR](https://github.com/RapidAI/RapidOCR) — ONNX-based OCR
-- [openpyxl docs](https://openpyxl.readthedocs.io/) — Excel library
-- [PyInstaller](https://pyinstaller.org/) — Python packaging
-- [electron-builder](https://www.electron.build/) — Electron packaging
-- Project README: `README.md` (Chinese)
-- Test documentation: `apps/electron/tests/README.md`
-- Packaging guide: `docs/packaging-path-resolution.md`
-
----
-
-## Agent skills
-
-### Issue tracker
-
-Issues live in the GitHub repository [sing173/finance-agent](https://github.com/sing173/finance-agent). Skills `to-issues`, `triage`, `to-prd`, and `qa` use the `gh` CLI. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Five canonical labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`) are used with default names — no custom mapping. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context layout: `CONTEXT.md` at the repo root covers domain language and architecture; `docs/adr/` holds architectural decision records. See `docs/agents/domain.md`.
+- [Electron](https://www.electronjs.org/docs) · [PyMuPDF](https://pymupdf.readthedocs.io/) · [RapidOCR](https://github.com/RapidAI/RapidOCR)
+- [openpyxl](https://openpyxl.readthedocs.io/) · [PyInstaller](https://pyinstaller.org/) · [electron-builder](https://www.electron.build/)
+- `CONTEXT.md` — 领域语言、架构、匹配逻辑
+- `docs/voucher-system-prd.md` — 凭证功能规格
