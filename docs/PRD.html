@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinanceAssistant — 产品需求文档 (PRD) v0.3.0</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: #1a1a2e; background: #f8f9fb; line-height: 1.7;
+    }
+    a { color: #1677ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+    .sidebar {
+      position: sticky; top: 0; width: 260px; height: 100vh;
+      background: #0f172a; color: #cbd5e1; padding: 32px 0;
+      overflow-y: auto; flex-shrink: 0;
+    }
+    .sidebar .logo {
+      padding: 0 24px 24px; border-bottom: 1px solid #1e293b; margin-bottom: 16px;
+    }
+    .sidebar .logo h2 { font-size: 1.1rem; color: #f1f5f9; font-weight: 700; }
+    .sidebar .logo span { font-size: 0.75rem; color: #64748b; }
+    .sidebar nav a {
+      display: block; padding: 8px 24px; font-size: 0.875rem;
+      color: #94a3b8; border-left: 3px solid transparent; transition: all .15s;
+    }
+    .sidebar nav a:hover { color: #e2e8f0; background: #1e293b; text-decoration: none; }
+    .sidebar nav a.active { color: #60a5fa; border-left-color: #60a5fa; background: #1e293b; }
+
+    .main { flex: 1; max-width: 960px; margin: 0 auto; padding: 48px 56px 80px; }
+
+    /* ── Typography ── */
+    h1 { font-size: 2rem; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+    h2 {
+      font-size: 1.5rem; font-weight: 700; color: #0f172a;
+      margin: 56px 0 20px; padding-bottom: 10px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    h3 { font-size: 1.15rem; font-weight: 600; color: #1e293b; margin: 28px 0 12px; }
+    h4 { font-size: 1rem; font-weight: 600; color: #334155; margin: 20px 0 8px; }
+    p  { margin-bottom: 14px; color: #334155; }
+    ul, ol { margin: 0 0 14px 20px; color: #334155; }
+    li { margin-bottom: 6px; }
+    code {
+      background: #f1f5f9; padding: 2px 7px; border-radius: 4px;
+      font-size: 0.875em; font-family: "SF Mono", Consolas, monospace; color: #0f172a;
+    }
+    pre {
+      background: #0f172a; color: #e2e8f0; padding: 18px 22px; border-radius: 8px;
+      overflow-x: auto; font-size: 0.85rem; line-height: 1.6; margin: 0 0 16px;
+    }
+    pre code { background: none; padding: 0; color: inherit; }
+
+    /* ── Hero / Cover ── */
+    .cover {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+      color: #fff; padding: 56px 48px; border-radius: 16px; margin-bottom: 48px;
+      position: relative; overflow: hidden;
+    }
+    .cover::after {
+      content: ""; position: absolute; right: -40px; top: -40px;
+      width: 260px; height: 260px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(96,165,250,.15) 0%, transparent 70%);
+    }
+    .cover h1 { color: #f1f5f9; font-size: 2.4rem; margin-bottom: 4px; }
+    .cover .subtitle { font-size: 1.05rem; color: #94a3b8; margin-bottom: 20px; }
+    .cover .meta { display: flex; gap: 24px; flex-wrap: wrap; font-size: 0.85rem; color: #64748b; }
+    .cover .meta span { display: flex; align-items: center; gap: 6px; }
+    .cover .meta strong { color: #94a3b8; }
+
+    /* ── Badges / Tags ── */
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 12px;
+      font-size: 0.75rem; font-weight: 600; letter-spacing: .02em;
+    }
+    .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+    .badge-green  { background: #dcfce7; color: #15803d; }
+    .badge-yellow { background: #fef9c3; color: #a16207; }
+    .badge-red    { background: #fee2e2; color: #b91c1c; }
+    .badge-purple { background: #f3e8ff; color: #7e22ce; }
+    .badge-gray   { background: #f1f5f9; color: #475569; }
+
+    /* ── Cards ── */
+    .card-grid { display: grid; gap: 16px; margin-bottom: 20px; }
+    .card-grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .card-grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .card-grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: 22px 24px; transition: box-shadow .2s;
+    }
+    .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.06); }
+    .card h4 { margin-top: 0; font-size: 1rem; }
+    .card p  { font-size: 0.9rem; margin-bottom: 0; }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin-bottom: 20px; border-radius: 10px; border: 1px solid #e2e8f0; }
+    table { width: 100%; border-collapse: collapse; background: #fff; font-size: 0.875rem; }
+    thead { background: #f8fafc; }
+    th {
+      text-align: left; padding: 11px 16px; font-weight: 600; color: #475569;
+      border-bottom: 2px solid #e2e8f0; white-space: nowrap;
+    }
+    td { padding: 10px 16px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8fafc; }
+
+    /* ── Flow diagram ── */
+    .flow {
+      display: flex; align-items: center; gap: 0; flex-wrap: wrap;
+      row-gap: 16px; margin: 20px 0; padding: 20px 0;
+    }
+    .flow-step {
+      background: #fff; border: 2px solid #e2e8f0; border-radius: 10px;
+      padding: 14px 18px; text-align: center; min-width: 130px; flex-shrink: 0;
+    }
+    .flow-step .num {
+      width: 26px; height: 26px; border-radius: 50%; background: #1677ff;
+      color: #fff; display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step .label { font-size: 0.85rem; font-weight: 600; color: #1e293b; }
+    .flow-step .desc  { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
+    .flow-arrow { font-size: 1.2rem; color: #94a3b8; padding: 0 6px; flex-shrink: 0; }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; padding: 14px 18px; border-radius: 0 8px 8px 0;
+      margin: 16px 0; font-size: 0.9rem;
+    }
+    .callout-info    { border-color: #3b82f6; background: #eff6ff; }
+    .callout-success { border-color: #22c55e; background: #f0fdf4; }
+    .callout-warning { border-color: #f59e0b; background: #fffbeb; }
+    .callout-danger  { border-color: #ef4444; background: #fef2f2; }
+    .callout strong { display: block; margin-bottom: 4px; }
+
+    /* ── TOC ── */
+    .toc {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: 24px 28px; margin-bottom: 40px;
+    }
+    .toc h3 { margin-top: 0; font-size: 1rem; color: #0f172a; }
+    .toc ol { margin: 0; padding-left: 20px; }
+    .toc li { margin-bottom: 4px; font-size: 0.875rem; }
+    .toc a { color: #475569; }
+    .toc a:hover { color: #1677ff; }
+
+    /* ── Highlight number ── */
+    .stat-row { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0; }
+    .stat {
+      flex: 1; min-width: 140px; background: #fff; border: 1px solid #e2e8f0;
+      border-radius: 10px; padding: 20px; text-align: center;
+    }
+    .stat .num { font-size: 2rem; font-weight: 800; color: #1677ff; }
+    .stat .lbl { font-size: 0.8rem; color: #64748b; margin-top: 4px; }
+
+    /* ── Section divider ── */
+    .section-icon { margin-right: 6px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+      .main { padding: 24px 20px 60px; }
+      .card-grid-2, .card-grid-3 { grid-template-columns: 1fr; }
+      .cover { padding: 36px 28px; }
+      .cover h1 { font-size: 1.7rem; }
+      .card-grid-4 { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- ══════════ SIDEBAR ══════════ -->
+  <aside class="sidebar">
+    <div class="logo">
+      <h2>FinanceAssistant</h2>
+      <span>产品需求文档 · PRD</span>
+    </div>
+    <nav>
+      <a href="#cover" class="active">封面</a>
+      <a href="#product-overview">1. 产品概述</a>
+      <a href="#users">2. 目标用户</a>
+      <a href="#value">3. 核心价值</a>
+      <a href="#features">4. 功能概览</a>
+      <a href="#flows">5. 用户旅程</a>
+      <a href="architecture.html" style="color:#60a5fa; border-left:3px solid #60a5fa;">⟶ 技术架构文档</a>
+    </nav>
+  </aside>
+
+  <!-- ══════════ MAIN CONTENT ══════════ -->
+  <main class="main">
+
+    <!-- Cover -->
+    <section id="cover" class="cover">
+      <h1>FinanceAssistant</h1>
+      <p class="subtitle">银行流水 → 交易明细 → 金蝶凭证 · 智能财务自动化桌面工具</p>
+      <div class="meta">
+        <span><strong>版本</strong> v0.3.0</span>
+        <span><strong>日期</strong> 2026-06-05</span>
+        <span><strong>状态</strong> 测试中</span>
+        <span><strong>平台</strong> Windows Linux Mac</span>
+      </div>
+    </section>
+
+    <!-- 1. Product Overview -->
+    <h2 id="product-overview"><span class="section-icon">📋</span>1. 产品概述</h2>
+
+    <p>
+      <strong>FinanceAssistant</strong> 是一款面向中小企业财务人员的桌面应用程序，旨在解决银行流水文件（PDF / CSV / Excel 等）到金蝶精斗云会计凭证的全链路自动化转换问题。<strong>（后续会扩展对接更多平台或自定义凭证模板）</strong>
+    </p>
+    <p>
+      传统工作流中，财务人员需要手动打开银行对账单 PDF，逐条录入摘要、金额、对方户名，再对照科目表手工匹配借贷方科目——一条交易约需 1–2 分钟，一个月 200 条交易意味着 3–6 小时的低价值重复劳动。FinanceAssistant 将这一流程压缩至分钟级：拖入文件 → 自动识别银行与格式 → 解析交易 → 三层智能匹配科目 → 预览确认 → 一键导出金蝶凭证 Excel。
+    </p>
+
+    <div class="stat-row">
+      <div class="stat"><div class="num">3</div><div class="lbl">支持银行（工行/招行/广发）</div></div>
+      <div class="stat"><div class="num">11</div><div class="lbl">解析器模块</div></div>
+      <div class="stat"><div class="num">297</div><div class="lbl">会计科目条目</div></div>
+      <div class="stat"><div class="num">3</div><div class="lbl">科目匹配层级</div></div>
+      <div class="stat"><div class="num">16</div><div class="lbl">RPC 接口</div></div>
+    </div>
+
+    <h3 id="product-overview-scope">产品边界</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>范畴</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-green">已支持</span></td><td>银行流水 / 回单文件解析、科目自动匹配、凭证预览编辑、Excel 导出</td></tr>
+          <tr><td><span class="badge badge-green">已支持</span></td><td>批量文件处理（数量可配置，默认 5 文件）、草稿持久化、历史学习</td></tr>
+          <tr><td><span class="badge badge-yellow">规划中</span></td><td>更多银行支持、OCR 优化、自定义规则配置界面</td></tr>
+          <tr><td><span class="badge badge-red">暂不支持</span></td><td>通用银行解析兜底（未知银行强制拒绝）、在线同步、多用户协作</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 2. Target Users -->
+    <h2 id="users"><span class="section-icon">👥</span>2. 目标用户</h2>
+
+    <div class="card-grid card-grid-3">
+      <div class="card">
+        <h4>🏢 中小企业财务人员</h4>
+        <p>每月处理 1–10 份银行对账单，使用金蝶精斗云做账。不具备编程能力，核心诉求是减少手工录入。</p>
+      </div>
+      <div class="card">
+        <h4>📊 代账会计</h4>
+        <p>同时服务多个客户，每月需处理数十份不同银行的对账单。核心诉求是批量处理效率和准确性。</p>
+      </div>
+      <div class="card">
+        <h4>🔧 个体经营者</h4>
+        <p>自行管理公司账目，偶尔需要将银行流水转为凭证。核心诉求是零学习成本、开箱即用。</p>
+      </div>
+    </div>
+
+    <h3>用户画像</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>维度</th><th>描述</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>角色</td><td>财务 / 会计 / 代账</td></tr>
+          <tr><td>技术能力</td><td>基础电脑操作，无编程经验</td></tr>
+          <tr><td>核心痛点</td><td>手工录入银行流水耗时、科目匹配易出错、金蝶导入格式复杂</td></tr>
+          <tr><td>使用频率</td><td>每月 1–4 次（月末 / 月中批量处理）</td></tr>
+          <tr><td>环境</td><td>Windows、Linux、Mac </td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 3. Core Value -->
+    <h2 id="value"><span class="section-icon">💎</span>3. 核心价值主张</h2>
+
+    <div class="callout callout-success">
+      <strong>一句话：将银行流水到金蝶凭证的端到端时间从数小时压缩到数分钟。</strong>
+    </div>
+
+    <div class="card-grid card-grid-2">
+      <div class="card">
+        <h4>⚡ 智能识别</h4>
+        <p>三级银行检测（结构特征匹配 → OCR 账号匹配 → 人工覆盖），支持工行/招行/广发共 11 种文件格式，无需手动指定银行类型。</p>
+      </div>
+      <div class="card">
+        <h4>🎯 三层匹配</h4>
+        <p>系统会分三步自动为每笔交易匹配合适的会计科目：<strong>预设规则匹配</strong>（如"物业费"自动归到物业管理费）→ <strong>智能记忆</strong>（记住你之前的手动修正，下次类似交易自动套用）→ <strong>人工确认</strong>（前两层都没命中的，在预览中高亮提示你手动选择）。用得越久，系统越懂你的业务，自动匹配率越高。</p>
+      </div>
+      <div class="card">
+        <h4>📦 批量处理</h4>
+        <p>一次添加多个文件，批量检测、批量解析、折叠展示，合并导出统一凭证。</p>
+      </div>
+      <div class="card">
+        <h4>✅ 凭证预览</h4>
+        <p>导出前完整预览每笔分录的借贷方科目，未匹配条目高亮提示，支持逐条或批量修正后再导出。</p>
+      </div>
+    </div>
+
+    <!-- 4. Features -->
+    <h2 id="features"><span class="section-icon">✨</span>4. 功能概览</h2>
+
+    <p>FinanceAssistant 的核心能力围绕<strong>"文件解析 → 科目匹配 → 凭证生成 → 导出"</strong>这条主线展开，分为四大功能模块：</p>
+
+    <div class="card-grid card-grid-4" style="margin-bottom: 32px;">
+      <div class="card" style="text-align:center;">
+        <h4 style="margin:0;">📂 文件解析</h4>
+        <p style="margin:6px 0 0; font-size:0.85rem; color:#64748b;">支持工行 / 招行 / 广发<br/>PDF、CSV、Excel 多格式</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <h4 style="margin:0;">🏦 账号科目管理</h4>
+        <p style="margin:6px 0 0; font-size:0.85rem; color:#64748b;">账号映射维护<br/>金蝶科目表导入</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <h4 style="margin:0;">🧾 凭证生成预览</h4>
+        <p style="margin:6px 0 0; font-size:0.85rem; color:#64748b;">三层智能匹配<br/>草稿保存与编辑</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <h4 style="margin:0;">📤 数据导出</h4>
+        <p style="margin:6px 0 0; font-size:0.85rem; color:#64748b;">流水明细 Excel<br/>金蝶凭证导入模板</p>
+      </div>
+    </div>
+
+    <h3>4.1 文件解析</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>功能</th><th>说明</th><th>状态</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>拖拽 / 点击选择文件</td>
+            <td>拖拽上传区域支持多文件拖入和系统文件浏览器选择</td>
+            <td><span class="badge badge-green">已上线</span></td>
+          </tr>
+          <tr>
+            <td>自动银行检测</td>
+            <td>三级路由：嵌入式文本结构匹配 → OCR 账号匹配 → 未知银行强制拦截</td>
+            <td><span class="badge badge-green">已上线</span></td>
+          </tr>
+          <tr>
+            <td>手动覆盖</td>
+            <td>检测失败时弹出手动配置面板，用户手动选择银行 + 文档类型 + 是否强制 OCR</td>
+            <td><span class="badge badge-green">已上线</span></td>
+          </tr>
+          <tr>
+            <td>单文件模式</td>
+            <td>选择 1 个文件 → 检测 → 解析 → 结果卡片 → 交易明细表</td>
+            <td><span class="badge badge-green">已上线</span></td>
+          </tr>
+          <tr>
+            <td>批量模式</td>
+            <td>选择 >1 文件 → 批量检测 → 逐个解析（失败跳过） → 折叠面板展示 → 合并导出</td>
+            <td><span class="badge badge-green">已上线</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4.2 账号与科目管理</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>功能</th><th>说明</th><th>状态</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>账号-科目映射 CRUD</td>
+            <td>账号科目管理功能支持增删改查银行账号到会计科目的精确/后缀匹配规则</td>
+            <td><span class="badge badge-green">已上线</span></td>
+          </tr>
+          <tr>
+            <td>科目表导入</td>
+            <td>从金蝶 xlsx 格式导入 297 条会计科目，构建完整科目字典</td>
+            <td><span class="badge badge-green">已上线</span></td>
+          </tr>
+          <tr>
+            <td>科目搜索选择器</td>
+            <td>虚拟滚动技术支持关键词搜索 + 类别筛选，297 条科目流畅展示</td>
+            <td><span class="badge badge-green">已上线</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4.3 凭证生成与预览</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>功能</th><th>说明</th><th>状态</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>凭证预览面板</td>
+            <td>按四元组（账号、对方科目、方向、对方账号）合并交易为凭证，逐条展示借贷分录</td>
+            <td><span class="badge badge-green">已上线</span></td>
+          </tr>
+          <tr>
+            <td>未匹配科目高亮</td>
+            <td>L3 未命中条目红色标记，点击即开科目选择器手动指定</td>
+            <td><span class="badge badge-green">已上线</span></td>
+          </tr>
+          <tr>
+            <td>批量填充</td>
+            <td>下拉菜单提供预设科目（如"管理费用_物业管理费"），一键填充所有未匹配条目</td>
+            <td><span class="badge badge-green">已上线</span></td>
+          </tr>
+          <tr>
+            <td>草稿保存</td>
+            <td>凭证草稿持久化至 SQLite，支持保存 / 加载 / 删除，跨会话不丢失（后续扩展草稿管理功能）</td>
+            <td><span class="badge badge-green">已上线</span></td>
+          </tr>
+          <tr>
+            <td>导出审计日志</td>
+            <td>每次导出记录 period、文件路径、匹配统计、来源文件，可追溯</td>
+            <td><span class="badge badge-green">已上线</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4.4 数据导出</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>功能</th><th>说明</th><th>状态</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>流水明细 Excel</td>
+            <td>原始交易列表导出，含统计摘要（收入/支出笔数与总额）</td>
+            <td><span class="badge badge-green">已开发</span></td>
+          </tr>
+          <tr>
+            <td>金蝶凭证 Excel</td>
+            <td>25 列凭证导入模板，符合金蝶精斗云批量导入格式，含日期、凭证字、摘要、借贷方科目及金额</td>
+            <td><span class="badge badge-green">已上线</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 5. User Flows -->
+    <h2 id="flows"><span class="section-icon">🔄</span>5. 用户旅程</h2>
+
+    <h3>5.1 单文件解析流程</h3>
+    <div class="flow">
+      <div class="flow-step"><div class="num">1</div><div class="label">选择文件</div><div class="desc">拖拽或浏览</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">2</div><div class="label">银行检测</div><div class="desc">三级路由识别</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">3</div><div class="label">确认 / 覆盖</div><div class="desc">检测失败时手动选</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">4</div><div class="label">解析交易</div><div class="desc">11 个解析器之一</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">5</div><div class="label">查看明细</div><div class="desc">排序 / 筛选 / 分页</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">6</div><div class="label">凭证生成</div><div class="desc">三层匹配 + 预览</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">7</div><div class="label">导出 Excel</div><div class="desc">金蝶导入格式</div></div>
+    </div>
+
+    <h3>5.2 批量处理流程</h3>
+    <div class="flow">
+      <div class="flow-step"><div class="num">1</div><div class="label">添加文件</div><div class="desc">可配置上限</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">2</div><div class="label">批量检测</div><div class="desc">逐个识别银行</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">3</div><div class="label">配置覆盖</div><div class="desc">失败文件手动设置</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">4</div><div class="label">批量解析</div><div class="desc">逐个执行，失败跳过</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">5</div><div class="label">折叠结果</div><div class="desc">按文件分组展示</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">6</div><div class="label">合并导出</div><div class="desc">统一凭证 Excel</div></div>
+    </div>
+
+    <h3>5.3 凭证预览与编辑流程</h3>
+    <div class="flow">
+      <div class="flow-step"><div class="num">1</div><div class="label">触发预览</div><div class="desc">单文件 / 批量"凭证生成"</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">2</div><div class="label">后端组合</div><div class="desc">凭证组合引擎按四元组合并交易</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">3</div><div class="label">三层匹配</div><div class="desc">L1 规则 → L2 历史 → L3 未匹配</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">4</div><div class="label">人工修正</div><div class="desc">点击未匹配条目选择科目</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="num">5</div><div class="label">保存 / 导出</div><div class="desc">草稿持久化 → 导出 Excel</div></div>
+    </div>
+
+    <!-- Footer -->
+    <footer style="margin-top: 64px; padding-top: 24px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 0.8rem;">
+      <p>FinanceAssistant PRD &middot; v0.3.0 &middot; 2026-06-05</p>
+      <p style="margin-top: 6px;">
+        <a href="architecture.html" style="color: #60a5fa;">&#10230; 技术架构文档</a>
+      </p>
+    </footer>
+  </main>
+</div>
+
+<!-- ══════════ SIDEBAR SCROLL SPY ══════════ -->
+<script>
+  const sections = document.querySelectorAll('section[id], h2[id]');
+  const navLinks = document.querySelectorAll('.sidebar nav a');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.getAttribute('id');
+        navLinks.forEach(a => { a.classList.toggle('active', a.getAttribute('href') === '#' + id); });
+      }
+    });
+  }, { rootMargin: '-80px 0px -60% 0px', threshold: 0 });
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

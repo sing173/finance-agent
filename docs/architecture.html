@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinanceAssistant — 技术架构文档</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: #1a1a2e; background: #f8f9fb; line-height: 1.7;
+    }
+    a { color: #1677ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+    .sidebar {
+      position: sticky; top: 0; width: 260px; height: 100vh;
+      background: #0f172a; color: #cbd5e1; padding: 32px 0;
+      overflow-y: auto; flex-shrink: 0;
+    }
+    .sidebar .logo {
+      padding: 0 24px 24px; border-bottom: 1px solid #1e293b; margin-bottom: 16px;
+    }
+    .sidebar .logo h2 { font-size: 1.1rem; color: #f1f5f9; font-weight: 700; }
+    .sidebar .logo span { font-size: 0.75rem; color: #64748b; }
+    .sidebar .back-link {
+      display: block; padding: 8px 24px; font-size: 0.8rem;
+      color: #60a5fa; border-left: 3px solid #60a5fa; margin-bottom: 8px;
+    }
+    .sidebar nav a {
+      display: block; padding: 8px 24px; font-size: 0.875rem;
+      color: #94a3b8; border-left: 3px solid transparent; transition: all .15s;
+    }
+    .sidebar nav a:hover { color: #e2e8f0; background: #1e293b; text-decoration: none; }
+    .sidebar nav a.active { color: #60a5fa; border-left-color: #60a5fa; background: #1e293b; }
+
+    .main { flex: 1; max-width: 960px; margin: 0 auto; padding: 48px 56px 80px; }
+
+    /* ── Typography ── */
+    h1 { font-size: 2rem; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+    h2 {
+      font-size: 1.5rem; font-weight: 700; color: #0f172a;
+      margin: 56px 0 20px; padding-bottom: 10px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    h3 { font-size: 1.15rem; font-weight: 600; color: #1e293b; margin: 28px 0 12px; }
+    h4 { font-size: 1rem; font-weight: 600; color: #334155; margin: 20px 0 8px; }
+    p  { margin-bottom: 14px; color: #334155; }
+    ul, ol { margin: 0 0 14px 20px; color: #334155; }
+    li { margin-bottom: 6px; }
+    code {
+      background: #f1f5f9; padding: 2px 7px; border-radius: 4px;
+      font-size: 0.875em; font-family: "SF Mono", Consolas, monospace; color: #0f172a;
+    }
+    pre {
+      background: #0f172a; color: #e2e8f0; padding: 18px 22px; border-radius: 8px;
+      overflow-x: auto; font-size: 0.85rem; line-height: 1.6; margin: 0 0 16px;
+    }
+    pre code { background: none; padding: 0; color: inherit; }
+
+    /* ── Cards ── */
+    .card-grid { display: grid; gap: 16px; margin-bottom: 20px; }
+    .card-grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .card-grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: 22px 24px; transition: box-shadow .2s;
+    }
+    .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.06); }
+    .card h4 { margin-top: 0; font-size: 1rem; }
+    .card p  { font-size: 0.9rem; margin-bottom: 0; }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin-bottom: 20px; border-radius: 10px; border: 1px solid #e2e8f0; }
+    table { width: 100%; border-collapse: collapse; background: #fff; font-size: 0.875rem; }
+    thead { background: #f8fafc; }
+    th {
+      text-align: left; padding: 11px 16px; font-weight: 600; color: #475569;
+      border-bottom: 2px solid #e2e8f0; white-space: nowrap;
+    }
+    td { padding: 10px 16px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8fafc; }
+
+    /* ── Flow diagram ── */
+    .flow {
+      display: flex; align-items: center; gap: 0; flex-wrap: wrap;
+      row-gap: 16px; margin: 20px 0; padding: 20px 0;
+    }
+    .flow-step {
+      background: #fff; border: 2px solid #e2e8f0; border-radius: 10px;
+      padding: 14px 18px; text-align: center; min-width: 130px; flex-shrink: 0;
+    }
+    .flow-step .num {
+      width: 26px; height: 26px; border-radius: 50%; background: #1677ff;
+      color: #fff; display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step .label { font-size: 0.85rem; font-weight: 600; color: #1e293b; }
+    .flow-step .desc  { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
+    .flow-arrow { font-size: 1.2rem; color: #94a3b8; padding: 0 6px; flex-shrink: 0; }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; padding: 14px 18px; border-radius: 0 8px 8px 0;
+      margin: 16px 0; font-size: 0.9rem;
+    }
+    .callout-info    { border-color: #3b82f6; background: #eff6ff; }
+    .callout-success { border-color: #22c55e; background: #f0fdf4; }
+    .callout-warning { border-color: #f59e0b; background: #fffbeb; }
+    .callout-danger  { border-color: #ef4444; background: #fef2f2; }
+    .callout strong { display: block; margin-bottom: 4px; }
+
+    /* ── Highlight number ── */
+    .stat-row { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0; }
+    .stat {
+      flex: 1; min-width: 140px; background: #fff; border: 1px solid #e2e8f0;
+      border-radius: 10px; padding: 20px; text-align: center;
+    }
+    .stat .num { font-size: 2rem; font-weight: 800; color: #1677ff; }
+    .stat .lbl { font-size: 0.8rem; color: #64748b; margin-top: 4px; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 12px;
+      font-size: 0.75rem; font-weight: 600; letter-spacing: .02em;
+    }
+    .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+    .badge-green  { background: #dcfce7; color: #15803d; }
+    .badge-yellow { background: #fef9c3; color: #a16207; }
+    .badge-red    { background: #fee2e2; color: #b91c1c; }
+    .badge-purple { background: #f3e8ff; color: #7e22ce; }
+    .badge-gray   { background: #f1f5f9; color: #475569; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+      .main { padding: 24px 20px 60px; }
+      .card-grid-2, .card-grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <h2>FinanceAssistant</h2>
+      <span>技术架构文档</span>
+    </div>
+    <a href="PRD.html" class="back-link">&larr; 返回产品 PRD</a>
+    <nav>
+      <ol>
+        <li><a href="#architecture">1. 技术架构</a></li>
+        <li><a href="#banks">2. 银行与格式支持</a></li>
+        <li><a href="#matching">3. 科目匹配系统</a></li>
+        <li><a href="#voucher">4. 凭证系统</a></li>
+        <li><a href="#export">5. 导出能力</a></li>
+        <li><a href="#tech">6. 技术栈</a></li>
+        <li><a href="#roadmap">7. 路线图</a></li>
+        <li><a href="#metrics">8. 产品指标</a></li>
+      </ol>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- Cover -->
+    <section class="cover">
+      <h1>FinanceAssistant</h1>
+      <p class="subtitle">技术架构文档</p>
+      <div class="meta">
+        <span><strong>版本</strong> v0.3.0</span>
+        <span><strong>日期</strong> 2026-06-05</span>
+        <span><strong>关联文档</strong> <a href="PRD.html" style="color:#60a5fa;">产品需求文档 →</a></span>
+      </div>
+    </section>
+
+<!-- 6. Architecture -->
+<h2 id="architecture"><span class="section-icon">🏗️</span>1. 技术架构</h2>
+
+<p>FinanceAssistant 采用 <strong>三层进程架构</strong>，通过 IPC / JSON-RPC 实现跨进程通信：</p>
+
+<div style="overflow-x:auto; margin: 20px 0;">
+<svg viewBox="0 0 760 490" xmlns="http://www.w3.org/2000/svg"
+     style="width:100%; max-width:760px; font-family: -apple-system,'PingFang SC','Microsoft YaHei',sans-serif;">
+
+  <!-- Background -->
+  <rect width="760" height="490" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="380" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">FinanceAssistant 三层进程架构</text>
+
+  <!-- ═══ Shell wrapper (Renderer + Electron Main) ═══ -->
+  <rect x="120" y="42" width="500" height="164" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+  <!-- Shell label pill -->
+  <rect x="120" y="34" width="92" height="18" rx="4" fill="#f59e0b"/>
+  <text x="166" y="47" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">Electron Shell</text>
+
+  <!-- ── Renderer (top-left) ── -->
+  <rect x="140" y="58" width="170" height="90" rx="7" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+  <text x="225" y="76" text-anchor="middle" font-size="12" font-weight="700" fill="#1e40af">Renderer</text>
+  <text x="225" y="89" text-anchor="middle" font-size="9" fill="#1e3a8a">React + TypeScript</text>
+  <line x1="150" y1="96" x2="300" y2="96" stroke="#93c5fd" stroke-width="1"/>
+  <text x="225" y="108" text-anchor="middle" font-size="9" fill="#1e3a8a">文件选择 / 拖拽上传</text>
+  <text x="225" y="120" text-anchor="middle" font-size="9" fill="#1e3a8a">交易表格展示</text>
+  <text x="225" y="132" text-anchor="middle" font-size="9" fill="#1e3a8a">科目匹配交互</text>
+  <text x="225" y="144" text-anchor="middle" font-size="9" fill="#1e3a8a">凭证预览编辑</text>
+
+  <!-- ── Electron Main (top-right, same shell) ── -->
+  <rect x="430" y="58" width="170" height="90" rx="7" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+  <text x="515" y="76" text-anchor="middle" font-size="12" font-weight="700" fill="#92400e">Electron Main</text>
+  <text x="515" y="89" text-anchor="middle" font-size="9" fill="#78350f">Node.js + TypeScript</text>
+  <line x1="440" y1="96" x2="590" y2="96" stroke="#fcd34d" stroke-width="1"/>
+  <text x="515" y="108" text-anchor="middle" font-size="9" fill="#78350f">窗口生命周期管理</text>
+  <text x="515" y="120" text-anchor="middle" font-size="9" fill="#78350f">Python 子进程管理</text>
+  <text x="515" y="132" text-anchor="middle" font-size="9" fill="#78350f">IPC 路由转发</text>
+  <text x="515" y="144" text-anchor="middle" font-size="9" fill="#78350f">文件系统权限</text>
+
+  <!-- IPC gap labels (centered in the gap: x=310..430, midpoint x=370) -->
+  <text x="370" y="84" text-anchor="middle" font-size="9" font-weight="600" fill="#78716c">IPC</text>
+  <text x="370" y="160" text-anchor="middle" font-size="9" fill="#78716c">contextBridge</text>
+
+  <!-- ── Python Backend (full shell width, below) ── -->
+  <rect x="120" y="240" width="500" height="110" rx="7" fill="#d1fae5" stroke="#22c55e" stroke-width="2"/>
+  <text x="370" y="260" text-anchor="middle" font-size="12" font-weight="700" fill="#065f46">Python Backend</text>
+  <text x="370" y="273" text-anchor="middle" font-size="9" fill="#064e3b">bridge.py · JSON-RPC 2.0 · stdio</text>
+  <line x1="138" y1="282" x2="602" y2="282" stroke="#6ee7b7" stroke-width="1"/>
+  <text x="370" y="296" text-anchor="middle" font-size="9" fill="#064e3b">PDF / CSV / Excel 文件解析</text>
+  <text x="370" y="310" text-anchor="middle" font-size="9" fill="#064e3b">OCR 文字识别（RapidOCR）</text>
+  <text x="370" y="324" text-anchor="middle" font-size="9" fill="#064e3b">三层科目匹配（规则 / 智能记忆 / 人工兜底）</text>
+  <text x="370" y="338" text-anchor="middle" font-size="9" fill="#064e3b">SQLite 数据持久化 · 金蝶凭证 Excel 导出</text>
+
+  <!-- ── Config Layer (bottom-left) ── -->
+  <rect x="120" y="400" width="245" height="58" rx="7" fill="#fce7f3" stroke="#ec4899" stroke-width="2"/>
+  <text x="242" y="418" text-anchor="middle" font-size="11" font-weight="700" fill="#9d174d">📁 配置层（JSON）</text>
+  <text x="242" y="433" text-anchor="middle" font-size="9" fill="#831843">科目字典</text>
+  <text x="242" y="445" text-anchor="middle" font-size="9" fill="#831843">匹配规则配置表（37 条预设规则）</text>
+  <text x="242" y="455" text-anchor="middle" font-size="9" fill="#831843">账号映射配置表</text>
+
+  <!-- ── SQLite Runtime Layer (bottom-right) ── -->
+  <rect x="375" y="400" width="245" height="58" rx="7" fill="#ede9fe" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="497" y="418" text-anchor="middle" font-size="11" font-weight="700" fill="#5b21b6">💾 SQLite 运行时层</text>
+  <text x="497" y="433" text-anchor="middle" font-size="9" fill="#4c1d95">历史学习库（智能记忆）</text>
+  <text x="497" y="445" text-anchor="middle" font-size="9" fill="#4c1d95">凭证草稿 · 分录明细 · 导出审计</text>
+
+  <!-- ═══ Arrow Markers ═══ -->
+  <defs>
+    <marker id="aB" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3Z" fill="#3b82f6"/></marker>
+    <marker id="aA" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3Z" fill="#f59e0b"/></marker>
+    <marker id="aG" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3Z" fill="#22c55e"/></marker>
+    <marker id="aP" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3Z" fill="#ec4899"/></marker>
+    <marker id="aV" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3Z" fill="#8b5cf6"/></marker>
+  </defs>
+
+  <!-- ═══ Arrows ═══ -->
+
+  <!-- Renderer → Electron Main (IPC forward, blue)
+       from Renderer right-center (310,103) → Electron left-center (430,103) -->
+  <line x1="310" y1="103" x2="430" y2="103" stroke="#3b82f6" stroke-width="2" marker-end="url(#aB)"/>
+
+  <!-- Electron Main → Renderer (IPC backward, amber)
+       from Electron left-center lower (430,116) → Renderer right-center lower (310,116) -->
+  <line x1="430" y1="116" x2="310" y2="116" stroke="#f59e0b" stroke-width="2" marker-end="url(#aA)"/>
+
+  <!-- Electron Main → Python Backend (stdio, green, vertical)
+       from Electron bottom-center (515,148) → Python top-center (515,240) -->
+  <line x1="515" y1="148" x2="515" y2="240" stroke="#22c55e" stroke-width="2.5" marker-end="url(#aG)"/>
+  <text x="498" y="192" text-anchor="end" font-size="9" font-weight="600" fill="#065f46">stdin</text>
+
+  <!-- Python Backend → Electron Main (stdout 返回, green dashed, offset right)
+       from Python top-center-right (535,240) → Electron bottom-center-right (535,148) -->
+  <line x1="535" y1="240" x2="535" y2="148" stroke="#22c55e" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#aG)"/>
+  <text x="540" y="198" text-anchor="start" font-size="9" font-weight="600" fill="#065f46">stdout 返回</text>
+
+  <!-- Config → Python (dashed, startup load, pink)
+       from Config top-center (242,400) → Python bottom-center-left (242,350) -->
+  <line x1="242" y1="400" x2="242" y2="350" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#aP)"/>
+  <text x="260" y="378" text-anchor="start" font-size="8" fill="#9d174d">启动加载</text>
+
+  <!-- Python → SQLite (read/write, purple, vertical)
+       from Python bottom-center-right (497,350) → SQLite top-center (497,400) -->
+  <line x1="497" y1="350" x2="497" y2="400" stroke="#8b5cf6" stroke-width="2" marker-end="url(#aV)"/>
+  <text x="505" y="378" text-anchor="start" font-size="9" font-weight="600" fill="#5b21b6">读写</text>
+
+</svg>
+</div>
+
+<h3>进程职责</h3>
+<div class="card-grid card-grid-3">
+  <div class="card">
+    <h4>Renderer（React）</h4>
+    <p>用户界面层。负责文件选择、交易表格展示、科目匹配交互、凭证预览编辑。通过 <code>window.electronAPI</code> 与主进程通信。</p>
+  </div>
+  <div class="card">
+    <h4>Electron Main（Node.js）</h4>
+    <p>桌面壳层。管理窗口生命周期、启动/监控 Python 子进程、声明式 IPC 路由、文件系统权限。Python 进程崩溃时自动重启。</p>
+  </div>
+  <div class="card">
+    <h4>Python Backend</h4>
+    <p>核心业务层。JSON-RPC 2.0 服务器（stdio 传输），负责 PDF/CSV/Excel 解析、OCR 识别、三层科目匹配、SQLite 数据持久化、Excel 导出。</p>
+  </div>
+</div>
+
+<h3>数据分层</h3>
+<div class="callout callout-info">
+  <strong>📁 配置层（JSON，git 可追踪，后续扩展为规则管理功能）</strong>
+  科目配置表（科目字典）、匹配规则配置表（37 条预设匹配规则）、账号映射配置表（5 个银行账号映射）<br/>
+  → 变更频率低，随安装包内置，运行时只读。
+</div>
+<div class="callout callout-warning">
+  <strong>💾 运行时层（SQLite）</strong>
+  历史学习库（智能记忆数据）、凭证草稿表、草稿分录明细表、导出审计记录表<br/>
+  → 用户操作产生，随使用增长。开发环境 <code>data.db</code>，生产环境 <code>%APPDATA%/FinanceAssistant/data.db</code>。
+</div>
+
+<h3>通信协议</h3>
+<p>前端与后端之间通过 <strong>16 个 JSON-RPC 2.0 方法</strong>交互，所有请求通过 Electron IPC 转发至 Python 子进程的 stdin，响应从 stdout 返回。关键接口：</p>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>RPC 方法</th><th>用途</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>parse_pdf</code></td><td>统一解析入口（PDF / CSV / Excel）</td></tr>
+      <tr><td><code>detect_banks</code></td><td>批量银行检测</td></tr>
+      <tr><td><code>detect_supported_banks</code></td><td>获取支持银行列表</td></tr>
+      <tr><td><code>voucher.preview</code></td><td>凭证预览（三层匹配）</td></tr>
+      <tr><td><code>voucher.save_draft</code></td><td>保存凭证草稿</td></tr>
+      <tr><td><code>voucher.load_draft</code></td><td>加载凭证草稿</td></tr>
+      <tr><td><code>voucher.list_drafts</code></td><td>列出所有草稿</td></tr>
+      <tr><td><code>voucher.export</code></td><td>确认导出（Excel + 审计 + 学习）</td></tr>
+      <tr><td><code>account_registry.*</code></td><td>账号-科目映射 CRUD</td></tr>
+      <tr><td><code>import_subjects</code></td><td>导入金蝶科目表</td></tr>
+      <tr><td><code>generate_excel</code></td><td>导出流水明细 Excel</td></tr>
+      <tr><td><code>db.health</code></td><td>数据库健康检查</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 7. Banks -->
+<h2 id="banks"><span class="section-icon">🏦</span>2. 银行与格式支持</h2>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>银行</th><th>代码</th><th>格式</th><th>解析能力</th><th>实现方式</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>工商银行</td><td><span class="badge badge-blue">ICBC</span></td>
+        <td>PDF 流水</td>
+        <td>PDF 流水解析</td>
+        <td>图像网格线检测 + OCR 文字识别</td>
+      </tr>
+      <tr>
+        <td>工商银行</td><td><span class="badge badge-blue">ICBC</span></td>
+        <td>PDF 回单</td>
+        <td>PDF 回单解析</td>
+        <td>网格定位 + 固定字段映射</td>
+      </tr>
+      <tr>
+        <td>工商银行</td><td><span class="badge badge-blue">ICBC</span></td>
+        <td>PDF 回单（备用）</td>
+        <td>PDF 回单解析（备用）</td>
+        <td>标签定位 + 邻近字段提取</td>
+      </tr>
+      <tr>
+        <td>工商银行</td><td><span class="badge badge-blue">ICBC</span></td>
+        <td>CSV 流水</td>
+        <td>CSV 流水解析</td>
+        <td>GBK 编码读取，字段映射</td>
+      </tr>
+      <tr>
+        <td>招商银行</td><td><span class="badge badge-green">CMB</span></td>
+        <td>PDF 流水（竖排）</td>
+        <td>PDF 流水解析</td>
+        <td>文本行序列解析</td>
+      </tr>
+      <tr>
+        <td>招商银行</td><td><span class="badge badge-green">CMB</span></td>
+        <td>PDF 流水（表格）</td>
+        <td>PDF 流水解析</td>
+        <td>坐标分区 + 列映射</td>
+      </tr>
+      <tr>
+        <td>招商银行</td><td><span class="badge badge-green">CMB</span></td>
+        <td>PDF 回单</td>
+        <td>PDF 回单解析</td>
+        <td>标题识别 + 键值对提取</td>
+      </tr>
+      <tr>
+        <td>招商银行</td><td><span class="badge badge-green">CMB</span></td>
+        <td>Excel 流水</td>
+        <td>Excel 流水解析</td>
+        <td>表头扫描 + 列映射</td>
+      </tr>
+      <tr>
+        <td>广发银行</td><td><span class="badge badge-purple">GFB</span></td>
+        <td>PDF 流水</td>
+        <td>PDF 流水解析</td>
+        <td>坐标分区 + 7 列映射</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="callout callout-warning">
+  <strong>⚠ 设计原则：未知银行强制拒绝</strong>
+  系统不提供通用兜底解析器。当三级银行检测均无法识别文件来源时，系统拒绝解析并要求用户通过手动配置面板指定银行类型和文档格式。这一决策避免了静默解析错误导致的数据污染。
+</div>
+
+<!-- 8. Matching System -->
+<h2 id="matching"><span class="section-icon">🎯</span>3. 科目匹配系统</h2>
+
+<p>科目匹配是 FinanceAssistant 的核心竞争力。系统采用三级递进策略，从确定性规则到模糊历史学习，最终以人工兜底，实现准确率与覆盖率的平衡。</p>
+
+<div class="card-grid card-grid-3" style="margin-bottom: 24px;">
+  <div class="card" style="border-top: 4px solid #3b82f6;">
+    <h4>L1 · 规则匹配 <span class="badge badge-blue">规则引擎</span></h4>
+    <p>从匹配规则配置表加载预设规则。每条规则包含多字段联合条件：<strong>关键字</strong>（摘要中包含）+ <strong>对方户名模式</strong>（可选）+ <strong>方向</strong>。规则按优先级排序，首条命中即停。</p>
+    <p style="margin-top:8px; font-size:0.85rem; color:#64748b;">当前配置：31 条支出规则 + 6 条收入规则</p>
+  </div>
+  <div class="card" style="border-top: 4px solid #22c55e;">
+    <h4>L2 · 历史学习 <span class="badge badge-green">学习引擎</span></h4>
+    <p>用户手动修正的科目记录存入历史学习库。下次相似摘要通过 <strong>智能相似度匹配</strong>查找历史记录（相似度阈值 0.75）。</p>
+    <p style="margin-top:8px; font-size:0.85rem; color:#64748b;">仅记录手动修正条目，自动匹配结果不写入，防止噪声数据污染。</p>
+  </div>
+  <div class="card" style="border-top: 4px solid #ef4444;">
+    <h4>L3 · 人工兜底 <span class="badge badge-red">未匹配</span></h4>
+    <p>前两层均未命中时标记为未匹配。凭证预览面板中未匹配条目<strong>红色高亮</strong>，用户点击选择科目后标记为已人工修正。</p>
+    <p style="margin-top:8px; font-size:0.85rem; color:#64748b;">手动修正条目自动写入 L2 历史库，下次更准。</p>
+  </div>
+</div>
+
+<h3>匹配数据流</h3>
+<div style="overflow-x:auto; margin: 20px 0; display: flex; justify-content: center;">
+<svg viewBox="0 0 660 380" xmlns="http://www.w3.org/2000/svg"
+     style="width:100%; max-width:660px; font-family: -apple-system,'PingFang SC','Microsoft YaHei',sans-serif;">
+
+  <rect width="660" height="380" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="330" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">科目匹配数据流</text>
+
+  <!-- Arrow Markers -->
+  <defs>
+    <marker id="mB8" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3Z" fill="#3b82f6"/></marker>
+    <marker id="mG8" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3Z" fill="#22c55e"/></marker>
+    <marker id="mR8" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3Z" fill="#ef4444"/></marker>
+    <marker id="mY8" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3Z" fill="#64748b"/></marker>
+  </defs>
+
+  <!-- ════════════ ROW 1 (y=80) ════════════ -->
+
+  <!-- Input center=(95, 80) -->
+  <rect x="30" y="52" width="130" height="56" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="95" y="72" text-anchor="middle" font-size="10" font-weight="700" fill="#334155">交易明细输入</text>
+  <text x="95" y="86" text-anchor="middle" font-size="8" fill="#64748b">摘要 · 对方户名</text>
+
+  <!-- L1 center=(270, 80) -->
+  <rect x="210" y="52" width="120" height="56" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+  <text x="270" y="72" text-anchor="middle" font-size="11" font-weight="700" fill="#1e40af">L1 规则引擎</text>
+  <line x1="220" y1="80" x2="320" y2="80" stroke="#93c5fd" stroke-width="1"/>
+  <text x="270" y="94" text-anchor="middle" font-size="8" fill="#1e3a8a">关键字 + 对方户名</text>
+
+  <!-- Decision1 diamond center=(400, 80) -->
+  <polygon points="400,58 430,80 400,102 370,80" fill="#fff" stroke="#3b82f6" stroke-width="2"/>
+  <text x="400" y="76" text-anchor="middle" font-size="10" font-weight="700" fill="#334155">命中?</text>
+  <text x="400" y="92" text-anchor="middle" font-size="8" fill="#64748b">L1 规则</text>
+
+  <!-- End(成功) center=(570, 80) -->
+  <rect x="510" y="52" width="120" height="56" rx="8" fill="#dcfce7" stroke="#22c55e" stroke-width="2.5"/>
+  <text x="570" y="72" text-anchor="middle" font-size="11" font-weight="700" fill="#065f46">✅ 匹配成功</text>
+  <text x="570" y="86" text-anchor="middle" font-size="8" fill="#064e3b">自动填充科目</text>
+  <text x="570" y="98" text-anchor="middle" font-size="8" fill="#064e3b">规则匹配</text>
+
+  <!-- ════════════ ROW 2 (y=200) ════════════ -->
+
+  <!-- L2 center=(270, 200) -->
+  <rect x="210" y="172" width="120" height="56" rx="8" fill="#dcfce7" stroke="#22c55e" stroke-width="2"/>
+  <text x="270" y="192" text-anchor="middle" font-size="11" font-weight="700" fill="#065f46">L2 学习引擎</text>
+  <line x1="220" y1="200" x2="320" y2="200" stroke="#6ee7b7" stroke-width="1"/>
+  <text x="270" y="214" text-anchor="middle" font-size="8" fill="#064e3b">智能相似度匹配</text>
+
+  <!-- Decision2 diamond center=(400, 200) -->
+  <polygon points="400,178 430,200 400,222 370,200" fill="#fff" stroke="#22c55e" stroke-width="2"/>
+  <text x="400" y="196" text-anchor="middle" font-size="10" font-weight="700" fill="#334155">命中?</text>
+  <text x="400" y="212" text-anchor="middle" font-size="8" fill="#64748b">L2 历史</text>
+
+  <!-- End(成功) center=(570, 200) -->
+  <rect x="510" y="172" width="120" height="56" rx="8" fill="#dcfce7" stroke="#22c55e" stroke-width="2.5"/>
+  <text x="570" y="194" text-anchor="middle" font-size="11" font-weight="700" fill="#065f46">✅ 匹配成功</text>
+  <text x="570" y="208" text-anchor="middle" font-size="8" fill="#064e3b">历史匹配</text>
+
+  <!-- ════════════ ROW 3 (y=320) ════════════ -->
+
+  <!-- L3 center=(270, 320) -->
+  <rect x="210" y="292" width="120" height="56" rx="8" fill="#fee2e2" stroke="#ef4444" stroke-width="2"/>
+  <text x="270" y="312" text-anchor="middle" font-size="11" font-weight="700" fill="#991b1b">L3 人工兜底</text>
+  <line x1="220" y1="320" x2="320" y2="320" stroke="#fca5a5" stroke-width="1"/>
+  <text x="270" y="334" text-anchor="middle" font-size="8" fill="#991b1b">预览面板手动选择</text>
+
+  <!-- End(需人工) center=(570, 320) -->
+  <rect x="510" y="292" width="120" height="56" rx="8" fill="#fee2e2" stroke="#ef4444" stroke-width="2.5"/>
+  <text x="570" y="314" text-anchor="middle" font-size="11" font-weight="700" fill="#991b1b">⚠️ 需人工处理</text>
+  <text x="570" y="328" text-anchor="middle" font-size="8" fill="#991b1b">红色高亮提示</text>
+
+  <!-- ════════════ Arrows ════════════ -->
+
+  <!-- ROW 1 horizontal: Input -> L1 -> Decision1 -> End(成功) -->
+  <line x1="160" y1="80" x2="210" y2="80" stroke="#64748b" stroke-width="2" marker-end="url(#mY8)"/>
+  <line x1="330" y1="80" x2="370" y2="80" stroke="#3b82f6" stroke-width="2" marker-end="url(#mB8)"/>
+  <line x1="430" y1="80" x2="510" y2="80" stroke="#22c55e" stroke-width="2" marker-end="url(#mG8)"/>
+
+  <!-- ROW 2 horizontal: L2 -> Decision2 -> End(成功) -->
+  <line x1="330" y1="200" x2="370" y2="200" stroke="#22c55e" stroke-width="2" marker-end="url(#mG8)"/>
+  <line x1="430" y1="200" x2="510" y2="200" stroke="#22c55e" stroke-width="2" marker-end="url(#mG8)"/>
+
+  <!-- ROW 3 horizontal: L3 -> End(需人工) -->
+  <line x1="330" y1="320" x2="510" y2="320" stroke="#ef4444" stroke-width="2" marker-end="url(#mR8)"/>
+
+  <!-- Decision1 否 -> L2: down from(400,102)->(400,160)->left->(270,160)->down->(270,172) -->
+  <line x1="400" y1="102" x2="400" y2="130" stroke="#ef4444" stroke-width="2"/>
+  <line x1="400" y1="130" x2="270" y2="130" stroke="#ef4444" stroke-width="2"/>
+  <line x1="270" y1="130" x2="270" y2="172" stroke="#ef4444" stroke-width="2" marker-end="url(#mR8)"/>
+
+  <!-- Decision2 否 -> L3: down from(400,222)->(400,320)->left->(270,320) -->
+  <line x1="400" y1="222" x2="400" y2="250" stroke="#ef4444" stroke-width="2"/>
+  <line x1="400" y1="250" x2="270" y2="250" stroke="#ef4444" stroke-width="2"/>
+  <line x1="270" y1="250" x2="270" y2="290" stroke="#ef4444" stroke-width="2" marker-end="url(#mR8)"/>
+
+
+  <!-- ════════════ Decision Labels ════════════ -->
+  <!-- Decision1 是: right exit -->
+  <text x="434" y="78" text-anchor="start" font-size="9" font-weight="700" fill="#22c55e">是</text>
+  <!-- Decision1 否: down exit -->
+  <text x="406" y="106" text-anchor="start" font-size="9" font-weight="700" fill="#ef4444">否</text>
+  <!-- Decision2 是: right exit -->
+  <text x="434" y="198" text-anchor="start" font-size="9" font-weight="700" fill="#22c55e">是</text>
+  <!-- Decision2 否: down exit -->
+  <text x="406" y="226" text-anchor="start" font-size="9" font-weight="700" fill="#ef4444">否</text>
+
+</svg>
+</div>
+
+<h3>训练数据策略</h3>
+<div class="callout callout-info">
+  <strong>质量优先原则</strong>
+  导出功能仅将人工修正的分录写入历史学习库。自动匹配的结果不产生训练样本。这一设计确保智能记忆仅从经过人工验证的高质量数据中学习，避免错误匹配的级联传播。
+</div>
+
+<h3>缓存机制</h3>
+<ul>
+  <li>历史匹配使用<strong>内存缓存</strong>，加速相似度计算</li>
+  <li>新数据写入时自动刷新缓存，确保数据即时生效</li>
+  <li>OCR 文字识别引擎采用单例模式，避免每次解析重复加载模型</li>
+</ul>
+
+<!-- 9. Voucher System -->
+<h2 id="voucher"><span class="section-icon">🧾</span>4. 凭证系统</h2>
+
+<h3>凭证组合逻辑</h3>
+<p>凭证组合引擎将解析后的交易流水转换为符合借贷记账规则的凭证分录。核心流程：</p>
+
+<div style="overflow-x:auto; margin: 20px 0;">
+<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg"
+     style="width:100%; max-width:760px; font-family: -apple-system,'PingFang SC','Microsoft YaHei',sans-serif;">
+  <rect width="760" height="300" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="380" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">凭证组合逻辑</text>
+
+  <!-- Step 1: Input -->
+  <rect x="30" y="42" width="130" height="64" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="95" y="62" text-anchor="middle" font-size="11" font-weight="700" fill="#334155">📥 交易流水</text>
+  <text x="95" y="78" text-anchor="middle" font-size="9" fill="#64748b">解析后的交易列表</text>
+  <text x="95" y="92" text-anchor="middle" font-size="9" fill="#64748b">日期/摘要/金额/对方户名</text>
+
+  <!-- Arrow 1 -->
+  <line x1="160" y1="74" x2="195" y2="74" stroke="#1677ff" stroke-width="2" marker-end="url(#vArrB)"/>
+
+  <!-- Step 2: Grouping -->
+  <rect x="200" y="42" width="150" height="64" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+  <text x="275" y="62" text-anchor="middle" font-size="11" font-weight="700" fill="#1e40af">交易分组</text>
+  <text x="275" y="78" text-anchor="middle" font-size="9" fill="#1e3a8a">按四元组分组</text>
+  <text x="275" y="92" text-anchor="middle" font-size="9" fill="#1e3a8a">账号·对方科目·方向·对方账号</text>
+
+  <!-- Arrow 2 -->
+  <line x1="350" y1="74" x2="385" y2="74" stroke="#1677ff" stroke-width="2" marker-end="url(#vArrB)"/>
+
+  <!-- Step 3: Entry Generation -->
+  <rect x="390" y="42" width="150" height="64" rx="8" fill="#dcfce7" stroke="#22c55e" stroke-width="2"/>
+  <text x="465" y="62" text-anchor="middle" font-size="11" font-weight="700" fill="#065f46">分录生成</text>
+  <text x="465" y="78" text-anchor="middle" font-size="9" fill="#064e3b">支出：借对方 / 贷银行</text>
+  <text x="465" y="92" text-anchor="middle" font-size="9" fill="#064e3b">收入：借银行 / 贷对方</text>
+
+  <!-- Arrow 3 -->
+  <line x1="540" y1="74" x2="575" y2="74" stroke="#1677ff" stroke-width="2" marker-end="url(#vArrB)"/>
+
+  <!-- Step 4: Output -->
+  <rect x="580" y="42" width="130" height="64" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+  <text x="645" y="62" text-anchor="middle" font-size="11" font-weight="700" fill="#92400e">📤 凭证数据</text>
+  <text x="645" y="78" text-anchor="middle" font-size="9" fill="#78350f">凭证号 · 日期</text>
+  <text x="645" y="92" text-anchor="middle" font-size="9" fill="#78350f">借贷分录明细</text>
+
+  <!-- Direction box (below flow) -->
+  <rect x="200" y="150" width="340" height="40" rx="6" fill="#fff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="370" y="166" text-anchor="middle" font-size="10" font-weight="600" fill="#334155">借贷方向决定</text>
+  <text x="370" y="182" text-anchor="middle" font-size="9" fill="#64748b">收入 → 借银行 / 贷对方  |  支出 → 借对方 / 贷银行</text>
+
+  <!-- Arrows from flow to direction box -->
+  <line x1="275" y1="106" x2="275" y2="150" stroke="#64748b" stroke-width="1.5" marker-end="url(#vArrB)"/>
+  <line x1="465" y1="106" x2="465" y2="150" stroke="#64748b" stroke-width="1.5" marker-end="url(#vArrB)"/>
+
+  <!-- Subject matching callout (below direction) -->
+  <rect x="200" y="220" width="340" height="40" rx="6" fill="#fef9c3" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="370" y="236" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">三层科目匹配</text>
+  <text x="370" y="252" text-anchor="middle" font-size="9" fill="#a16207">L1 规则 → L2 智能记忆 → L3 人工兜底</text>
+
+  <!-- Arrow from direction box to matching -->
+  <line x1="370" y1="190" x2="370" y2="220" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#vArrA)"/>
+
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="vArrB" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3Z" fill="#3b82f6"/></marker>
+    <marker id="vArrA" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3Z" fill="#f59e0b"/></marker>
+  </defs>
+</svg>
+</div>
+
+<div style="overflow-x:auto; margin: 20px 0;">
+
+
+<h3>凭证字段说明</h3>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>字段</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>凭证号</td><td>自动生成</td></tr>
+      <tr><td>交易日期</td><td>银行流水日期</td></tr>
+      <tr><td>借贷方向</td><td>收入 / 支出（决定借方和贷方）</td></tr>
+      <tr><td>分录列表</td><td>每笔分录含科目、借方金额、贷方金额、摘要、对方户名</td></tr>
+      <tr><td>匹配来源</td><td>规则匹配 / 历史学习 / 人工修正 / 未匹配 / 自动</td></tr>
+      <tr><td>人工标记</td><td>是否经用户手动修正</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>草稿管理</h3>
+<ul>
+  <li>凭证草稿存储在 SQLite 的凭证草稿表，每条草稿含唯一标识、名称、期间、状态（草稿 / 已导出）</li>
+  <li>分录存储在草稿分录明细表，含多个字段，与草稿通过外键关联（级联删除）</li>
+  <li>前端提供草稿列表功能，支持加载和删除</li>
+  <li>导出时自动将草稿状态标记为"已导出"</li>
+</ul>
+
+<!-- 10. Export -->
+<h2 id="export"><span class="section-icon">📤</span>5. 导出能力</h2>
+
+<h3>流水明细 Excel（<code>generate_excel</code>）</h3>
+<ul>
+  <li>原始交易列表 + 统计摘要（收入/支出笔数与总额）</li>
+  <li>格式化表头（加粗、蓝色填充）、冻结首行、自适应列宽</li>
+</ul>
+
+<h3>金蝶凭证 Excel（<code>voucher.export</code>）</h3>
+<p>生成的 Excel 严格遵循<strong>金蝶精斗云凭证批量导入模板</strong>的 25 列格式：</p>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>列序</th><th>字段</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>凭证日期</td><td>交易日期</td></tr>
+      <tr><td>2</td><td>凭证字</td><td>记账凭证类型</td></tr>
+      <tr><td>3</td><td>凭证号</td><td>自动生成</td></tr>
+      <tr><td>4</td><td>分录序号</td><td>1 / 2（借 / 贷）</td></tr>
+      <tr><td>5</td><td>摘要</td><td>交易描述</td></tr>
+      <tr><td>6-7</td><td>科目代码 / 名称</td><td>借贷方科目</td></tr>
+      <tr><td>8-9</td><td>借方金额 / 贷方金额</td><td>根据方向填充</td></tr>
+      <tr><td>10-14</td><td>客户 / 供应商 / 员工 / 项目 / 部门</td><td>辅助核算类别</td></tr>
+      <tr><td>15-25</td><td>数量、单价、原币、汇率等</td><td>扩展字段</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>导出审计</h3>
+<p>每次 <code>voucher.export</code> 执行以下操作：</p>
+<ol>
+  <li>生成金蝶凭证 Excel 文件</li>
+  <li>写入导出审计记录（期间、文件路径、凭证数、分录数、匹配统计、来源文件列表）</li>
+  <li>将人工修正的分录写入历史学习库，丰富智能记忆数据</li>
+  <li>将草稿状态标记为"已导出"</li>
+</ol>
+
+<!-- 11. Tech Stack -->
+<h2 id="tech"><span class="section-icon">🛠️</span>6. 技术栈</h2>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>层</th><th>技术</th><th>版本</th><th>用途</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>桌面壳</td><td>Electron</td><td>32.x</td><td>跨平台桌面应用框架</td></tr>
+      <tr><td>前端 UI</td><td>React + TypeScript + Vite</td><td>React 18 / TS 5.6</td><td>用户界面</td></tr>
+      <tr><td>UI 组件库</td><td>Ant Design 5</td><td>5.22</td><td>表格 / 表单 / 模态框 / 标签</td></tr>
+      <tr><td>虚拟列表</td><td>react-window</td><td>1.8</td><td>297 条科目虚拟滚动</td></tr>
+      <tr><td>前端测试</td><td>Vitest + RTL</td><td>4.1 / 16.3</td><td>单元测试</td></tr>
+      <tr><td>后端</td><td>Python</td><td>3.11+</td><td>核心业务逻辑</td></tr>
+      <tr><td>PDF 解析</td><td>PyMuPDF (fitz)</td><td>1.24+</td><td>PDF 文本 / 结构提取</td></tr>
+      <tr><td>OCR</td><td>RapidOCR (ONNX Runtime)</td><td>1.4+</td><td>扫描件文字识别</td></tr>
+      <tr><td>图像处理</td><td>OpenCV</td><td>4.8+</td><td>网格线检测、图像预处理</td></tr>
+      <tr><td>Excel</td><td>openpyxl</td><td>3.1+</td><td>Excel 读写与格式化</td></tr>
+      <tr><td>数据库</td><td>SQLite (stdlib)</td><td>—</td><td>WAL 模式，运行时数据</td></tr>
+      <tr><td>NLP</td><td>scikit-learn (TF-IDF)</td><td>—</td><td>L2 历史学习向量化</td></tr>
+      <tr><td>打包 (Py)</td><td>PyInstaller</td><td>—</td><td>Python 单文件打包</td></tr>
+      <tr><td>打包 (El)</td><td>electron-builder</td><td>24.x</td><td>NSIS 安装包</td></tr>
+      <tr><td>包管理</td><td>Poetry / npm workspaces</td><td>—</td><td>Python / JS 依赖管理</td></tr>
+    </tbody>
+  </table>
+</div>
+</div>
+
+<!-- 12. Roadmap -->
+<h2 id="roadmap"><span class="section-icon">🗺️</span>7. 路线图</h2>
+
+<h3>v0.3.0 — 凭证系统上线 <span class="badge badge-green">已完成</span></h3>
+<ul>
+  <li>✅ 三层科目匹配引擎（L1 规则 + L2 智能记忆 + L3 人工兜底）</li>
+  <li>✅ 凭证预览与编辑面板</li>
+  <li>✅ 草稿管理（SQLite 持久化：保存 / 加载 / 删除）</li>
+  <li>✅ 金蝶凭证 Excel 导出（25 列精斗云导入模板）</li>
+  <li>✅ 批量文件处理（数量可配置，默认 5 文件，折叠面板展示）</li>
+  <li>✅ 账号-科目映射管理界面</li>
+  <li>✅ 三级银行检测路由（结构特征 → OCR 账号 → 人工覆盖）</li>
+</ul>
+
+<h3>v0.4.0 — 智能化增强 <span class="badge badge-blue">规划中</span></h3>
+<ul>
+  <li>🔲 更多银行支持（建设银行、农业银行、交通银行等）</li>
+  <li>🔲 L1 规则可视化配置界面（替代手写 JSON）</li>
+  <li>🔲 匹配准确率仪表盘（各层级命中率统计）</li>
+  <li>🔲 凭证模板自定义（不同金蝶版本的列映射）</li>
+</ul>
+
+<h3>v0.5.0 — 体验优化 <span class="badge badge-gray">远期</span></h3>
+<ul>
+  <li>🔲 自定义规则配置界面（可视化添加/编辑 L1 匹配规则）</li>
+  <li>🔲 匹配历史浏览与管理（查看 / 删除 L2 历史条目）</li>
+  <li>🔲 凭证模板自定义（不同金蝶版本的列映射配置）</li>
+  <li>🔲 更多银行支持（建设银行、农业银行、交通银行等）</li>
+  <li>🔲 匹配准确率仪表盘（各层级命中率统计与趋势图）</li>
+</ul>
+
+<!-- 13. Metrics -->
+<h2 id="metrics"><span class="section-icon">📊</span>8. 产品指标</h2>
+
+<h3>代码规模</h3>
+<div class="stat-row">
+  <div class="stat"><div class="num">~4,500</div><div class="lbl">Python 代码行数</div></div>
+  <div class="stat"><div class="num">~3,500</div><div class="lbl">TypeScript/React 代码行数</div></div>
+  <div class="stat"><div class="num">14</div><div class="lbl">解析器模块</div></div>
+  <div class="stat"><div class="num">16</div><div class="lbl">RPC 接口</div></div>
+</div>
+
+<h3>功能覆盖率</h3>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>维度</th><th>当前状态</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>银行覆盖</td><td>工行 / 招行 / 广发（3 家主流银行）</td></tr>
+      <tr><td>文件格式</td><td>PDF（嵌入式 + 扫描件）、CSV、Excel（.xlsx）</td></tr>
+      <tr><td>科目数量</td><td>297 条（完整会计科目表）</td></tr>
+      <tr><td>匹配层级</td><td>L1 规则（37 条）→ L2 智能记忆 → L3 人工</td></tr>
+      <tr><td>批量处理</td><td>数量可配置（默认 5）/ 批次</td></tr>
+      <tr><td>导出格式</td><td>金蝶精斗云凭证导入模板（25 列）</td></tr>
+      <tr><td>测试覆盖</td><td>前端 Vitest（组件 + Hook 单元测试）；Python pytest 框架已就绪</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>核心设计决策回顾</h3>
+<div class="card-grid card-grid-2">
+  <div class="card">
+    <h4>🚫 未知银行强制拒绝</h4>
+    <p>不提供通用兜底解析器。宁可让用户在覆盖面板手动选择，也不允许系统在不确定时静默解析，从源头避免数据污染。</p>
+  </div>
+  <div class="card">
+    <h4>🧠 仅人工修正写入历史</h4>
+    <p>L2 智能记忆模型的训练数据仅来自用户手动确认的分录。自动匹配结果不产生训练样本，确保模型质量。</p>
+  </div>
+  <div class="card">
+    <h4>⚡ 延迟加载解析器</h4>
+    <p>11 个解析器全部延迟导入，每次请求仅加载目标解析器，保持 bridge 启动速度。</p>
+  </div>
+  <div class="card">
+    <h4>🔒 OCR 单例模式</h4>
+    <p>OCR 文字识别引擎（~50MB 模型）采用单例模式，避免重复加载消耗内存。</p>
+  </div>
+  <div class="card">
+    <h4>📜 虚拟滚动科目表</h4>
+    <p>297 条科目通过 react-window FixedSizeList 渲染，仅产生 ~10 个 DOM 节点，保持列表流畅。</p>
+  </div>
+  <div class="card">
+    <h4>🔀 三层路由检测</h4>
+    <p>银行检测从关键字匹配升级为结构特征匹配（L1）→ OCR 账号匹配（L2）→ 人工覆盖（L3），准确率大幅提升。</p>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer style="margin-top: 64px; padding-top: 24px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 0.8rem;">
+  <p>FinanceAssistant 技术架构文档 · v0.3.0 · 2026-06-05</p>
+  <p style="margin-top: 6px;">
+    <a href="PRD.html" style="color: #60a5fa;">← 返回产品需求文档</a>
+  </p>
+</footer>
+
+  </main>
+</div>
+
+<!-- ══════════ SIDEBAR SCROLL SPY ══════════ -->
+<script>
+  // Smooth scroll + active section tracking
+  const sections = document.querySelectorAll('section[id], h2[id]');
+  const navLinks = document.querySelectorAll('.sidebar nav a');
+
+  const observer = new IntersectionObserver((entries) => {
+entries.forEach(entry => {
+  if (entry.isIntersecting) {
+    const id = entry.target.getAttribute('id');
+    navLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+    });
+  }
+});
+  }, { rootMargin: '-80px 0px -60% 0px', threshold: 0 });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>
