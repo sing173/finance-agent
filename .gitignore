@@ -100,3 +100,4 @@ apps/renderer/package-lock.json
 # pnpm-lock.yaml
 # poetry.lock
 apps/python/src/data.db*
+CODEBUDDY.md
