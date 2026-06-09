@@ -37,8 +37,7 @@
       {"id": "rule_e032", "priority": 32, "match": {"keywords": ["报销"]}, "subject_code": "50602", "subject_name": "管理费用"},
       {"id": "rule_e033", "priority": 33, "match": {"keywords": ["电信", "电讯费"]}, "subject_code": "5060216", "subject_name": "管理费用_电讯费"},
       {"id": "rule_e034", "priority": 34, "match": {"keywords": ["团险", "团险保费", "保险"]}, "subject_code": "5060211", "subject_name": "管理费用_福利费"},
-      {"id": "rule_e035", "priority": 35, "match": {"keywords": ["郑炜"]}, "subject_code": "5060202", "subject_name": "管理费用_房租"},
-      {"id": "rule_e036", "priority": 36, "match": {"keywords": ["保证金"]}, "subject_code": "1000205", "subject_name": "其他应收款_其他"}
+      {"id": "rule_e035", "priority": 35, "match": {"keywords": ["郑炜"]}, "subject_code": "5060202", "subject_name": "管理费用_房租"}
     ]
   },
   "income": {
@@ -51,8 +50,8 @@
       {"id": "rule_i005", "priority": 5, "match": {"keywords": ["租金收入", "房租收入"]}, "subject_code": "5000103", "subject_name": "主营业务收入_租赁业务收入"},
       {"id": "rule_i006", "priority": 55, "match": {"keywords": ["退款", "返款", "退货款"]}, "subject_code": "10221", "subject_name": "其他应收款"},
       {"id": "rule_i007", "priority": 52, "match": {"keywords": ["收到", "押金", "保证金"]}, "subject_code": "1022104", "subject_name": "其他应收款_押金"},
-      {"id": "rule_i008", "priority": 53, "match": {"keywords": ["手续费", "汇款手续费", "转账手续费"]}, "subject_code": "1000201", "subject_name": "其他应收款_手续费"},
-      {"id": "rule_i009", "priority": 1, "match": {"keywords": ["小企业短期普通贷款利息收入"]}, "subject_code": "1000205", "subject_name": "其他应收款_其他"}
+      {"id": "rule_i008", "priority": 53, "match": {"keywords": ["手续费", "汇款手续费", "转账手续费"]}, "subject_code": "1022120", "subject_name": "其他应收款_手续费"},
+      {"id": "rule_i009", "priority": 1, "match": {"keywords": ["小企业短期普通贷款利息收入"]}, "subject_code": "1022103", "subject_name": "其他应收款_其他"}
     ]
   }
 }

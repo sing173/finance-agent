@@ -85,22 +85,22 @@ def test_tuibaozhengjin_income_match():
 
 
 def test_shouxufei_income_match():
-    """摘要含"手续费"、direction=income → 其他应收款_手续费(1000201)"""
+    """摘要含"手续费"、direction=income → 其他应收款_手续费(1022120)"""
     matcher = RuleMatcher()
     result = matcher.match("退回手续费", "income")
     assert isinstance(result, MatchResult)
-    assert result.subject_code == "1000201", f"期望 1000201，实际 {result.subject_code}"
+    assert result.subject_code == "1022120", f"期望 1022120，实际 {result.subject_code}"
     assert result.subject_name == "其他应收款_手续费", f"期望 其他应收款_手续费，实际 {result.subject_name}"
     assert result.source == "rule"
     assert result.rule_id == "rule_i008"
 
 
 def test_dailixi_income_match():
-    """摘要含"小企业短期普通贷款利息收入"、direction=income → 其他应收款_其他(1000205)"""
+    """摘要含"小企业短期普通贷款利息收入"、direction=income → 其他应收款_其他(1022103)"""
     matcher = RuleMatcher()
     result = matcher.match("小企业短期普通贷款利息收入", "income")
     assert isinstance(result, MatchResult)
-    assert result.subject_code == "1000205", f"期望 1000205，实际 {result.subject_code}"
+    assert result.subject_code == "1022103", f"期望 1022103，实际 {result.subject_code}"
     assert result.subject_name == "其他应收款_其他", f"期望 其他应收款_其他，实际 {result.subject_name}"
     assert result.source == "rule"
     assert result.rule_id == "rule_i009"
