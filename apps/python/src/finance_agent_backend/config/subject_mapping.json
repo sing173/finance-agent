@@ -49,7 +49,7 @@
       {"id": "rule_i004", "priority": 4, "match": {"keywords": ["政府补贴", "政府补助"]}, "subject_code": "5030102", "subject_name": "营业外收入_政府补助"},
       {"id": "rule_i005", "priority": 5, "match": {"keywords": ["租金收入", "房租收入"]}, "subject_code": "5000103", "subject_name": "主营业务收入_租赁业务收入"},
       {"id": "rule_i006", "priority": 55, "match": {"keywords": ["退款", "返款", "退货款"]}, "subject_code": "10221", "subject_name": "其他应收款"},
-      {"id": "rule_i007", "priority": 52, "match": {"keywords": ["收到", "押金", "保证金"]}, "subject_code": "1022104", "subject_name": "其他应收款_押金"},
+      {"id": "rule_i007", "priority": 52, "match": {"keywords": ["押金", "保证金"]}, "subject_code": "1022104", "subject_name": "其他应收款_押金"},
       {"id": "rule_i008", "priority": 53, "match": {"keywords": ["手续费", "汇款手续费", "转账手续费"]}, "subject_code": "1022120", "subject_name": "其他应收款_手续费"},
       {"id": "rule_i009", "priority": 1, "match": {"keywords": ["小企业短期普通贷款利息收入"]}, "subject_code": "1022103", "subject_name": "其他应收款_其他"}
     ]
