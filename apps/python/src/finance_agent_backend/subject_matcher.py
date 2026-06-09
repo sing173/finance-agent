@@ -33,6 +33,8 @@ class MatchResult:
     subject_name: str = ''
     source: str = 'unmatched'    # 'rule' | 'history' | 'manual' | 'unmatched'
     rule_id: str = ''
+    aux_category: str = ''
+    aux_category_name: str = ''
 
 
 # ── L1: 规则匹配器 ──────────────────────────────────────────
@@ -52,6 +54,7 @@ class RuleMatcher:
             rules: dict（已加载的规则）、str（文件路径）、或 None（默认内置配置）
         """
         self._rules = self._load(rules)
+        self._subjects = self._load_subjects()
 
     @staticmethod
     def _load(rules: dict | str | None) -> dict:
@@ -72,6 +75,22 @@ class RuleMatcher:
         except Exception:
             return {"version": 0, "rules": []}
 
+    @staticmethod
+    def _load_subjects() -> dict:
+        """加载 subjects.json 用于 aux_category 查找。"""
+        try:
+            from finance_agent_backend.paths import get_config_path
+            path = get_config_path('subjects.json')
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return {}
+
+    def _get_aux_category(self, subject_code: str) -> tuple[str, str]:
+        """从 subjects.json 查找 aux_category 和 aux_category_name。"""
+        subj = self._subjects.get(subject_code, {})
+        return subj.get('aux_category', ''), subj.get('aux_category_name', '')
+
     def match(self, summary: str, direction: str, counterparty: str = '') -> MatchResult:
         """按 priority 升序尝试规则，首个命中即停。"""
         direction_rules = self._rules.get(direction, {})
@@ -79,11 +98,15 @@ class RuleMatcher:
 
         for rule in sorted(rules_list, key=lambda r: r.get("priority", 999)):
             if self._matches(rule, summary, counterparty):
+                code = rule.get("subject_code", "")
+                aux_cat, aux_cat_name = self._get_aux_category(code)
                 return MatchResult(
-                    subject_code=rule.get("subject_code", ""),
+                    subject_code=code,
                     subject_name=rule.get("subject_name", ""),
                     source="rule",
                     rule_id=rule.get("id", ""),
+                    aux_category=aux_cat,
+                    aux_category_name=aux_cat_name,
                 )
         return MatchResult()
 
@@ -92,6 +115,14 @@ class RuleMatcher:
         match_def = rule.get("match", {})
         keywords = match_def.get("keywords", [])
         if not any(kw in summary for kw in keywords):
+            return False
+        # exclude_keywords: 任一命中即排除
+        exclude = match_def.get("exclude_keywords", [])
+        if exclude and any(kw in summary for kw in exclude):
+            return False
+        # require_keywords: 必须全部命中才通过
+        require = match_def.get("require_keywords", [])
+        if require and not all(kw in summary for kw in require):
             return False
         pattern = match_def.get("counterparty_pattern")
         if pattern and pattern not in counterparty:

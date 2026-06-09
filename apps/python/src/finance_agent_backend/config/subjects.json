@@ -2554,240 +2554,264 @@
     "name": "管理费用",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用"
+    "full_name": "管理费用",
+    "aux_category_name": "公共部门"
   },
   "5060201": {
     "code": "5060201",
     "name": "办公费",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_办公费"
+    "full_name": "管理费用_办公费",
+    "aux_category_name": "公共部门"
   },
   "5060202": {
     "code": "5060202",
     "name": "房租",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_房租"
+    "full_name": "管理费用_房租",
+    "aux_category_name": "公共部门"
   },
   "5060203": {
     "code": "5060203",
     "name": "物业管理费",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_物业管理费"
+    "full_name": "管理费用_物业管理费",
+    "aux_category_name": "公共部门"
   },
   "5060204": {
     "code": "5060204",
     "name": "水电费",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_水电费"
+    "full_name": "管理费用_水电费",
+    "aux_category_name": "公共部门"
   },
   "5060205": {
     "code": "5060205",
     "name": "业务招待费",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_业务招待费"
+    "full_name": "管理费用_业务招待费",
+    "aux_category_name": "公共部门"
   },
   "5060206": {
     "code": "5060206",
     "name": "市内交通费",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_市内交通费"
+    "full_name": "管理费用_市内交通费",
+    "aux_category_name": "公共部门"
   },
   "5060207": {
     "code": "5060207",
     "name": "差旅费",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_差旅费"
+    "full_name": "管理费用_差旅费",
+    "aux_category_name": "公共部门"
   },
   "5060208": {
     "code": "5060208",
     "name": "无形资产摊销",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_无形资产摊销"
+    "full_name": "管理费用_无形资产摊销",
+    "aux_category_name": "公共部门"
   },
   "5060209": {
     "code": "5060209",
     "name": "工资",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_工资"
+    "full_name": "管理费用_工资",
+    "aux_category_name": "公共部门"
   },
   "5060210": {
     "code": "5060210",
     "name": "社会保险",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_社会保险"
+    "full_name": "管理费用_社会保险",
+    "aux_category_name": "公共部门"
   },
   "5060211": {
     "code": "5060211",
     "name": "福利费",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_福利费"
+    "full_name": "管理费用_福利费",
+    "aux_category_name": "公共部门"
   },
   "5060212": {
     "code": "5060212",
     "name": "累计折旧",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_累计折旧"
+    "full_name": "管理费用_累计折旧",
+    "aux_category_name": "公共部门"
   },
   "5060213": {
     "code": "5060213",
     "name": "低值易耗品",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_低值易耗品"
+    "full_name": "管理费用_低值易耗品",
+    "aux_category_name": "公共部门"
   },
   "5060214": {
     "code": "5060214",
     "name": "公积金",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_公积金"
+    "full_name": "管理费用_公积金",
+    "aux_category_name": "公共部门"
   },
   "5060215": {
     "code": "5060215",
     "name": "研发费用",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_研发费用"
+    "full_name": "管理费用_研发费用",
+    "aux_category_name": "公共部门"
   },
   "5060216": {
     "code": "5060216",
     "name": "电迅费",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_电迅费"
+    "full_name": "管理费用_电迅费",
+    "aux_category_name": "公共部门"
   },
   "5060217": {
     "code": "5060217",
     "name": "辞退补偿金",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_辞退补偿金"
+    "full_name": "管理费用_辞退补偿金",
+    "aux_category_name": "公共部门"
   },
   "5060218": {
     "code": "5060218",
     "name": "奖金",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_奖金"
+    "full_name": "管理费用_奖金",
+    "aux_category_name": "公共部门"
   },
   "5060219": {
     "code": "5060219",
     "name": "劳务派遣",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_劳务派遣"
+    "full_name": "管理费用_劳务派遣",
+    "aux_category_name": "公共部门"
   },
   "5060220": {
     "code": "5060220",
     "name": "印花税",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_印花税"
+    "full_name": "管理费用_印花税",
+    "aux_category_name": "公共部门"
   },
   "5060221": {
     "code": "5060221",
     "name": "车船购置税",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_车船购置税"
+    "full_name": "管理费用_车船购置税",
+    "aux_category_name": "公共部门"
   },
   "5060222": {
     "code": "5060222",
     "name": "汽车使用费",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_汽车使用费"
+    "full_name": "管理费用_汽车使用费",
+    "aux_category_name": "公共部门"
   },
   "5060299": {
     "code": "5060299",
     "name": "其他",
     "category": "期间费用",
     "direction": "借",
-    "aux_category": "部门",
+    "aux_category": "04",
     "is_cash": false,
     "enabled": true,
-    "full_name": "管理费用_其他"
+    "full_name": "管理费用_其他",
+    "aux_category_name": "公共部门"
   },
   "50603": {
     "code": "50603",

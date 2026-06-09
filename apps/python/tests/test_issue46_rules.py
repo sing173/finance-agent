@@ -52,14 +52,14 @@ def test_zhengwei_expense_match():
 
 
 def test_baozhengjin_expense_match():
-    """摘要含"保证金"、direction=expense → 其他应收款_其他(1000205)"""
+    """摘要含"保证金"、direction=expense → 其他应收款_押金(1022104)"""
     matcher = RuleMatcher()
     result = matcher.match("支付保证金", "expense")
     assert isinstance(result, MatchResult)
-    assert result.subject_code == "1000205", f"期望 1000205，实际 {result.subject_code}"
-    assert result.subject_name == "其他应收款_其他", f"期望 其他应收款_其他，实际 {result.subject_name}"
+    assert result.subject_code == "1022104", f"期望 1022104，实际 {result.subject_code}"
+    assert result.subject_name == "其他应收款_押金", f"期望 其他应收款_押金，实际 {result.subject_name}"
     assert result.source == "rule"
-    assert result.rule_id == "rule_e036"
+    assert result.rule_id == "rule_e028"
 
 
 def test_tuiyaojin_income_match():
@@ -74,14 +74,14 @@ def test_tuiyaojin_income_match():
 
 
 def test_tuibaozhengjin_income_match():
-    """摘要含"退保证金"、direction=income → 其他应收款_其他(1000205)"""
+    """摘要含"收到退保证金"、direction=income → 其他应收款_押金(1022104)"""
     matcher = RuleMatcher()
     result = matcher.match("收到退保证金", "income")
     assert isinstance(result, MatchResult)
-    assert result.subject_code == "1000205", f"期望 1000205，实际 {result.subject_code}"
-    assert result.subject_name == "其他应收款_其他", f"期望 其他应收款_其他，实际 {result.subject_name}"
+    assert result.subject_code == "1022104", f"期望 1022104，实际 {result.subject_code}"
+    assert result.subject_name == "其他应收款_押金", f"期望 其他应收款_押金，实际 {result.subject_name}"
     assert result.source == "rule"
-    assert result.rule_id == "rule_i008"
+    assert result.rule_id == "rule_i007"
 
 
 def test_shouxufei_income_match():
@@ -92,7 +92,7 @@ def test_shouxufei_income_match():
     assert result.subject_code == "1000201", f"期望 1000201，实际 {result.subject_code}"
     assert result.subject_name == "其他应收款_手续费", f"期望 其他应收款_手续费，实际 {result.subject_name}"
     assert result.source == "rule"
-    assert result.rule_id == "rule_i009"
+    assert result.rule_id == "rule_i008"
 
 
 def test_dailixi_income_match():
@@ -103,7 +103,7 @@ def test_dailixi_income_match():
     assert result.subject_code == "1000205", f"期望 1000205，实际 {result.subject_code}"
     assert result.subject_name == "其他应收款_其他", f"期望 其他应收款_其他，实际 {result.subject_name}"
     assert result.source == "rule"
-    assert result.rule_id == "rule_i010"
+    assert result.rule_id == "rule_i009"
 
 
 # ── 回归测试：现有规则不受影响 ───────────────────────────────────
