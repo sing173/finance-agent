@@ -26,7 +26,7 @@ from PIL import Image
 from rapidocr_onnxruntime import RapidOCR
 
 from ..models import Transaction, ParseResult
-from .shared_utils import BANK_ICBC, parse_date_chinese, parse_timestamp_date, parse_amount_lenient
+from .shared_utils import BANK_ICBC, parse_date_chinese, parse_timestamp_date, parse_amount_lenient, render_page
 from .base_parser import BaseStatementParser
 
 
@@ -45,9 +45,22 @@ class ICBCReceiptGridParser(BaseStatementParser):
     # 右侧:   col 7 (x=1792~2185) — 验证码/时间戳/打印日期
     # 间隔列: col 0/2/4/6  ← 包含一些辅助信息
 
-    def __init__(self, dpi: int = 300):
+    def __init__(self, dpi: int = 300, account_registry=None):
         self.dpi = dpi
         self._ocr_engine = None
+        self._account_registry = account_registry
+
+    def _get_account_registry(self):
+        """懒初始化 AccountRegistry（构造时未注入则从文件加载）。"""
+        if self._account_registry is None:
+            from finance_agent_backend.account_registry import (
+                AccountMappingRepository,
+                AccountRegistry,
+                _default_config_path,
+            )
+            repo = AccountMappingRepository(_default_config_path())
+            self._account_registry = AccountRegistry(repo.load())
+        return self._account_registry
 
     @property
     def _ocr(self) -> RapidOCR:
@@ -85,7 +98,7 @@ class ICBCReceiptGridParser(BaseStatementParser):
     # ── page pipeline ─────────────────────────────────────────────
 
     def _parse_page(self, doc, page_num: int) -> List[Transaction]:
-        img = self._render_page(doc, page_num)
+        img = render_page(doc, page_num)
         h_coords, v_coords = self._detect_table_lines(img)
 
         # 必须有足够的行列才能构建网格
@@ -107,21 +120,6 @@ class ICBCReceiptGridParser(BaseStatementParser):
             if tx:
                 transactions.append(tx)
         return transactions
-
-    # ── stage 1: render ──────────────────────────────────────────
-
-    @staticmethod
-    def _render_page(doc, page_num: int, dpi: int = 300) -> np.ndarray:
-        page = doc[page_num]
-        pix = page.get_pixmap(dpi=dpi)
-        img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
-            pix.height, pix.width, pix.n
-        )
-        if pix.n == 4:
-            img = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
-        elif pix.n == 3:
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        return img
 
     # ── stage 2: detect table lines ──────────────────────────────
 
@@ -462,14 +460,7 @@ class ICBCReceiptGridParser(BaseStatementParser):
         payer_name = fields.get("payer_name", "")
         payee_name = fields.get("payee_name", "")
 
-        from finance_agent_backend.account_registry import (
-            AccountMappingRepository,
-            AccountRegistry,
-            _default_config_path,
-        )
-
-        repo = AccountMappingRepository(_default_config_path())
-        registry = AccountRegistry(repo.load())
+        registry = self._get_account_registry()
 
         def _match(account: str):
             if not account or "*" in account:

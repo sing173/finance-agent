@@ -22,7 +22,7 @@ from PIL import Image
 from rapidocr_onnxruntime import RapidOCR
 
 from ..models import Transaction, ParseResult
-from .shared_utils import BANK_ICBC, parse_amount_lenient
+from .shared_utils import BANK_ICBC, parse_amount_lenient, render_page
 from .base_parser import BaseStatementParser
 
 
@@ -90,7 +90,7 @@ class ICBCParser(BaseStatementParser):
         self, doc, page_num: int, inherited_col_map: Dict[int, str] = None,
         is_first: bool = False,
     ) -> Tuple[List[Transaction], Dict[int, str], Optional[Tuple[str, str]]]:
-        img = self._render_page(doc, page_num)
+        img = render_page(doc, page_num)
         h_coords, v_coords = self._detect_table_lines(img)
         if len(h_coords) < 3 or len(v_coords) < 3:
             return [], {}, None
@@ -125,19 +125,6 @@ class ICBCParser(BaseStatementParser):
 
         cell_grid = self._assign_blocks(blocks, grid_rows)
         return self._grid_to_transactions(cell_grid, col_map), col_map, page_acct
-
-    @staticmethod
-    def _render_page(doc, page_num: int, dpi: int = 300) -> np.ndarray:
-        page = doc[page_num]
-        pix = page.get_pixmap(dpi=dpi)
-        img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
-            pix.height, pix.width, pix.n
-        )
-        if pix.n == 4:
-            img = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
-        elif pix.n == 3:
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        return img
 
     @staticmethod
     def _detect_table_lines(img: np.ndarray):

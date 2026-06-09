@@ -321,6 +321,17 @@ def _dispatch_registry_parser(
         registry = [e for e in registry
                     if not (isinstance(e, tuple) and e[0] == 'icbc_receipt_grid_parser')]
 
+    # ── Issue #47: ICBC 解析器解耦 — AccountRegistry 只创建一次 ───────
+    account_registry = None
+    if bank_code == 'ICBC':
+        from finance_agent_backend.account_registry import (
+            AccountMappingRepository,
+            AccountRegistry,
+            _default_config_path,
+        )
+        repo = AccountMappingRepository(_default_config_path())
+        account_registry = AccountRegistry(repo.load())
+
     for entry in registry:
         t0 = time.time()
         try:
@@ -328,9 +339,9 @@ def _dispatch_registry_parser(
                 # sub-typed entry (CMB statement: 'table' / 'column')
                 subtype = _detect_cmb_pdf_subtype(file_path)
                 key = subtype if subtype in entry else list(entry.keys())[0]
-                result = _try_parser(*entry[key], file_path)
+                result = _try_parser(*entry[key], file_path, account_registry=account_registry)
             elif isinstance(entry, tuple) and len(entry) == 2:
-                result = _try_parser(*entry, file_path)
+                result = _try_parser(*entry, file_path, account_registry=account_registry)
             else:
                 result = None
         except Exception:
@@ -357,7 +368,8 @@ def _dispatch_registry_parser(
     return None
 
 
-def _try_parser(module_name: str, class_name: str, file_path: str) -> ParseResult | None:
+def _try_parser(module_name: str, class_name: str, file_path: str,
+                account_registry=None) -> ParseResult | None:
     """延迟导入解析器模块并调用其 parse() 方法。"""
     try:
         mod = __import__(
@@ -365,7 +377,10 @@ def _try_parser(module_name: str, class_name: str, file_path: str) -> ParseResul
             fromlist=[class_name],
         )
         cls = getattr(mod, class_name)
-        parser = cls()
+        try:
+            parser = cls(account_registry=account_registry)
+        except TypeError:
+            parser = cls()
         return parser.parse(file_path)
     except Exception:
         logger.exception(

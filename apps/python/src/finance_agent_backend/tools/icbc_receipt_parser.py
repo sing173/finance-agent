@@ -22,7 +22,7 @@ from PIL import Image
 from rapidocr_onnxruntime import RapidOCR
 
 from ..models import Transaction, ParseResult
-from .shared_utils import BANK_ICBC, parse_date_chinese, parse_timestamp_date, parse_amount_lenient
+from .shared_utils import BANK_ICBC, parse_date_chinese, parse_timestamp_date, parse_amount_lenient, render_page
 from .base_parser import BaseStatementParser
 
 
@@ -101,7 +101,7 @@ class ICBCReceiptParser(BaseStatementParser):
     # ── page pipeline ─────────────────────────────────────────────
 
     def _parse_page(self, doc, page_num: int) -> List[Transaction]:
-        img = self._render_page(doc, page_num)
+        img = render_page(doc, page_num)
         blocks = self._ocr_page_data(img)
         if not blocks:
             return []
@@ -114,21 +114,6 @@ class ICBCReceiptParser(BaseStatementParser):
             if tx:
                 transactions.append(tx)
         return transactions
-
-    # ── stage 1: render (same as icbc_parser) ─────────────────────
-
-    @staticmethod
-    def _render_page(doc, page_num: int, dpi: int = 300) -> np.ndarray:
-        page = doc[page_num]
-        pix = page.get_pixmap(dpi=dpi)
-        img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
-            pix.height, pix.width, pix.n
-        )
-        if pix.n == 4:
-            img = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
-        elif pix.n == 3:
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        return img
 
     # ── stage 2: OCR (same as icbc_parser) ────────────────────────
 

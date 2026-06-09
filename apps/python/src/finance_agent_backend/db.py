@@ -33,10 +33,6 @@ _conn: sqlite3.Connection | None = None
 _db_path: str | None = None
 
 
-def _default_db_path() -> str:
-    """数据库默认路径（委托 paths 模块）。"""
-    return get_db_path()
-
 
 def get_db(db_path: str | None = None) -> sqlite3.Connection:
     """获取数据库连接。
@@ -58,7 +54,7 @@ def get_db(db_path: str | None = None) -> sqlite3.Connection:
     if _conn is not None:
         return _conn
 
-    _db_path = _default_db_path()
+    _db_path = get_db_path()
     os.makedirs(os.path.dirname(_db_path), exist_ok=True)
 
     _conn = sqlite3.connect(_db_path)
