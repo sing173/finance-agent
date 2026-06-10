@@ -147,7 +147,7 @@ class ExcelBuilder:
             ws.cell(row=row_idx, column=12, value=None)
             ws.cell(row=row_idx, column=13, value=None)
             ws.cell(row=row_idx, column=14, value=None)
-            ws.cell(row=row_idx, column=15, value=e.get('aux_category', ''))
+            ws.cell(row=row_idx, column=15, value=e.get('aux_category') or None)
             ws.cell(row=row_idx, column=16, value=None)
             ws.cell(row=row_idx, column=17, value=None)
             ws.cell(row=row_idx, column=18, value=None)

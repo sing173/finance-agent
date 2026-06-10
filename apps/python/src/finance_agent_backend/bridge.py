@@ -530,8 +530,9 @@ def handle_voucher_save_draft(params: dict) -> dict:
                 """INSERT INTO voucher_draft_entry
                    (draft_id, entry_seq, voucher_no, date, summary, subject_code, subject_name,
                     debit_amount, credit_amount, direction, counterparty, match_source,
-                    original_summary, original_amount, is_manual)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    original_summary, original_amount, is_manual,
+                    aux_category, aux_category_name)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     draft_id,
                     e.get("entry_seq", 1),
@@ -548,6 +549,8 @@ def handle_voucher_save_draft(params: dict) -> dict:
                     e.get("original_summary", ""),
                     e.get("original_amount", 0),
                     1 if e.get("is_manual") else 0,
+                    e.get("aux_category", ""),
+                    e.get("aux_category_name", ""),
                 ),
             )
 
@@ -582,7 +585,8 @@ def handle_voucher_load_draft(params: dict) -> dict:
         entry_rows = conn.execute(
             """SELECT entry_seq, voucher_no, date, summary, subject_code, subject_name,
                       debit_amount, credit_amount, direction, counterparty, match_source,
-                      original_summary, original_amount, is_manual
+                      original_summary, original_amount, is_manual,
+                      aux_category, aux_category_name
                FROM voucher_draft_entry WHERE draft_id = ? ORDER BY voucher_no, entry_seq""",
             (draft_id,),
         ).fetchall()
@@ -691,6 +695,8 @@ def handle_voucher_export(params: dict) -> dict:
                 "direction": r["direction"],
                 "counterparty": r["counterparty"],
                 "original_amount": r["original_amount"],
+                "aux_category": r["aux_category"],
+                "aux_category_name": r["aux_category_name"],
             })
 
         txns_count = sum(1 for r in entry_rows if r["direction"] != "bank")

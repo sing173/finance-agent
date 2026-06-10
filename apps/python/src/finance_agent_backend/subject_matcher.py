@@ -184,6 +184,12 @@ class SubjectMatcher:
         if self._history:
             hist = self._history.match(summary, direction)
             if hist is not None:
+                # L2 结果补充 aux_category
+                aux_cat, aux_cat_name = self._rules._get_aux_category(hist.subject_code)
+                if not hist.aux_category:
+                    hist.aux_category = aux_cat
+                if not hist.aux_category_name:
+                    hist.aux_category_name = aux_cat_name
                 return hist
 
         # L3
