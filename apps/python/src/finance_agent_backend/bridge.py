@@ -53,7 +53,7 @@ else:
 from finance_agent_backend.tools import excel_builder as _excel_builder
 from finance_agent_backend.tools import subject_loader as _subject_loader
 from finance_agent_backend.models import Transaction
-from finance_agent_backend.paths import get_config_path
+from finance_agent_backend.paths import get_config_path, get_db_path
 
 # 方法注册表
 METHODS = {}  # type: dict
@@ -127,10 +127,6 @@ def _parse_icbc_csv(file_path: str) -> dict:
         return {"success": False, "error": str(e)}
 
 
-def _get_config_dir() -> str:
-    """获取 config 目录的绝对路径（委托 paths 模块）。"""
-    return get_config_path()
-
 
 
 
@@ -168,8 +164,7 @@ def handle_import_subjects(params: dict) -> dict:
                 'full_name': subj.full_name,
             }
 
-        config_dir = _get_config_dir()
-        subjects_json_path = os.path.join(config_dir, 'subjects.json')
+        subjects_json_path = get_config_path('subjects.json')
         with open(subjects_json_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -185,8 +180,7 @@ def handle_import_subjects(params: dict) -> dict:
 @register_method("get_subjects_info")
 def handle_get_subjects_info(params: dict) -> dict:
     """查询内置科目表信息（返回完整列表供 UI 使用）。"""
-    config_dir = _get_config_dir()
-    subjects_path = os.path.join(config_dir, 'subjects.json')
+    subjects_path = get_config_path('subjects.json')
     if not os.path.exists(subjects_path):
         return {"success": True, "count": 0, "loaded": False, "subjects": []}
     try:
@@ -297,11 +291,8 @@ def _open_account_registry(with_subject_codes: bool = False):
 def _get_subject_codes() -> set:
     """加载 subjects.json 的科目代码集合，用于 add() 校验。"""
     try:
-        from finance_agent_backend.account_registry import _default_config_path
         import json
-
-        config_dir = os.path.dirname(_default_config_path())
-        subjects_path = os.path.join(config_dir, "subjects.json")
+        subjects_path = get_config_path('subjects.json')
 
         if not os.path.exists(subjects_path):
             return set()
@@ -473,7 +464,7 @@ def handle_voucher_preview(params: dict) -> dict:
 
         transactions_data = params.get("transactions", [])
         subject_mapping = params.get("subject_mapping")
-        db_path = params.get("db_path") or _db._default_db_path()
+        db_path = params.get("db_path") or get_db_path()
 
         if not transactions_data:
             return {"success": False, "error": "缺少 transactions 参数"}
@@ -539,8 +530,9 @@ def handle_voucher_save_draft(params: dict) -> dict:
                 """INSERT INTO voucher_draft_entry
                    (draft_id, entry_seq, voucher_no, date, summary, subject_code, subject_name,
                     debit_amount, credit_amount, direction, counterparty, match_source,
-                    original_summary, original_amount, is_manual)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    original_summary, original_amount, is_manual,
+                    aux_category, aux_category_name)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     draft_id,
                     e.get("entry_seq", 1),
@@ -557,6 +549,8 @@ def handle_voucher_save_draft(params: dict) -> dict:
                     e.get("original_summary", ""),
                     e.get("original_amount", 0),
                     1 if e.get("is_manual") else 0,
+                    e.get("aux_category", ""),
+                    e.get("aux_category_name", ""),
                 ),
             )
 
@@ -591,7 +585,8 @@ def handle_voucher_load_draft(params: dict) -> dict:
         entry_rows = conn.execute(
             """SELECT entry_seq, voucher_no, date, summary, subject_code, subject_name,
                       debit_amount, credit_amount, direction, counterparty, match_source,
-                      original_summary, original_amount, is_manual
+                      original_summary, original_amount, is_manual,
+                      aux_category, aux_category_name
                FROM voucher_draft_entry WHERE draft_id = ? ORDER BY voucher_no, entry_seq""",
             (draft_id,),
         ).fetchall()
@@ -700,6 +695,8 @@ def handle_voucher_export(params: dict) -> dict:
                 "direction": r["direction"],
                 "counterparty": r["counterparty"],
                 "original_amount": r["original_amount"],
+                "aux_category": r["aux_category"],
+                "aux_category_name": r["aux_category_name"],
             })
 
         txns_count = sum(1 for r in entry_rows if r["direction"] != "bank")
@@ -732,7 +729,7 @@ def handle_voucher_export(params: dict) -> dict:
         conn.commit()
 
         # Write subject_history (manual entries only)
-        repo = SubjectHistoryRepo(db_path or _db._default_db_path())
+        repo = SubjectHistoryRepo(db_path or get_db_path())
         for r in entry_rows:
             if r["is_manual"]:
                 repo.insert(

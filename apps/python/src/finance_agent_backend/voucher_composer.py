@@ -24,6 +24,8 @@ class GroupedTxn:
     counter_name: str
     match_source: str
     match_rule_id: str = ''
+    aux_category: str = ''
+    aux_category_name: str = ''
 
 
 @dataclass
@@ -82,6 +84,8 @@ class VoucherGrouper:
                 counter_name=result.subject_name or '',
                 match_source=result.source,
                 match_rule_id=result.rule_id,
+                aux_category=result.aux_category or '',
+                aux_category_name=result.aux_category_name or '',
             ))
 
         # 构建 VoucherGroup，预解析银行科目
@@ -126,16 +130,19 @@ class VoucherEntryFactory:
                     gt.counter_code or '', gt.counter_name,
                     float(gt.txn.amount), None, gt.match_source,
                     gt.match_rule_id,
+                    gt.aux_category, gt.aux_category_name,
                 ))
             entries.append(VoucherEntryFactory._bank_entry(
                 len(entries) + 1, voucher_no, group.txns[0].txn.date,
                 None, total, group.bank_code, group.bank_name,
+                group.txns[0].txn.description,
             ))
         else:
             # income: 借 银行科目（汇总）, 贷 对方科目
             entries.append(VoucherEntryFactory._bank_entry(
                 1, voucher_no, group.txns[0].txn.date,
                 total, None, group.bank_code, group.bank_name,
+                group.txns[0].txn.description,
             ))
             for gt in group.txns:
                 entries.append(VoucherEntryFactory._entry(
@@ -143,12 +150,14 @@ class VoucherEntryFactory:
                     gt.counter_code or '', gt.counter_name,
                     None, float(gt.txn.amount), gt.match_source,
                     gt.match_rule_id,
+                    gt.aux_category, gt.aux_category_name,
                 ))
 
         return entries
 
     @staticmethod
-    def _entry(seq, vno, txn, code, name, debit, credit, source, rule_id=''):
+    def _entry(seq, vno, txn, code, name, debit, credit, source,
+               rule_id='', aux_category='', aux_category_name=''):
         return {
             "entry_seq": seq, "voucher_no": vno,
             "date": str(txn.date), "summary": txn.description,
@@ -161,13 +170,15 @@ class VoucherEntryFactory:
             "original_summary": txn.description,
             "original_amount": float(txn.amount),
             "is_manual": False,
+            "aux_category": aux_category,
+            "aux_category_name": aux_category_name,
         }
 
     @staticmethod
-    def _bank_entry(seq, vno, dt, debit, credit, code, name):
+    def _bank_entry(seq, vno, dt, debit, credit, code, name, summary=''):
         return {
             "entry_seq": seq, "voucher_no": vno,
-            "date": str(dt), "summary": "银行科目",
+            "date": str(dt), "summary": summary,
             "subject_code": code, "subject_name": name,
             "debit_amount": debit, "credit_amount": credit,
             "direction": "bank",
@@ -176,6 +187,8 @@ class VoucherEntryFactory:
             "original_summary": "",
             "original_amount": 0.0,
             "is_manual": False,
+            "aux_category": "",
+            "aux_category_name": "",
         }
 
 

@@ -43,6 +43,25 @@ def open_pdf(file_path: str) -> fitz.Document:
     return fitz.open('pdf', read_pdf_bytes(file_path))
 
 
+def render_page(doc, page_num: int, dpi: int = 300) -> 'np.ndarray':
+    """Render a PDF page to a numpy.ndarray image (BGR format for OpenCV).
+
+    Extracted from 3 ICBC parsers to eliminate duplication.
+    """
+    import numpy as np
+    import cv2
+    page = doc[page_num]
+    pix = page.get_pixmap(dpi=dpi)
+    img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
+        pix.height, pix.width, pix.n
+    )
+    if pix.n == 4:
+        img = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+    elif pix.n == 3:
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    return img
+
+
 # ═══════════════════════════════════════════════════════════════════
 # Date parsing
 # ═══════════════════════════════════════════════════════════════════

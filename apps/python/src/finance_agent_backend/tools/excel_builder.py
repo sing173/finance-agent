@@ -142,8 +142,17 @@ class ExcelBuilder:
                 cell_credit.value = float(credit)
                 cell_credit.number_format = '#,##0.00'
 
-            for c in [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
-                ws.cell(row=row_idx, column=c, value=None)
+            # 客户(11) 供应商(12) 职员(13) 项目(14) 部门(15)=aux_category
+            ws.cell(row=row_idx, column=11, value=None)
+            ws.cell(row=row_idx, column=12, value=None)
+            ws.cell(row=row_idx, column=13, value=None)
+            ws.cell(row=row_idx, column=14, value=None)
+            ws.cell(row=row_idx, column=15, value=e.get('aux_category') or None)
+            ws.cell(row=row_idx, column=16, value=None)
+            ws.cell(row=row_idx, column=17, value=None)
+            ws.cell(row=row_idx, column=18, value=None)
+            ws.cell(row=row_idx, column=19, value=None)
+            ws.cell(row=row_idx, column=20, value=None)
             # 数量
             ws.cell(row=row_idx, column=21, value=None)
             # 单价

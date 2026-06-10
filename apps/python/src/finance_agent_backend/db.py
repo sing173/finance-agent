@@ -33,10 +33,6 @@ _conn: sqlite3.Connection | None = None
 _db_path: str | None = None
 
 
-def _default_db_path() -> str:
-    """数据库默认路径（委托 paths 模块）。"""
-    return get_db_path()
-
 
 def get_db(db_path: str | None = None) -> sqlite3.Connection:
     """获取数据库连接。
@@ -58,7 +54,7 @@ def get_db(db_path: str | None = None) -> sqlite3.Connection:
     if _conn is not None:
         return _conn
 
-    _db_path = _default_db_path()
+    _db_path = get_db_path()
     os.makedirs(os.path.dirname(_db_path), exist_ok=True)
 
     _conn = sqlite3.connect(_db_path)
@@ -129,7 +125,9 @@ SCHEMA_STATEMENTS: list[str] = [
         match_source    TEXT CHECK (match_source IN ('rule', 'history', 'manual', 'unmatched', 'auto')),
         original_summary TEXT,
         original_amount  REAL,
-        is_manual       INTEGER DEFAULT 0
+        is_manual       INTEGER DEFAULT 0,
+        aux_category    TEXT DEFAULT '',
+        aux_category_name TEXT DEFAULT ''
     )""",
     """CREATE INDEX IF NOT EXISTS idx_draft_entry
         ON voucher_draft_entry(draft_id)""",
@@ -155,7 +153,7 @@ SCHEMA_STATEMENTS: list[str] = [
     )""",
 ]
 
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 
 
 def _migrate_v2(conn: sqlite3.Connection) -> None:
@@ -176,7 +174,9 @@ def _migrate_v2(conn: sqlite3.Connection) -> None:
         match_source    TEXT CHECK (match_source IN ('rule', 'history', 'manual', 'unmatched', 'auto')),
         original_summary TEXT,
         original_amount  REAL,
-        is_manual       INTEGER DEFAULT 0
+        is_manual       INTEGER DEFAULT 0,
+        aux_category    TEXT DEFAULT '',
+        aux_category_name TEXT DEFAULT ''
     )""")
     # 迁移数据
     old_exists = conn.execute(
@@ -192,6 +192,19 @@ def _migrate_v2(conn: sqlite3.Connection) -> None:
     conn.execute(
         "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (?, ?)",
         (2, datetime.now(timezone.utc).isoformat()),
+    )
+
+
+def _migrate_v3(conn: sqlite3.Connection) -> None:
+    """v3 迁移: 添加 aux_category / aux_category_name 列。"""
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(voucher_draft_entry)").fetchall()]
+    if 'aux_category' not in cols:
+        conn.execute("ALTER TABLE voucher_draft_entry ADD COLUMN aux_category TEXT DEFAULT ''")
+    if 'aux_category_name' not in cols:
+        conn.execute("ALTER TABLE voucher_draft_entry ADD COLUMN aux_category_name TEXT DEFAULT ''")
+    conn.execute(
+        "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (?, ?)",
+        (3, datetime.now(timezone.utc).isoformat()),
     )
 
 
@@ -215,5 +228,9 @@ def init_db(conn: sqlite3.Connection) -> None:
     if current < 2:
         # v2: 放宽 match_source CHECK 约束，允许 'auto'
         _migrate_v2(conn)
+
+    if current < 3:
+        # v3: 添加 aux_category / aux_category_name 列
+        _migrate_v3(conn)
 
     conn.commit()
