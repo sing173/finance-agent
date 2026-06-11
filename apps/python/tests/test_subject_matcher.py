@@ -91,18 +91,8 @@ def tmp_db(tmp_path):
     path = str(tmp_path / "test.db")
     conn = sqlite3.connect(path)
     conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("""CREATE TABLE IF NOT EXISTS subject_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        summary TEXT NOT NULL,
-        summary_hash TEXT NOT NULL,
-        subject_code TEXT NOT NULL,
-        subject_name TEXT,
-        direction TEXT NOT NULL CHECK (direction IN ('expense', 'income')),
-        counterparty TEXT,
-        confirmed_at TEXT NOT NULL,
-        voucher_id TEXT,
-        UNIQUE(summary_hash, subject_code, direction)
-    )""")
+    from finance_agent_backend.db import init_db
+    init_db(conn)
     conn.commit()
     conn.close()
     return path

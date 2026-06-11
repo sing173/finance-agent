@@ -119,7 +119,7 @@ class VoucherEntryFactory:
 
     @staticmethod
     def build(group: VoucherGroup, voucher_no: int) -> list[PipelineEntry]:
-        entries: list[dict] = []
+        entries: list[PipelineEntry] = []
         total = float(sum(Decimal(str(t.txn.amount)) for t in group.txns))
 
         if group.direction == 'expense':

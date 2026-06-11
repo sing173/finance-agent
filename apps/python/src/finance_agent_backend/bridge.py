@@ -8,7 +8,6 @@ JSON-RPC 2.0 服务器，通过 stdio 与 Electron 通信
 import json
 import sys
 import os
-import uuid
 import logging
 import time
 import traceback
@@ -52,8 +51,9 @@ else:
 
 from finance_agent_backend.tools import excel_builder as _excel_builder
 from finance_agent_backend.tools import subject_loader as _subject_loader
-from finance_agent_backend.models import Transaction
+from finance_agent_backend.models import Transaction, PipelineEntry
 from finance_agent_backend.paths import get_config_path, get_db_path
+from finance_agent_backend.repo import VoucherDraftRepository, ExportLogRepository, ExportLog
 
 # 方法注册表
 METHODS = {}  # type: dict
@@ -516,48 +516,15 @@ def handle_voucher_save_draft(params: dict) -> dict:
         if not entries:
             return {"success": False, "error": "缺少 entries 参数"}
 
-        # 测试时可通过 db_path 参数覆盖
         db_path = params.get("db_path")
         conn = _db.get_db(db_path=db_path)
         _db.init_db(conn)
 
-        draft_id = str(uuid.uuid4())[:8]
-        now = datetime.now(timezone.utc).isoformat()
+        repo = VoucherDraftRepository(conn)
+        draft_id = repo.create(name, period)
 
-        conn.execute(
-            "INSERT INTO voucher_draft (id, name, period, status, created_at, updated_at) VALUES (?, ?, ?, 'draft', ?, ?)",
-            (draft_id, name, period, now, now),
-        )
-
-        for e in entries:
-            conn.execute(
-                """INSERT INTO voucher_draft_entry
-                   (draft_id, entry_seq, voucher_no, date, summary, subject_code, subject_name,
-                    debit_amount, credit_amount, direction, counterparty, match_source,
-                    original_summary, original_amount, is_manual, rule_id,
-                    aux_category, aux_category_name)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    draft_id,
-                    e.get("entry_seq", 1),
-                    e.get("voucher_no", 1),
-                    e.get("date", ""),
-                    e.get("summary", ""),
-                    e.get("subject_code", ""),
-                    e.get("subject_name", ""),
-                    e.get("debit_amount"),
-                    e.get("credit_amount"),
-                    e.get("direction", ""),
-                    e.get("counterparty", ""),
-                    e.get("match_source", "unmatched"),
-                    e.get("original_summary", ""),
-                    e.get("original_amount", 0),
-                    1 if e.get("is_manual") else 0,
-                    e.get("rule_id", ""),
-                    e.get("aux_category", ""),
-                    e.get("aux_category_name", ""),
-                ),
-            )
+        pipeline_entries = [PipelineEntry.from_dict(e) for e in entries]
+        repo.insert_entries(draft_id, pipeline_entries)
 
         conn.commit()
         return {"success": True, "draft_id": draft_id}
@@ -579,33 +546,24 @@ def handle_voucher_load_draft(params: dict) -> dict:
         conn = _db.get_db(db_path=db_path)
         _db.init_db(conn)
 
-        draft = conn.execute(
-            "SELECT id, name, period, status, created_at, updated_at FROM voucher_draft WHERE id = ?",
-            (draft_id,),
-        ).fetchone()
+        repo = VoucherDraftRepository(conn)
+        draft = repo.get(draft_id)
 
         if not draft:
             return {"success": False, "error": f"草稿 {draft_id} 不存在"}
 
-        entry_rows = conn.execute(
-            """SELECT entry_seq, voucher_no, date, summary, subject_code, subject_name,
-                      debit_amount, credit_amount, direction, counterparty, match_source,
-                      original_summary, original_amount, is_manual, rule_id,
-                      aux_category, aux_category_name
-               FROM voucher_draft_entry WHERE draft_id = ? ORDER BY voucher_no, entry_seq""",
-            (draft_id,),
-        ).fetchall()
+        entries = repo.get_entries(draft_id)
 
         return {
             "success": True,
             "draft": {
-                "id": draft["id"],
-                "name": draft["name"],
-                "period": draft["period"],
-                "status": draft["status"],
-                "created_at": draft["created_at"],
-                "updated_at": draft["updated_at"],
-                "entries": [dict(r) for r in entry_rows],
+                "id": draft.id,
+                "name": draft.name,
+                "period": draft.period,
+                "status": draft.status,
+                "created_at": draft.created_at,
+                "updated_at": draft.updated_at,
+                "entries": [e.asdict() for e in entries],
             },
         }
     except Exception as e:
@@ -622,15 +580,8 @@ def handle_voucher_list_drafts(params: dict) -> dict:
         conn = _db.get_db(db_path=db_path)
         _db.init_db(conn)
 
-        rows = conn.execute(
-            """SELECT d.id, d.name, d.period, d.status, d.created_at, d.updated_at,
-                      COUNT(e.id) as entry_count
-               FROM voucher_draft d
-               LEFT JOIN voucher_draft_entry e ON e.draft_id = d.id
-               GROUP BY d.id ORDER BY d.updated_at DESC"""
-        ).fetchall()
-
-        return {"success": True, "drafts": [dict(r) for r in rows]}
+        repo = VoucherDraftRepository(conn)
+        return {"success": True, "drafts": repo.list_all()}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -649,7 +600,8 @@ def handle_voucher_delete_draft(params: dict) -> dict:
         conn = _db.get_db(db_path=db_path)
         _db.init_db(conn)
 
-        conn.execute("DELETE FROM voucher_draft WHERE id = ?", (draft_id,))
+        repo = VoucherDraftRepository(conn)
+        repo.delete(draft_id)
         conn.commit()
         return {"success": True}
     except Exception as e:
@@ -677,39 +629,16 @@ def handle_voucher_export(params: dict) -> dict:
         _db.init_db(conn)
 
         # Load draft entries
-        entry_rows = conn.execute(
-            """SELECT * FROM voucher_draft_entry WHERE draft_id = ? ORDER BY voucher_no, entry_seq""",
-            (draft_id,),
-        ).fetchall()
+        repo = VoucherDraftRepository(conn)
+        entries = repo.get_entries(draft_id)
 
-        if not entry_rows:
+        if not entries:
             return {"success": False, "error": "草稿无分录数据"}
 
-        # 直接从 DB 分录导出 Excel，与预览完全一致
-        entry_dicts = []
-        for r in entry_rows:
-            entry_dicts.append({
-                "entry_seq": r["entry_seq"],
-                "voucher_no": r["voucher_no"],
-                "date": r["date"],
-                "summary": r["summary"],
-                "subject_code": r["subject_code"],
-                "subject_name": r["subject_name"],
-                "debit_amount": r["debit_amount"],
-                "credit_amount": r["credit_amount"],
-                "direction": r["direction"],
-                "counterparty": r["counterparty"],
-                "match_source": r["match_source"],
-                "rule_id": r["rule_id"],
-                "original_summary": r["original_summary"],
-                "original_amount": r["original_amount"],
-                "is_manual": bool(r["is_manual"]),
-                "aux_category": r["aux_category"],
-                "aux_category_name": r["aux_category_name"],
-            })
+        entry_dicts = [e.asdict() for e in entries]
 
-        txns_count = sum(1 for r in entry_rows if r["direction"] != "bank")
-        voucher_count = len({r["voucher_no"] for r in entry_rows})
+        txns_count = sum(1 for e in entries if e.direction != "bank")
+        voucher_count = len({e.voucher_no for e in entries})
 
         if entry_dicts:
             builder = excel_builder.ExcelBuilder()
@@ -721,48 +650,50 @@ def handle_voucher_export(params: dict) -> dict:
 
         # Stats
         sources = {}
-        for r in entry_rows:
-            src = r["match_source"] or "unmatched"
+        for e in entries:
+            src = e.match_source or "unmatched"
             sources[src] = sources.get(src, 0) + 1
 
         # Write export_log
         now = datetime.now(timezone.utc).isoformat()
-        conn.execute(
-            """INSERT INTO export_log (exported_at, period, file_path, voucher_count, entry_count,
-                       transaction_count, source_files, match_stats, draft_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (now, period, output_path,
-             voucher_count, len(entry_rows), txns_count,
-             json.dumps(source_files), json.dumps(sources), draft_id),
+        export_repo = ExportLogRepository(conn)
+        export_repo.insert(
+            ExportLog(
+                exported_at=now,
+                period=period,
+                file_path=output_path,
+                voucher_count=voucher_count,
+                entry_count=len(entries),
+                transaction_count=txns_count,
+                source_files=json.dumps(source_files),
+                match_stats=json.dumps(sources),
+                draft_id=draft_id,
+            )
         )
-        conn.commit()
 
         # Write subject_history (manual entries only)
-        repo = SubjectHistoryRepo(db_path or get_db_path())
-        for r in entry_rows:
-            if r["is_manual"]:
-                repo.insert(
-                    summary=r["original_summary"] or r["summary"],
-                    direction=r["direction"],
-                    subject_code=r["subject_code"],
-                    subject_name=r["subject_name"] or "",
-                    counterparty=r["counterparty"] or "",
+        history_repo = SubjectHistoryRepo(db_path or get_db_path())
+        for e in entries:
+            if e.is_manual:
+                history_repo.insert(
+                    summary=e.original_summary or e.summary,
+                    direction=e.direction,
+                    subject_code=e.subject_code,
+                    subject_name=e.subject_name or "",
+                    counterparty=e.counterparty or "",
                     voucher_id=draft_id,
                     conn=conn,
                 )
 
         # Mark draft as exported
-        conn.execute(
-            "UPDATE voucher_draft SET status = 'exported', updated_at = ? WHERE id = ?",
-            (now, draft_id),
-        )
+        repo.mark_exported(draft_id)
         conn.commit()
 
         return {
             "success": True,
             "file_path": output_path,
             "voucher_count": voucher_count,
-            "entry_count": len(entry_rows),
+            "entry_count": len(entries),
             "transaction_count": txns_count,
         }
     except Exception as e:

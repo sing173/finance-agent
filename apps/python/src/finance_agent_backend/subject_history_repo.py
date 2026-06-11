@@ -9,20 +9,42 @@ import hashlib
 import math
 import sqlite3
 from collections import Counter
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from finance_agent_backend.db import init_db
 from finance_agent_backend.subject_matcher import MatchResult
+from finance_agent_backend.repo.base import BaseRepository
 
 # L2 余弦相似度阈值：≥ 此值视为匹配
 DEFAULT_SIMILARITY_THRESHOLD = 0.75
 
 
-class SubjectHistoryRepo:
-    """subject_history 表读写封装。"""
+@dataclass
+class HistoryRecord:
+    """subject_history 表领域对象。新增列只需修改此 dataclass。"""
+    summary: str = ""
+    summary_hash: str = ""
+    subject_code: str = ""
+    subject_name: str = ""
+    direction: str = ""
+    counterparty: str = ""
+    confirmed_at: str = ""
+    voucher_id: str = ""
+    id: int | None = None
 
-    # 类级缓存：(db_path, direction) → (rows, doc_tokens_list, idf)
-    # insert() 写入后自动失效。
+
+class SubjectHistoryRepo:
+    """subject_history 表读写封装。
+
+    SQL 字段列表由 HistoryRecord dataclass 自动生成，
+    通过 BaseRepository 消除手写 INSERT / SELECT 列名清单。
+    """
+
+    TABLE = "subject_history"
+    PK = "id"
+
+    # 类级缓存：(db_path, direction) → (records, doc_tokens_list, idf)
     _cache: dict[tuple[str, str], tuple] = {}
 
     def __init__(self, db_path: str):
@@ -34,14 +56,23 @@ class SubjectHistoryRepo:
         init_db(conn)  # 确保 subject_history 等表已建（幂等）
         return conn
 
+    def _base(self, conn: sqlite3.Connection) -> BaseRepository[HistoryRecord]:
+        return BaseRepository(
+            conn,
+            self.TABLE,
+            HistoryRecord,
+            pk=self.PK,
+            insert_exclude=["id"],
+        )
+
     def insert(
         self,
         summary: str,
         direction: str,
         subject_code: str,
         subject_name: str,
-        counterparty: str = '',
-        voucher_id: str = '',
+        counterparty: str = "",
+        voucher_id: str = "",
         conn=None,
     ) -> None:
         """写入一条手动修正记录（UNIQUE 约束去重）。
@@ -55,22 +86,17 @@ class SubjectHistoryRepo:
             conn = self._connect()
             close_after = True
         try:
-            conn.execute(
-                """INSERT OR IGNORE INTO subject_history
-                   (summary, summary_hash, subject_code, subject_name,
-                    direction, counterparty, confirmed_at, voucher_id)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    summary,
-                    _hash_summary(summary),
-                    subject_code,
-                    subject_name,
-                    direction,
-                    counterparty,
-                    datetime.now(timezone.utc).isoformat(),
-                    voucher_id,
-                ),
+            record = HistoryRecord(
+                summary=summary,
+                summary_hash=_hash_summary(summary),
+                subject_code=subject_code,
+                subject_name=subject_name,
+                direction=direction,
+                counterparty=counterparty,
+                confirmed_at=datetime.now(timezone.utc).isoformat(),
+                voucher_id=voucher_id,
             )
+            self._base(conn).insert_or_ignore(record)
             conn.commit()
             # 使对应 (db_path, direction) 的缓存失效
             SubjectHistoryRepo._cache.pop((self._db_path, direction), None)
@@ -104,16 +130,20 @@ class SubjectHistoryRepo:
                 conn = self._connect()
                 close_after = True
             try:
-                rows = conn.execute(
-                    """SELECT summary, subject_code, subject_name
-                       FROM subject_history
-                       WHERE direction = ?
-                       ORDER BY confirmed_at DESC""",
-                    (direction,),
-                ).fetchall()
+                records = self._base(conn).find_all(
+                    select_cols=["summary", "subject_code", "subject_name"],
+                    where="direction = ?",
+                    params=(direction,),
+                    order_by="confirmed_at DESC",
+                )
             finally:
                 if close_after:
                     conn.close()
+
+            rows = [
+                {"summary": r.summary, "subject_code": r.subject_code, "subject_name": r.subject_name}
+                for r in records
+            ]
 
             if not rows:
                 return None
@@ -156,10 +186,10 @@ def _hash_summary(s: str) -> str:
 
 def _tokenize(text: str) -> Counter[str]:
     """中文 2-gram 字符切片分词（不需要 jieba）。"""
-    cleaned = ''.join(c for c in text if c.isalnum() or '一' <= c <= '鿿')
+    cleaned = "".join(c for c in text if c.isalnum() or "一" <= c <= "鿿")
     if len(cleaned) < 2:
         return Counter({cleaned: 1}) if cleaned else Counter()
-    return Counter(cleaned[i:i+2] for i in range(len(cleaned) - 1))
+    return Counter(cleaned[i : i + 2] for i in range(len(cleaned) - 1))
 
 
 def _compute_idf(doc_tokens_list: list[Counter[str]]) -> dict[str, float]:
@@ -199,8 +229,8 @@ def _cosine_similarity(a: dict[str, float], b: dict[str, float]) -> float:
     common = set(a.keys()) & set(b.keys())
     dot = sum(a[k] * b[k] for k in common)
 
-    norm_a = math.sqrt(sum(v ** 2 for v in a.values()))
-    norm_b = math.sqrt(sum(v ** 2 for v in b.values()))
+    norm_a = math.sqrt(sum(v**2 for v in a.values()))
+    norm_b = math.sqrt(sum(v**2 for v in b.values()))
 
     if norm_a == 0 or norm_b == 0:
         return 0.0
