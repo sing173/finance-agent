@@ -1,13 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { VoucherPreviewPanel } from '../VoucherPreviewPanel';
+import type { VoucherData } from '@shared/types';
 
 const mockSubjects = [
   { code: '5060203', name: '管理费用_物业管理费', category: '管理费用', direction: '借', is_cash: false, enabled: true, full_name: '管理费用_物业管理费' },
   { code: '5060201', name: '管理费用_租赁费', category: '管理费用', direction: '借', is_cash: false, enabled: true, full_name: '管理费用_租赁费' },
 ];
 
-const mockVouchers = [
+const mockVouchers: VoucherData[] = [
   {
     voucher_no: 1,
     date: '2026-03-01',
@@ -21,8 +22,9 @@ const mockVouchers = [
         subject_code: '5060203', subject_name: '管理费用_物业管理费',
         debit_amount: 1200.0, credit_amount: null,
         direction: 'expense', counterparty: '启胜物业',
-        match_source: 'rule', original_summary: '支付启胜物业费1月',
-        original_amount: 1200.0, is_manual: false,
+        match_source: 'rule', rule_id: 'rule_e031',
+        original_summary: '支付启胜物业费1月', original_amount: 1200.0,
+        is_manual: false, aux_category: '04', aux_category_name: '公共部门',
       },
       {
         entry_seq: 2, voucher_no: 1,
@@ -30,8 +32,9 @@ const mockVouchers = [
         subject_code: '', subject_name: '',
         debit_amount: 1200.0, credit_amount: null,
         direction: 'expense', counterparty: '启胜物业',
-        match_source: 'unmatched', original_summary: '支付启胜物业费2月',
-        original_amount: 1200.0, is_manual: false,
+        match_source: 'unmatched', rule_id: '',
+        original_summary: '支付启胜物业费2月', original_amount: 1200.0,
+        is_manual: false, aux_category: '', aux_category_name: '',
       },
       {
         entry_seq: 3, voucher_no: 1,
@@ -39,8 +42,9 @@ const mockVouchers = [
         subject_code: '1000201', subject_name: '银行存款-工行基本户',
         debit_amount: null, credit_amount: 2400.0,
         direction: 'bank', counterparty: '',
-        match_source: 'unmatched', original_summary: '',
-        original_amount: 0, is_manual: false,
+        match_source: 'auto', rule_id: '',
+        original_summary: '', original_amount: 0,
+        is_manual: false, aux_category: '', aux_category_name: '',
       },
     ],
   },
