@@ -52,7 +52,7 @@ else:
 
 from finance_agent_backend.tools import excel_builder as _excel_builder
 from finance_agent_backend.tools import subject_loader as _subject_loader
-from finance_agent_backend.models import Transaction
+from finance_agent_backend.models import Transaction, PipelineEntry
 from finance_agent_backend.paths import get_config_path, get_db_path
 
 # 方法注册表
@@ -686,27 +686,7 @@ def handle_voucher_export(params: dict) -> dict:
             return {"success": False, "error": "草稿无分录数据"}
 
         # 直接从 DB 分录导出 Excel，与预览完全一致
-        entry_dicts = []
-        for r in entry_rows:
-            entry_dicts.append({
-                "entry_seq": r["entry_seq"],
-                "voucher_no": r["voucher_no"],
-                "date": r["date"],
-                "summary": r["summary"],
-                "subject_code": r["subject_code"],
-                "subject_name": r["subject_name"],
-                "debit_amount": r["debit_amount"],
-                "credit_amount": r["credit_amount"],
-                "direction": r["direction"],
-                "counterparty": r["counterparty"],
-                "match_source": r["match_source"],
-                "rule_id": r["rule_id"],
-                "original_summary": r["original_summary"],
-                "original_amount": r["original_amount"],
-                "is_manual": bool(r["is_manual"]),
-                "aux_category": r["aux_category"],
-                "aux_category_name": r["aux_category_name"],
-            })
+        entry_dicts = [PipelineEntry.from_db_row(r).asdict() for r in entry_rows]
 
         txns_count = sum(1 for r in entry_rows if r["direction"] != "bank")
         voucher_count = len({r["voucher_no"] for r in entry_rows})

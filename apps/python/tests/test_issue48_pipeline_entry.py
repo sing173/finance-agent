@@ -124,17 +124,18 @@ def test_export_preserves_all_fields():
     """save_draft → export，rule_id / match_source / original_summary / is_manual 不丢失。"""
     from finance_agent_backend.bridge import handle_voucher_save_draft, handle_voucher_export
 
-    entry = {
-        "entry_seq": 1, "voucher_no": 1,
-        "date": "2024-01-15", "summary": "支付报销款",
-        "subject_code": "50602", "subject_name": "管理费用",
-        "debit_amount": 100.0, "credit_amount": None,
-        "direction": "expense", "counterparty": "测试",
-        "match_source": "rule", "rule_id": "rule_e032",
-        "original_summary": "支付报销款", "original_amount": 100.0,
-        "is_manual": False,
-        "aux_category": "04", "aux_category_name": "公共部门",
-    }
+    from finance_agent_backend.models import PipelineEntry
+    entry = PipelineEntry(
+        entry_seq=1, voucher_no=1,
+        date="2024-01-15", summary="支付报销款",
+        subject_code="50602", subject_name="管理费用",
+        debit_amount=100.0, credit_amount=None,
+        direction="expense", counterparty="测试",
+        match_source="rule", rule_id="rule_e032",
+        original_summary="支付报销款", original_amount=100.0,
+        is_manual=False,
+        aux_category="04", aux_category_name="公共部门",
+    ).asdict()
 
     with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
         db_path = f.name
@@ -169,27 +170,26 @@ def test_excel_column_map_writes_aux_category():
     """excel_builder 通过 COLUMN_MAP 正确把 aux_category 写入第 15 列。"""
     from finance_agent_backend.tools.excel_builder import ExcelBuilder
 
-    # PipelineEntry 尚未实现，先用 dict 模拟 PipelineEntry 接口
-    # 此测试等 PipelineEntry 实现后再改为构造 dataclass
+    from finance_agent_backend.models import PipelineEntry
     entries = [
-        {
-            "date": "2024-01-15", "voucher_no": 1, "entry_seq": 1,
-            "summary": "支付报销款", "subject_code": "50602", "subject_name": "管理费用",
-            "debit_amount": 100.0, "credit_amount": None,
-            "direction": "expense", "counterparty": "测试",
-            "match_source": "rule", "rule_id": "rule_e032",
-            "original_summary": "支付报销款", "original_amount": 100.0,
-            "is_manual": False, "aux_category": "04", "aux_category_name": "公共部门",
-        },
-        {
-            "date": "2024-01-15", "voucher_no": 1, "entry_seq": 2,
-            "summary": "支付报销款", "subject_code": "1000201", "subject_name": "工行",
-            "debit_amount": None, "credit_amount": 100.0,
-            "direction": "bank", "counterparty": "",
-            "match_source": "auto", "rule_id": "",
-            "original_summary": "", "original_amount": 0.0,
-            "is_manual": False, "aux_category": "", "aux_category_name": "",
-        },
+        PipelineEntry(
+            date="2024-01-15", voucher_no=1, entry_seq=1,
+            summary="支付报销款", subject_code="50602", subject_name="管理费用",
+            debit_amount=100.0, credit_amount=None,
+            direction="expense", counterparty="测试",
+            match_source="rule", rule_id="rule_e032",
+            original_summary="支付报销款", original_amount=100.0,
+            is_manual=False, aux_category="04", aux_category_name="公共部门",
+        ).asdict(),
+        PipelineEntry(
+            date="2024-01-15", voucher_no=1, entry_seq=2,
+            summary="支付报销款", subject_code="1000201", subject_name="工行",
+            debit_amount=None, credit_amount=100.0,
+            direction="bank", counterparty="",
+            match_source="auto", rule_id="",
+            original_summary="", original_amount=0.0,
+            is_manual=False, aux_category="", aux_category_name="",
+        ).asdict(),
     ]
 
     builder = ExcelBuilder()
