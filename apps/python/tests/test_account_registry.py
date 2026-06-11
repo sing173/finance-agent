@@ -452,11 +452,14 @@ import finance_agent_backend.account_registry as reg_module
 
 @pytest.fixture
 def _patch_config(temp_accounts_file):
-    """Monkey-patch _default_config_path → temp file."""
-    original = reg_module._default_config_path
-    reg_module._default_config_path = lambda: temp_accounts_file
+    """Patch module-level entries cache → load from temp file."""
+    from finance_agent_backend.account_registry import AccountMappingRepository
+
+    repo = AccountMappingRepository(temp_accounts_file)
+    original_cache = reg_module._entries_cache
+    reg_module._entries_cache = repo.load()
     yield
-    reg_module._default_config_path = original
+    reg_module._entries_cache = original_cache
 
 
 @pytest.fixture

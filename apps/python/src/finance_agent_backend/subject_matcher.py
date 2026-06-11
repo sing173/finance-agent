@@ -37,6 +37,31 @@ class MatchResult:
     aux_category_name: str = ''
 
 
+# ── subjects.json 模块级缓存 ──────────────────────────────
+
+_subjects_cache: dict | None = None
+
+
+def get_subjects() -> dict:
+    """获取 subjects.json 内容（模块级缓存，首次加载后复用）。"""
+    global _subjects_cache
+    if _subjects_cache is None:
+        try:
+            from finance_agent_backend.paths import get_config_path
+            path = get_config_path('subjects.json')
+            with open(path, 'r', encoding='utf-8') as f:
+                _subjects_cache = json.load(f)
+        except Exception:
+            _subjects_cache = {}
+    return _subjects_cache
+
+
+def invalidate_subjects() -> None:
+    """使 subjects 缓存失效（import_subjects 后调用）。"""
+    global _subjects_cache
+    _subjects_cache = None
+
+
 # ── L1: 规则匹配器 ──────────────────────────────────────────
 
 
@@ -77,14 +102,8 @@ class RuleMatcher:
 
     @staticmethod
     def _load_subjects() -> dict:
-        """加载 subjects.json 用于 aux_category 查找。"""
-        try:
-            from finance_agent_backend.paths import get_config_path
-            path = get_config_path('subjects.json')
-            with open(path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            return {}
+        """加载 subjects.json（委托模块级缓存）。"""
+        return get_subjects()
 
     def _get_aux_category(self, subject_code: str) -> tuple[str, str]:
         """从 subjects.json 查找 aux_category 和 aux_category_name。"""

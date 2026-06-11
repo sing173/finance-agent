@@ -231,9 +231,9 @@ async function main() {
         ok(`${r.transactions.length} 笔交易 · ${r.bank}`);
       }
 
-      run('ICBC CSV parse_csv 直连');
+      run('ICBC CSV parse_pdf 路由');
       {
-        const r = await pythonProcess.call('parse_csv', { filePath: FIXTURES.icbc_csv });
+        const r = await pythonProcess.call('parse_pdf', { filePath: FIXTURES.icbc_csv });
         assert(r.success === true, `解析应成功: ${JSON.stringify(r)}`);
         ok(`${r.transactions.length} 笔交易`);
       }

@@ -31,6 +31,8 @@ class BaseRepository(Generic[T]):
         self._insert_cols = [
             c for c in self._all_cols if c not in (insert_exclude or [])
         ]
+        if conn.row_factory is not sqlite3.Row:
+            conn.row_factory = sqlite3.Row
 
     # ── SQL 生成 ──
 
@@ -112,3 +114,32 @@ class BaseRepository(Generic[T]):
         self.conn.execute(
             f"DELETE FROM {self.table} WHERE {self.pk} = ?", (pk_value,)
         )
+
+    def select(
+        self,
+        select_cols: list[str] | None = None,
+        where: str = "",
+        params: tuple = (),
+        order_by: str = "",
+        limit: str = "",
+    ) -> list[T]:
+        """公共 SELECT：返回 model 实例列表。供外部调用，无需访问 _select_sql。"""
+        return self.find_all(
+            select_cols=select_cols,
+            where=where,
+            params=params,
+            order_by=order_by,
+            limit=limit,
+        )
+
+    def insert_many(self, objects: list[T], *, extra: dict | None = None) -> None:
+        """批量 INSERT（executemany）。所有对象共享相同列列表。"""
+        extra_cols = list(extra.keys()) if extra else []
+        sql = self._insert_sql(extra_cols=extra_cols)
+        batch = []
+        for obj in objects:
+            vals = [getattr(obj, c) for c in self._insert_cols]
+            if extra:
+                vals.extend(extra.values())
+            batch.append(vals)
+        self.conn.executemany(sql, batch)

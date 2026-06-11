@@ -56,15 +56,6 @@ class SubjectHistoryRepo:
         init_db(conn)  # 确保 subject_history 等表已建（幂等）
         return conn
 
-    def _base(self, conn: sqlite3.Connection) -> BaseRepository[HistoryRecord]:
-        return BaseRepository(
-            conn,
-            self.TABLE,
-            HistoryRecord,
-            pk=self.PK,
-            insert_exclude=["id"],
-        )
-
     def insert(
         self,
         summary: str,
@@ -96,7 +87,8 @@ class SubjectHistoryRepo:
                 confirmed_at=datetime.now(timezone.utc).isoformat(),
                 voucher_id=voucher_id,
             )
-            self._base(conn).insert_or_ignore(record)
+            repo = BaseRepository(conn, self.TABLE, HistoryRecord, pk=self.PK, insert_exclude=["id"])
+            repo.insert_or_ignore(record)
             conn.commit()
             # 使对应 (db_path, direction) 的缓存失效
             SubjectHistoryRepo._cache.pop((self._db_path, direction), None)
@@ -130,7 +122,8 @@ class SubjectHistoryRepo:
                 conn = self._connect()
                 close_after = True
             try:
-                records = self._base(conn).find_all(
+                repo = BaseRepository(conn, self.TABLE, HistoryRecord, pk=self.PK, insert_exclude=["id"])
+                records = repo.find_all(
                     select_cols=["summary", "subject_code", "subject_name"],
                     where="direction = ?",
                     params=(direction,),

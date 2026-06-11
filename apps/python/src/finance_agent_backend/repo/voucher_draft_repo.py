@@ -81,14 +81,11 @@ class VoucherDraftRepository:
     # ── Entries ──
 
     def insert_entries(self, draft_id: str, entries: list[PipelineEntry]) -> None:
-        for e in entries:
-            self._entry.insert(e, extra={"draft_id": draft_id})
+        self._entry.insert_many(entries, extra={"draft_id": draft_id})
 
     def get_entries(self, draft_id: str) -> list[PipelineEntry]:
-        rows = self.conn.execute(
-            self._entry._select_sql(
-                where="draft_id = ?", order_by="voucher_no, entry_seq"
-            ),
-            (draft_id,),
-        ).fetchall()
-        return [PipelineEntry.from_db_row(r) for r in rows]
+        return self._entry.select(
+            where="draft_id = ?",
+            params=(draft_id,),
+            order_by="voucher_no, entry_seq",
+        )

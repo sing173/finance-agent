@@ -54,12 +54,10 @@ class ICBCReceiptGridParser(BaseStatementParser):
         """懒初始化 AccountRegistry（构造时未注入则从文件加载）。"""
         if self._account_registry is None:
             from finance_agent_backend.account_registry import (
-                AccountMappingRepository,
                 AccountRegistry,
-                _default_config_path,
+                get_account_entries,
             )
-            repo = AccountMappingRepository(_default_config_path())
-            self._account_registry = AccountRegistry(repo.load())
+            self._account_registry = AccountRegistry(get_account_entries())
         return self._account_registry
 
     @property
