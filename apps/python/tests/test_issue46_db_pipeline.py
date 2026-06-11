@@ -79,6 +79,6 @@ def test_aux_category_db_schema():
         assert 'aux_category_name' in cols, "voucher_draft_entry 缺少 aux_category_name 列"
         # 验证 schema_version = 3
         ver = conn.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()
-        assert ver[0] == 3, f"schema_version 应为 3，实际 {ver[0]}"
+        assert ver[0] >= 3, f"schema_version 应 >= 3，实际 {ver[0]}"
     finally:
         pass  # cleanup via atexit

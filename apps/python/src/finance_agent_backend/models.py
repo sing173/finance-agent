@@ -127,3 +127,65 @@ class AccountEntry:
     bankCode: str                    # ICBC / CMB / GFB
     subjectCode: str                 # 会计科目代码
     subjectName: str                 # 科目全名
+
+
+# ═══════════════════════════════════════════════════════════════════
+# PipelineEntry — 凭证管道统一领域对象（Issue #48 / Issue #47 P0）
+# ═══════════════════════════════════════════════════════════════════
+
+
+@dataclass
+class PipelineEntry:
+    """凭证管道分录 — 业务领域对象（Issue #47 P0 / Issue #48 统一）。
+
+    17 字段，贯穿 compose → preview → save_draft → load_draft → export 全链路。
+    到 JSON-RPC 边界时用 dataclasses.asdict() 序列化。
+    到 excel_builder 时通过 COLUMN_MAP 声明式映射。
+    """
+    # ── 核心标识 ──
+    entry_seq: int = 1
+    voucher_no: int = 1
+    date: str = ''
+    # ── 凭证内容 ──
+    summary: str = ''
+    subject_code: str = ''
+    subject_name: str = ''
+    debit_amount: Optional[float] = None
+    credit_amount: Optional[float] = None
+    direction: str = ''              # 'income' | 'expense' | 'bank'
+    counterparty: str = ''
+    # ── 匹配元数据 ──
+    match_source: str = 'unmatched'  # 'rule' | 'history' | 'manual' | 'unmatched' | 'auto'
+    rule_id: str = ''
+    # ── 原始数据 ──
+    original_summary: str = ''
+    original_amount: float = 0.0
+    is_manual: bool = False
+    # ── 辅助核算 ──
+    aux_category: str = ''
+    aux_category_name: str = ''
+
+    # ── 类方法 ──
+
+    @classmethod
+    def from_dict(cls, d: dict) -> 'PipelineEntry':
+        """严格校验：未知字段显式报错，不静默丢弃。"""
+        allowed = set(cls.__dataclass_fields__)
+        unknown = set(d) - allowed
+        if unknown:
+            raise ValueError(f"Dict has unknown fields {unknown}")
+        return cls(**{k: v for k, v in d.items() if k in allowed})
+
+    @classmethod
+    def from_db_row(cls, row) -> 'PipelineEntry':
+        """动态映射：基于 sqlite3.Row.keys() 自动匹配字段。"""
+        row_keys = row.keys() if hasattr(row, 'keys') else [d[0] for d in row.description]
+        kwargs = {k: row[k] for k in cls.__dataclass_fields__ if k in row_keys}
+        if 'is_manual' in kwargs:
+            kwargs['is_manual'] = bool(kwargs['is_manual'])
+        return cls(**kwargs)
+
+    def asdict(self) -> dict:
+        """序列化为 dict（JSON-RPC 边界用）。"""
+        from dataclasses import asdict
+        return asdict(self)

@@ -152,3 +152,36 @@ export interface BatchResult {
   failedCount: number;
   totalTransactions: number;
 }
+
+// ========== 凭证管道类型（Issue #48 / Issue #47 P0）==========
+
+/** 凭证分录 — 与 Python PipelineEntry 17 字段对齐。 */
+export interface VoucherEntry {
+  entry_seq: number;
+  voucher_no: number;
+  date: string;
+  summary: string;
+  subject_code: string;
+  subject_name: string;
+  debit_amount: number | null;
+  credit_amount: number | null;
+  direction: 'income' | 'expense' | 'bank';
+  counterparty: string;
+  match_source: string;
+  rule_id: string;
+  original_summary: string;
+  original_amount: number;
+  is_manual: boolean;
+  aux_category: string;
+  aux_category_name: string;
+}
+
+/** 凭证（包含多条分录） */
+export interface VoucherData {
+  voucher_no: number;
+  date: string;
+  direction: string;
+  bank_subject_code: string;
+  counterpart_subject_code: string;
+  entries: VoucherEntry[];
+}

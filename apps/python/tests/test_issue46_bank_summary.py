@@ -39,8 +39,8 @@ def test_bank_entry_uses_original_summary():
     )
     entries = VoucherEntryFactory.build(group, 1)
     bank_entry = entries[-1]
-    assert bank_entry["summary"] == "支付启胜物业1月份物业费", (
-        f"期望原交易摘要，实际 '{bank_entry['summary']}'"
+    assert bank_entry.summary == "支付启胜物业1月份物业费", (
+        f"期望原交易摘要，实际 '{bank_entry.summary}'"
     )
 
 
@@ -61,6 +61,6 @@ def test_bank_entry_income_uses_original_summary():
     )
     entries = VoucherEntryFactory.build(group, 1)
     bank_entry = entries[0]  # income 方向银行分录在第 0 位
-    assert bank_entry["summary"] == "收到客户货款", (
-        f"期望原交易摘要，实际 '{bank_entry['summary']}'"
+    assert bank_entry.summary == "收到客户货款", (
+        f"期望原交易摘要，实际 '{bank_entry.summary}'"
     )

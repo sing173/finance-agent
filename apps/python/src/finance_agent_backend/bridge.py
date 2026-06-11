@@ -484,6 +484,10 @@ def handle_voucher_preview(params: dict) -> dict:
         composer = VoucherComposer(repo=repo)
         vouchers = composer.compose(transactions, subject_mapping, account_registry)
 
+        # PipelineEntry → dict（JSON-RPC 边界序列化）
+        for v in vouchers:
+            v["entries"] = [e.asdict() for e in v["entries"]]
+
         warnings = []
         for v in vouchers:
             unmatched = [e for e in v["entries"] if e.get("match_source") == "unmatched" and e.get("direction") != "bank"]
@@ -530,9 +534,9 @@ def handle_voucher_save_draft(params: dict) -> dict:
                 """INSERT INTO voucher_draft_entry
                    (draft_id, entry_seq, voucher_no, date, summary, subject_code, subject_name,
                     debit_amount, credit_amount, direction, counterparty, match_source,
-                    original_summary, original_amount, is_manual,
+                    original_summary, original_amount, is_manual, rule_id,
                     aux_category, aux_category_name)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     draft_id,
                     e.get("entry_seq", 1),
@@ -549,6 +553,7 @@ def handle_voucher_save_draft(params: dict) -> dict:
                     e.get("original_summary", ""),
                     e.get("original_amount", 0),
                     1 if e.get("is_manual") else 0,
+                    e.get("rule_id", ""),
                     e.get("aux_category", ""),
                     e.get("aux_category_name", ""),
                 ),
@@ -585,7 +590,7 @@ def handle_voucher_load_draft(params: dict) -> dict:
         entry_rows = conn.execute(
             """SELECT entry_seq, voucher_no, date, summary, subject_code, subject_name,
                       debit_amount, credit_amount, direction, counterparty, match_source,
-                      original_summary, original_amount, is_manual,
+                      original_summary, original_amount, is_manual, rule_id,
                       aux_category, aux_category_name
                FROM voucher_draft_entry WHERE draft_id = ? ORDER BY voucher_no, entry_seq""",
             (draft_id,),
@@ -694,7 +699,11 @@ def handle_voucher_export(params: dict) -> dict:
                 "credit_amount": r["credit_amount"],
                 "direction": r["direction"],
                 "counterparty": r["counterparty"],
+                "match_source": r["match_source"],
+                "rule_id": r["rule_id"],
+                "original_summary": r["original_summary"],
                 "original_amount": r["original_amount"],
+                "is_manual": bool(r["is_manual"]),
                 "aux_category": r["aux_category"],
                 "aux_category_name": r["aux_category_name"],
             })

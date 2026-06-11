@@ -126,6 +126,7 @@ SCHEMA_STATEMENTS: list[str] = [
         original_summary TEXT,
         original_amount  REAL,
         is_manual       INTEGER DEFAULT 0,
+        rule_id         TEXT DEFAULT '',
         aux_category    TEXT DEFAULT '',
         aux_category_name TEXT DEFAULT ''
     )""",
@@ -153,7 +154,7 @@ SCHEMA_STATEMENTS: list[str] = [
     )""",
 ]
 
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 
 def _migrate_v2(conn: sqlite3.Connection) -> None:
@@ -184,7 +185,14 @@ def _migrate_v2(conn: sqlite3.Connection) -> None:
     ).fetchone()
     if old_exists:
         conn.execute(
-            "INSERT OR IGNORE INTO voucher_draft_entry_v2 SELECT * FROM voucher_draft_entry"
+            """INSERT OR IGNORE INTO voucher_draft_entry_v2
+               (id, draft_id, entry_seq, voucher_no, date, summary, subject_code, subject_name,
+                debit_amount, credit_amount, direction, counterparty, match_source,
+                original_summary, original_amount, is_manual, aux_category, aux_category_name)
+               SELECT id, draft_id, entry_seq, voucher_no, date, summary, subject_code, subject_name,
+                      debit_amount, credit_amount, direction, counterparty, match_source,
+                      original_summary, original_amount, is_manual, aux_category, aux_category_name
+               FROM voucher_draft_entry"""
         )
         conn.execute("DROP TABLE voucher_draft_entry")
         conn.execute("ALTER TABLE voucher_draft_entry_v2 RENAME TO voucher_draft_entry")
@@ -205,6 +213,17 @@ def _migrate_v3(conn: sqlite3.Connection) -> None:
     conn.execute(
         "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (?, ?)",
         (3, datetime.now(timezone.utc).isoformat()),
+    )
+
+
+def _migrate_v4(conn: sqlite3.Connection) -> None:
+    """v4 迁移: 添加 rule_id 列。"""
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(voucher_draft_entry)").fetchall()]
+    if 'rule_id' not in cols:
+        conn.execute("ALTER TABLE voucher_draft_entry ADD COLUMN rule_id TEXT DEFAULT ''")
+    conn.execute(
+        "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (?, ?)",
+        (4, datetime.now(timezone.utc).isoformat()),
     )
 
 
@@ -232,5 +251,9 @@ def init_db(conn: sqlite3.Connection) -> None:
     if current < 3:
         # v3: 添加 aux_category / aux_category_name 列
         _migrate_v3(conn)
+
+    if current < 4:
+        # v4: 添加 rule_id 列
+        _migrate_v4(conn)
 
     conn.commit()

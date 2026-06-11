@@ -1,14 +1,8 @@
 import { useState, useCallback } from 'react';
 import { message } from 'antd';
-import type { VoucherEntry } from '../components/VoucherPreviewPanel';
+import type { VoucherEntry, VoucherData } from '@shared/types';
 import { isUnmatchedNonBank } from './voucher_utils';
 import { useSubjects } from './useSubjects';
-
-interface VoucherData {
-  voucher_no: number; date: string; direction: string;
-  bank_subject_code: string; counterpart_subject_code: string;
-  entries: VoucherEntry[];
-}
 
 export function useVoucherFlow() {
   const [vouchers, setVouchers] = useState<VoucherData[]>([]);

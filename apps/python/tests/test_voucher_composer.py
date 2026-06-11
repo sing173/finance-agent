@@ -100,7 +100,7 @@ class TestCompose:
         assert voucher1["voucher_no"] == 1
         entries = voucher1["entries"]
         assert len(entries) == 3  # 2. 物业费分录 + 1 bank 分录
-        assert entries[0]["subject_code"] == "5060203"
+        assert entries[0].subject_code == "5060203"
 
     def test_direction_expense_debit_counterpart(self):
         """支出→借方对方科目，贷方银行科目。"""
@@ -112,12 +112,12 @@ class TestCompose:
         voucher1 = result[0]  # expense
         entries = voucher1["entries"]
         # 分录 1 & 2: 借 对方科目
-        assert entries[0]["debit_amount"] is not None
-        assert entries[0]["credit_amount"] is None
+        assert entries[0].debit_amount is not None
+        assert entries[0].credit_amount is None
         # 最后一条: 贷 银行科目
         bank_entry = entries[-1]
-        assert bank_entry["credit_amount"] is not None
-        assert bank_entry["debit_amount"] is None
+        assert bank_entry.credit_amount is not None
+        assert bank_entry.debit_amount is None
 
     def test_direction_income_credit_counterpart(self):
         """收入→贷方对方科目，借方银行科目。"""
@@ -129,9 +129,9 @@ class TestCompose:
         voucher2 = result[1]  # income
         entries = voucher2["entries"]
         # 分录 1: 借 银行科目
-        assert entries[0]["debit_amount"] is not None
+        assert entries[0].debit_amount is not None
         # 分录 2: 贷 对方科目
-        assert entries[1]["credit_amount"] is not None
+        assert entries[1].credit_amount is not None
 
     def test_totals_balance(self):
         """借方合计 = 贷方合计。"""
@@ -142,10 +142,10 @@ class TestCompose:
 
         for voucher in result:
             total_debit = sum(
-                e.get("debit_amount") or 0 for e in voucher["entries"]
+                e.debit_amount or 0 for e in voucher["entries"]
             )
             total_credit = sum(
-                e.get("credit_amount") or 0 for e in voucher["entries"]
+                e.credit_amount or 0 for e in voucher["entries"]
             )
             assert abs(total_debit - total_credit) < 0.01, (
                 f"Voucher {voucher['voucher_no']}: debit={total_debit}, credit={total_credit}"
@@ -224,7 +224,7 @@ class TestUnmatchedIndependent:
         assert len(result) == 3, f"expected 3 independent vouchers, got {len(result)}"
         for v in result:
             # 每张凭证只有 1 条对方分录 + 1 条银行分录
-            non_bank = [e for e in v["entries"] if e.get("direction") != "bank"]
+            non_bank = [e for e in v["entries"] if e.direction != "bank"]
             assert len(non_bank) == 1, f"voucher should have exactly 1 non-bank entry, got {len(non_bank)}"
 
     def test_unmatched_same_account_different_descriptions_independent(self):

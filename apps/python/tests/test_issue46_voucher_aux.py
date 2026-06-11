@@ -41,12 +41,11 @@ def test_entry_includes_aux_category():
     entries = VoucherEntryFactory.build(group, 1)
     # 第 0 条是对方科目分录（借），第 1 条是银行分录（贷）
     entry = entries[0]
-    assert "aux_category" in entry, "_entry() 输出缺少 aux_category 字段"
-    assert entry["aux_category"] == "04", (
-        f"期望 aux_category='04'，实际 '{entry['aux_category']}'"
+    assert entry.aux_category == "04", (
+        f"期望 aux_category='04'，实际 '{entry.aux_category}'"
     )
-    assert entry["aux_category_name"] == "公共部门", (
-        f"期望 aux_category_name='公共部门'，实际 '{entry['aux_category_name']}'"
+    assert entry.aux_category_name == "公共部门", (
+        f"期望 aux_category_name='公共部门'，实际 '{entry.aux_category_name}'"
     )
 
 
@@ -66,5 +65,5 @@ def test_bank_entry_does_not_have_aux_category():
     )
     entries = VoucherEntryFactory.build(group, 1)
     bank_entry = entries[-1]  # 最后一条是银行分录
-    assert bank_entry["aux_category"] == ""
-    assert bank_entry["aux_category_name"] == ""
+    assert bank_entry.aux_category == ""
+    assert bank_entry.aux_category_name == ""

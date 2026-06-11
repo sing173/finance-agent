@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from finance_agent_backend.models import Transaction
+from finance_agent_backend.models import Transaction, PipelineEntry
 from finance_agent_backend.subject_matcher import match as match_subject
 
 
@@ -113,12 +113,12 @@ class VoucherGrouper:
 class VoucherEntryFactory:
     """将 VoucherGroup 转换为凭证分录列表。
 
-    纯函数：给定 group + voucher_no，输出 dict 列表。
+    纯函数：给定 group + voucher_no，输出 PipelineEntry 列表。
     不涉及匹配逻辑，只做方向推导和格式转换。
     """
 
     @staticmethod
-    def build(group: VoucherGroup, voucher_no: int) -> list[dict]:
+    def build(group: VoucherGroup, voucher_no: int) -> list[PipelineEntry]:
         entries: list[dict] = []
         total = float(sum(Decimal(str(t.txn.amount)) for t in group.txns))
 
@@ -157,39 +157,39 @@ class VoucherEntryFactory:
 
     @staticmethod
     def _entry(seq, vno, txn, code, name, debit, credit, source,
-               rule_id='', aux_category='', aux_category_name=''):
-        return {
-            "entry_seq": seq, "voucher_no": vno,
-            "date": str(txn.date), "summary": txn.description,
-            "subject_code": code, "subject_name": name,
-            "debit_amount": debit, "credit_amount": credit,
-            "direction": txn.direction,
-            "counterparty": txn.counterparty or '',
-            "match_source": source,
-            "rule_id": rule_id,
-            "original_summary": txn.description,
-            "original_amount": float(txn.amount),
-            "is_manual": False,
-            "aux_category": aux_category,
-            "aux_category_name": aux_category_name,
-        }
+               rule_id='', aux_category='', aux_category_name='') -> PipelineEntry:
+        return PipelineEntry(
+            entry_seq=seq, voucher_no=vno,
+            date=str(txn.date), summary=txn.description,
+            subject_code=code, subject_name=name,
+            debit_amount=debit, credit_amount=credit,
+            direction=txn.direction,
+            counterparty=txn.counterparty or '',
+            match_source=source,
+            rule_id=rule_id,
+            original_summary=txn.description,
+            original_amount=float(txn.amount),
+            is_manual=False,
+            aux_category=aux_category,
+            aux_category_name=aux_category_name,
+        )
 
     @staticmethod
-    def _bank_entry(seq, vno, dt, debit, credit, code, name, summary=''):
-        return {
-            "entry_seq": seq, "voucher_no": vno,
-            "date": str(dt), "summary": summary,
-            "subject_code": code, "subject_name": name,
-            "debit_amount": debit, "credit_amount": credit,
-            "direction": "bank",
-            "counterparty": "",
-            "match_source": "auto",
-            "original_summary": "",
-            "original_amount": 0.0,
-            "is_manual": False,
-            "aux_category": "",
-            "aux_category_name": "",
-        }
+    def _bank_entry(seq, vno, dt, debit, credit, code, name, summary='') -> PipelineEntry:
+        return PipelineEntry(
+            entry_seq=seq, voucher_no=vno,
+            date=str(dt), summary=summary,
+            subject_code=code, subject_name=name,
+            debit_amount=debit, credit_amount=credit,
+            direction='bank',
+            counterparty='',
+            match_source='auto',
+            original_summary='',
+            original_amount=0.0,
+            is_manual=False,
+            aux_category='',
+            aux_category_name='',
+        )
 
 
 # ── 主类：编排层 ──────────────────────────────────────────────
