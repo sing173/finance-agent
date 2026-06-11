@@ -38,6 +38,7 @@ dist_electron/
 .claude/
 .workbuddy/
 memory/
+AGENTS.md
 
 # OS
 .DS_Store
