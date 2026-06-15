@@ -11,12 +11,12 @@ from .shared_utils import (
     BANK_ICBC, BANK_BOC, BANK_CCB, BANK_CMB,
     parse_date_flexible,
 )
-from .base_parser import BaseStatementParser
+from .shared_utils import open_pdf
 
 SUPPORTED_BANKS = [BANK_BOC, BANK_CMB, BANK_ICBC, BANK_CCB]
 
 
-class BankStatementParser(BaseStatementParser):
+class BankStatementParser:
     """银行流水解析器（通用回退）"""
 
     BANK_NAME = "通用"
@@ -26,7 +26,7 @@ class BankStatementParser(BaseStatementParser):
 
     def parse(self, file_path: str, bank: Optional[str] = None) -> ParseResult:
         """解析 PDF 银行流水"""
-        doc = self._open_pdf(file_path)
+        doc = open_pdf(file_path)
 
         # 自动识别银行（如果未指定）
         if not bank:

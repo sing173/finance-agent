@@ -26,10 +26,10 @@ from .shared_utils import (
     find_table_region, partition_spans,
     extract_balance_from_footer,
 )
-from .base_parser import BaseStatementParser
+from .shared_utils import open_pdf
 
 
-class CMBTableParser(BaseStatementParser):
+class CMBTableParser:
     """招商银行 账务明细清单（水平表格格式）解析器"""
 
     BANK_NAME = BANK_CMB
@@ -75,7 +75,7 @@ class CMBTableParser(BaseStatementParser):
         7. 从表格区解析每行数据 → Transaction 列表
         8. 按日期排序后返回 ParseResult
         """
-        doc = self._open_pdf(file_path)
+        doc = open_pdf(file_path)
 
         if len(doc) == 0:
             doc.close()

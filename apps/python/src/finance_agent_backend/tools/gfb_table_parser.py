@@ -24,10 +24,10 @@ from .shared_utils import (
     find_balance_in_spans, extract_balance_from_footer,
     normalize_key, lookup_header_key,
 )
-from .base_parser import BaseStatementParser
+from .shared_utils import open_pdf
 
 
-class GFBTableParser(BaseStatementParser):
+class GFBTableParser:
     """广发银行 活期对公对账单（水平表格格式）解析器"""
 
     BANK_NAME = BANK_GFB
@@ -81,7 +81,7 @@ class GFBTableParser(BaseStatementParser):
         - 本期余额在页脚区
         - 金额分两列：本期支出 / 本期收入（互斥，不是正负号区分）
         """
-        doc = self._open_pdf(file_path)
+        doc = open_pdf(file_path)
 
         if len(doc) == 0:
             doc.close()

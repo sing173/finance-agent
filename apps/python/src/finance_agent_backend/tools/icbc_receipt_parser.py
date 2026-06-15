@@ -23,10 +23,10 @@ from rapidocr_onnxruntime import RapidOCR
 
 from ..models import Transaction, ParseResult
 from .shared_utils import BANK_ICBC, parse_date_chinese, parse_timestamp_date, parse_amount_lenient, render_page
-from .base_parser import BaseStatementParser
+from .shared_utils import open_pdf
 
 
-class ICBCReceiptParser(BaseStatementParser):
+class ICBCReceiptParser:
     """中国工商银行 OCR 回单解析器 (form-based label anchoring)"""
 
     BANK_NAME = BANK_ICBC
@@ -77,7 +77,7 @@ class ICBCReceiptParser(BaseStatementParser):
         transactions: List[Transaction] = []
         errors: List[str] = []
 
-        doc = self._open_pdf(file_path)
+        doc = open_pdf(file_path)
 
         for page_num in range(len(doc)):
             try:

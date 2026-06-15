@@ -23,10 +23,10 @@ from rapidocr_onnxruntime import RapidOCR
 
 from ..models import Transaction, ParseResult
 from .shared_utils import BANK_ICBC, parse_amount_lenient, render_page
-from .base_parser import BaseStatementParser
+from .shared_utils import open_pdf
 
 
-class ICBCParser(BaseStatementParser):
+class ICBCParser:
     """中国工商银行 OCR 流水解析器 (table-line grid + header detection)"""
 
     BANK_NAME = BANK_ICBC
@@ -50,7 +50,7 @@ class ICBCParser(BaseStatementParser):
         errors = []
         inherited_col_map: Dict[int, str] = {}
 
-        doc = self._open_pdf(file_path)
+        doc = open_pdf(file_path)
 
         for page_num in range(len(doc)):
             try:
