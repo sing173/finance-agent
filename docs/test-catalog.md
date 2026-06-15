@@ -1,8 +1,35 @@
 # 测试方法分类汇总
 
-**总计：148 Python + 40 Renderer + 31 E2E = 219 个测试**
+**总计：194 Python + 6 Renderer + 32 E2E = 232 个测试**
 
 > ⏱ = 需要 OCR，默认跳过（`pytest -m ocr` 显式运行）
+
+## 目录结构
+
+```
+apps/python/tests/
+├── parsing/       — 解析路由 + 银行检测 (35 tests)
+├── subject/       — L1 规则 + L2 TF-IDF + 校验 (54 tests)
+├── voucher/       — 组装 + 草稿 + 辅助核算 + Service (37 tests)
+├── account/       — 账号映射 CRUD (25 tests)
+├── infra/         — DB schema + BaseRepository (27 tests)
+└── integration/   — 全链路集成 (1 test)
+
+apps/renderer/src/__tests__/
+├── hooks/         — useBatchOrchestrator
+├── components/    — 4 个组件测试
+└── utils/         — pathUtils
+
+apps/electron/tests/integration/
+└── v030-e2e.test.js — 32 步全功能 E2E
+```
+
+> **文件名映射**（下表中的旧名 → 新路径）：
+> `test_parser_router` → `parsing/`，`test_subject_matcher` → `subject/test_rule_matcher`，
+> `test_subject_history` → `subject/test_history_matcher`，`test_issue46_rules` → `subject/test_rules_regression`，
+> `test_voucher_composer` → `voucher/test_composer`，`test_issue48_pipeline_entry` → `voucher/test_pipeline_entry`，
+> `test_voucher_export` → `voucher/test_draft_crud`，`test_issue46_*` → `voucher/test_aux_category` 等，
+> `test_account_registry` → `account/test_registry`，`test_db` → `infra/test_db`
 
 ---
 
