@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { message } from 'antd';
-import type { VoucherData, VoucherEntry } from '@shared/types';
+import type { Transaction, VoucherData, VoucherEntry } from '@shared/types';
 import { isUnmatchedNonBank } from './voucher_utils';
 import { useSubjects } from './useSubjects';
 
@@ -26,14 +26,14 @@ export function useVoucherFlow() {
   const [showPage, setShowPage] = useState(false);
 
   // ── preview: transactions → vouchers ──
-  const preview = useCallback(async (transactions: any[], p?: string) => {
+  const preview = useCallback(async (transactions: Transaction[], p?: string) => {
     setPreviewLoading(true);
     try {
       const r = await window.electronAPI?.invoke?.('voucher.preview', { transactions });
       if (r?.success) {
         setVouchers(r.vouchers);
         setCurrentDraftId(null);
-        const dates = transactions.map((t: any) => t.date).sort();
+        const dates = transactions.map((t: Transaction) => t.date).sort();
         setPeriod(p || (dates.length ? dates[0]?.slice(0, 7)?.replace('-', '年') + '月' : ''));
         setShowPage(true);
         await reloadSubjects();
