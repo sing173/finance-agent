@@ -28,7 +28,7 @@ export function TransactionEditModal({ open, transaction, onSave, onCancel }: Tr
       const updated: Transaction = {
         ...transaction,
         description: values.description,
-        amount: transaction.direction === 'income' ? Math.abs(values.amount) : -Math.abs(values.amount),
+        amount: Math.abs(values.amount),
         counterparty: values.counterparty || undefined,
       };
       onSave(updated);

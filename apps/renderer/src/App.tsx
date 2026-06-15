@@ -224,30 +224,34 @@ function App() {
   const handleSaveEdit = useCallback((updated: Transaction) => {
     if (txnEdit.filePath && batchResult) {
       // 批量模式：更新对应文件的交易
-      setBatchResult({
-        ...batchResult,
-        files: batchResult.files.map((f) =>
-          f.filePath === txnEdit.filePath && f.transactions
-            ? {
-                ...f,
-                transactions: f.transactions.map((t) =>
-                  t === txnEdit.txn ? updated : t
-                ),
-              }
-            : f
-        ),
-      });
+      setBatchResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              files: prev.files.map((f) =>
+                f.filePath === txnEdit.filePath && f.transactions
+                  ? {
+                      ...f,
+                      transactions: f.transactions.map((t) =>
+                        t === txnEdit.txn ? updated : t
+                      ),
+                    }
+                  : f
+              ),
+            }
+          : prev
+      );
     } else {
       // 单文件模式
-      single.setResult(
-        single.result
+      single.setResult((prev) =>
+        prev
           ? {
-              ...single.result,
-              transactions: single.result.transactions.map((t: Transaction) =>
+              ...prev,
+              transactions: prev.transactions.map((t: Transaction) =>
                 t === txnEdit.txn ? updated : t
               ),
             }
-          : single.result
+          : prev
       );
     }
     txnEdit.close();

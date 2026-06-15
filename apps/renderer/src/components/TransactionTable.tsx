@@ -37,12 +37,12 @@ export function TransactionTable({ transactions, loading, onEdit, onDelete }: Tr
       title: '金额',
       dataIndex: 'amount',
       key: 'amount',
-      render: (amount: number) => (
-        <Text strong style={{ color: amount >= 0 ? '#52c41a' : '#ff4d4f' }}>
-          {amount.toFixed(2)}
+      render: (amount: number, record: Transaction) => (
+        <Text strong style={{ color: record.direction === 'income' ? '#52c41a' : '#ff4d4f' }}>
+          {Math.abs(amount).toFixed(2)}
         </Text>
       ),
-      sorter: (a, b) => a.amount - b.amount,
+      sorter: (a, b) => Math.abs(a.amount) - Math.abs(b.amount),
       width: 120,
     },
     {
@@ -90,13 +90,13 @@ export function TransactionTable({ transactions, loading, onEdit, onDelete }: Tr
     {
       title: '操作',
       key: 'action',
-      render: (_: any, record: Transaction) => (
+      render: (_: any, _record: Transaction, index: number) => (
         <Space>
           {onEdit && (
-            <Button type="link" size="small" onClick={() => onEdit(record)}>编辑</Button>
+            <Button type="link" size="small" onClick={() => onEdit(transactions[index])}>编辑</Button>
           )}
           {onDelete && (
-            <Button type="link" size="small" danger onClick={() => onDelete(record)}>删除</Button>
+            <Button type="link" size="small" danger onClick={() => onDelete(transactions[index])}>删除</Button>
           )}
         </Space>
       ),
