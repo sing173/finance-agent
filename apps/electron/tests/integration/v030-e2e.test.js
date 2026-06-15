@@ -30,6 +30,8 @@ const TEST_DB = path.join(os.tmpdir(), `v030_test_${Date.now()}.db`);
 const TEST_EXCEL = path.join(OUTPUT_DIR, 'v030_regression_export.xlsx');
 
 const BASE = path.resolve(__dirname, '..', '..', '..', 'python', 'tests', 'fixtures');
+const ACCOUNT_MAPPING_PATH = path.resolve(__dirname, '..', '..', '..', 'python', 'src', 'finance_agent_backend', 'config', 'account_mapping.json');
+const ACCOUNT_MAPPING_BACKUP = ACCOUNT_MAPPING_PATH + '.bak';
 
 // ---------- 测试文件（python/tests/fixtures） ----------
 
@@ -53,6 +55,11 @@ function cleanup() {
     if (fs.existsSync(f)) fs.unlinkSync(f);
     const wal = f + '-wal', shm = f + '-shm';
     [wal, shm].forEach(x => { if (fs.existsSync(x)) fs.unlinkSync(x); });
+  }
+  // 恢复 account_mapping.json 备份
+  if (fs.existsSync(ACCOUNT_MAPPING_BACKUP)) {
+    fs.copyFileSync(ACCOUNT_MAPPING_BACKUP, ACCOUNT_MAPPING_PATH);
+    fs.unlinkSync(ACCOUNT_MAPPING_BACKUP);
   }
 }
 
@@ -507,6 +514,11 @@ async function main() {
     // Phase 6: account_registry CRUD
     // ════════════════════════════════════════════
     phase('Phase 6: account_registry');
+
+    // 备份 account_mapping.json，测试结束后 cleanup() 恢复
+    if (fs.existsSync(ACCOUNT_MAPPING_PATH)) {
+      fs.copyFileSync(ACCOUNT_MAPPING_PATH, ACCOUNT_MAPPING_BACKUP);
+    }
 
     let testEntryId = null;
 
