@@ -12,7 +12,7 @@ from finance_agent_backend import db as _db
 
 # ── 真实测试文件 ──────────────────────────────────────────────
 
-BASE = os.path.join(os.path.dirname(__file__), "fixtures")
+BASE = os.path.join(os.path.dirname(__file__), "..", "fixtures")
 REAL_CMB_PDF = os.path.join(BASE, "cmb_statement.pdf")
 
 # ── 辅助 ──────────────────────────────────────────────────────

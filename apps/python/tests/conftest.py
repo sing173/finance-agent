@@ -1,20 +1,11 @@
 """pytest 全局配置 — OCR marker + 共享 fixtures + 全局 teardown。
 
-消除各测试文件中重复的：
-  - sys.path.insert boilerplate
-  - tmp_db fixture（5 处）
-  - _make_txn helper（3 处）
-  - _rpc / _call helper（2 处）
-  - reset_db_module autouse（test_db.py 局部 → 全局）
-  - 缓存 teardown（SubjectHistoryRepo._cache / _subjects_cache / _entries_cache）
+共享 fixtures: tmp_db, tmp_db_path, make_txn, rpc_call, MINIMAL_RULES
+全局 autouse: db 单例重置 + 4 个缓存 teardown
 """
-import os
-import sys
 import sqlite3
 from datetime import date
 from decimal import Decimal
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import pytest
 

@@ -16,7 +16,7 @@ from finance_agent_backend.parser_router import detect_bank_from_pdf, route
 
 # ── Fixture paths ──────────────────────────────────────────────────
 
-BASE = os.path.join(os.path.dirname(__file__), "fixtures")
+BASE = os.path.join(os.path.dirname(__file__), "..", "fixtures")
 
 FIXTURE = {
     "icbc_csv":     os.path.join(BASE, "icbc_statement.csv"),
