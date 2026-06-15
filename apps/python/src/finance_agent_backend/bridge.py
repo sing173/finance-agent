@@ -144,7 +144,7 @@ def handle_get_subjects_info(params: dict) -> dict:
 def handle_account_registry_list(params: dict) -> dict:
     try:
         from finance_agent_backend.services import AccountRegistryService
-        return AccountRegistryService().list_all()
+        return AccountRegistryService(config_path=params.get("config_path")).list_all()
     except Exception as e:
         _log.error("account_registry.list 异常: %s", traceback.format_exc())
         return {"success": False, "error": str(e)}
@@ -157,7 +157,7 @@ def handle_account_registry_match(params: dict) -> dict:
         return {"success": False, "error": "缺少 accountNumber 参数"}
     try:
         from finance_agent_backend.services import AccountRegistryService
-        return AccountRegistryService().match(account_number)
+        return AccountRegistryService(config_path=params.get("config_path")).match(account_number)
     except Exception as e:
         _log.error("account_registry.match 异常: %s", traceback.format_exc())
         return {"success": False, "error": str(e)}
@@ -182,7 +182,7 @@ def handle_account_registry_add(params: dict) -> dict:
             subjectCode=params.get("subjectCode", ""),
             subjectName=params.get("subjectName", ""),
         )
-        return AccountRegistryService().add(entry)
+        return AccountRegistryService(config_path=params.get("config_path")).add(entry)
     except ValueError as e:
         return {"success": False, "error": str(e)}
     except Exception as e:
@@ -208,7 +208,7 @@ def handle_account_registry_update(params: dict) -> dict:
             subjectCode=params.get("subjectCode", ""),
             subjectName=params.get("subjectName", ""),
         )
-        return AccountRegistryService().update(entry)
+        return AccountRegistryService(config_path=params.get("config_path")).update(entry)
     except ValueError as e:
         return {"success": False, "error": str(e)}
     except Exception as e:
@@ -223,7 +223,7 @@ def handle_account_registry_delete(params: dict) -> dict:
         return {"success": False, "error": "缺少 id 参数"}
     try:
         from finance_agent_backend.services import AccountRegistryService
-        return AccountRegistryService().delete(entry_id)
+        return AccountRegistryService(config_path=params.get("config_path")).delete(entry_id)
     except Exception as e:
         _log.error("account_registry.delete 异常: %s", traceback.format_exc())
         return {"success": False, "error": str(e)}

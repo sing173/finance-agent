@@ -15,13 +15,17 @@ from finance_agent_backend.paths import get_config_path
 class AccountRegistryService:
     """封装 AccountRegistry + AccountMappingRepository 的 CRUD 操作。"""
 
-    def __init__(self):
-        self._config_path = get_config_path('account_mapping.json')
+    def __init__(self, config_path: str | None = None):
+        self._config_path = config_path or get_config_path('account_mapping.json')
+        self._use_cache = config_path is None
 
     def _open(self, with_subject_codes: bool = False) -> tuple[AccountRegistry, AccountMappingRepository]:
         """构造 registry + repo 对。"""
         repo = AccountMappingRepository(self._config_path)
-        entries = get_account_entries()
+        if self._use_cache:
+            entries = get_account_entries()
+        else:
+            entries = repo.load()
         subject_codes = None
         if with_subject_codes:
             from finance_agent_backend.services.subject_service import SubjectService

@@ -28,10 +28,9 @@ const os = require('os');
 const OUTPUT_DIR = path.resolve(__dirname, 'output');
 const TEST_DB = path.join(os.tmpdir(), `v030_test_${Date.now()}.db`);
 const TEST_EXCEL = path.join(OUTPUT_DIR, 'v030_regression_export.xlsx');
+const TEST_ACCOUNT_MAPPING = path.join(OUTPUT_DIR, 'account_mapping_test.json');
 
 const BASE = path.resolve(__dirname, '..', '..', '..', 'python', 'tests', 'fixtures');
-const ACCOUNT_MAPPING_PATH = path.resolve(__dirname, '..', '..', '..', 'python', 'src', 'finance_agent_backend', 'config', 'account_mapping.json');
-const ACCOUNT_MAPPING_BACKUP = ACCOUNT_MAPPING_PATH + '.bak';
 
 // ---------- 测试文件（python/tests/fixtures） ----------
 
@@ -50,16 +49,11 @@ function ensureDir(dir) {
 }
 
 function cleanup() {
-  const files = [TEST_DB, TEST_EXCEL];
+  const files = [TEST_DB, TEST_EXCEL, TEST_ACCOUNT_MAPPING];
   for (const f of files) {
     if (fs.existsSync(f)) fs.unlinkSync(f);
     const wal = f + '-wal', shm = f + '-shm';
     [wal, shm].forEach(x => { if (fs.existsSync(x)) fs.unlinkSync(x); });
-  }
-  // 恢复 account_mapping.json 备份
-  if (fs.existsSync(ACCOUNT_MAPPING_BACKUP)) {
-    fs.copyFileSync(ACCOUNT_MAPPING_BACKUP, ACCOUNT_MAPPING_PATH);
-    fs.unlinkSync(ACCOUNT_MAPPING_BACKUP);
   }
 }
 
@@ -515,16 +509,21 @@ async function main() {
     // ════════════════════════════════════════════
     phase('Phase 6: account_registry');
 
-    // 备份 account_mapping.json，测试结束后 cleanup() 恢复
-    if (fs.existsSync(ACCOUNT_MAPPING_PATH)) {
-      fs.copyFileSync(ACCOUNT_MAPPING_PATH, ACCOUNT_MAPPING_BACKUP);
-    }
+    // 创建独立的测试配置文件，不操作真实 account_mapping.json
+    fs.writeFileSync(TEST_ACCOUNT_MAPPING, JSON.stringify({
+      accounts: [
+        { id: "seed_001", matchType: "suffix", pattern: "1234", bank: "种子银行", bankCode: "SEED", subjectCode: "10001", subjectName: "种子科目" },
+      ],
+      defaultBankSubjectCode: "10002",
+    }, null, 2), 'utf-8');
+
+    const acctCfg = TEST_ACCOUNT_MAPPING;
 
     let testEntryId = null;
 
     run('account_registry.list 列出映射');
     {
-      const r = await pythonProcess.call('account_registry.list', {});
+      const r = await pythonProcess.call('account_registry.list', { config_path: acctCfg });
       assert(r.success === true, '应成功');
       assert(Array.isArray(r.accounts), 'accounts 应为数组');
       assert(r.accounts.length >= 1, `至少 1 条: ${r.accounts.length}`);
@@ -537,6 +536,7 @@ async function main() {
     run('account_registry.add 新增映射');
     {
       const r = await pythonProcess.call('account_registry.add', {
+        config_path: acctCfg,
         matchType: 'exact',
         pattern: '9999999999999999',
         bank: '测试银行',
@@ -552,7 +552,7 @@ async function main() {
 
     run('account_registry.match 精确匹配');
     {
-      const r = await pythonProcess.call('account_registry.match', { accountNumber: '9999999999999999' });
+      const r = await pythonProcess.call('account_registry.match', { config_path: acctCfg, accountNumber: '9999999999999999' });
       assert(r.success === true, '应成功');
       assert(r.entry !== null && r.entry !== undefined, '应匹配');
       assert(r.entry.bankCode === 'TEST', `bankCode: ${r.entry.bankCode}`);
@@ -562,6 +562,7 @@ async function main() {
     run('account_registry.update 更新映射');
     {
       const r = await pythonProcess.call('account_registry.update', {
+        config_path: acctCfg,
         id: testEntryId,
         matchType: 'exact',
         pattern: '9999999999999999',
@@ -578,8 +579,8 @@ async function main() {
 
     run('account_registry.delete 删除映射');
     {
-      await pythonProcess.call('account_registry.delete', { id: testEntryId });
-      const r = await pythonProcess.call('account_registry.match', { accountNumber: '9999999999999999' });
+      await pythonProcess.call('account_registry.delete', { config_path: acctCfg, id: testEntryId });
+      const r = await pythonProcess.call('account_registry.match', { config_path: acctCfg, accountNumber: '9999999999999999' });
       if (r.entry) assert(r.entry.bankCode !== 'TEST', '删除后不应匹配 TEST');
       ok();
     }
