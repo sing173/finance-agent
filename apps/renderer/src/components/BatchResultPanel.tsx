@@ -2,19 +2,21 @@ import { useState } from 'react';
 import { Collapse, Button, Space, Typography } from 'antd';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { TransactionTable } from './TransactionTable';
-import type { BatchFileResult } from '@shared/types';
+import type { BatchFileResult, Transaction } from '@shared/types';
 
 const { Text } = Typography;
 
 interface BatchResultPanelProps {
   files: BatchFileResult[];
   onRetry: (filePaths: string[]) => void;
+  onEditTransaction: (filePath: string, txn: Transaction) => void;
   onPreviewVoucher: () => void;
 }
 
 export function BatchResultPanel({
   files,
   onRetry,
+  onEditTransaction,
   onPreviewVoucher,
 }: BatchResultPanelProps) {
   const [expandAll, setExpandAll] = useState(false);
@@ -84,6 +86,7 @@ export function BatchResultPanel({
           <TransactionTable
             transactions={file.transactions}
             loading={false}
+            onEdit={(txn) => onEditTransaction(file.filePath, txn)}
           />
         );
       } else if (isFailed) {

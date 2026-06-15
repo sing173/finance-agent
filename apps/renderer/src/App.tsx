@@ -2,16 +2,19 @@ import { Layout, Typography, Button, Card, message, Space, Modal } from 'antd';
 import { useState, useEffect, useCallback } from 'react';
 import { SettingOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { FileDropZone } from './components/FileDropZone';
-import { TransactionTable } from './components/TransactionTable';
-import { ResultCard } from './components/ResultCard';
 import { ManualOverrideModal } from './components/ManualOverrideModal';
+import { TransactionEditModal } from './components/TransactionEditModal';
+import { SingleFileResultPanel } from './components/SingleFileResultPanel';
 import { BatchFileSelector } from './components/BatchFileSelector';
 import { BatchResultPanel } from './components/BatchResultPanel';
 import { AccountSubjectManager } from './components/AccountSubjectManager';
 import { VoucherPreviewPanel } from './components/VoucherPreviewPanel';
 import { useBatchOrchestrator } from './hooks/useBatchOrchestrator';
 import { useVoucherFlow } from './hooks/useVoucherFlow';
-import type { BatchResult, Transaction, ParseFileParams, ParseFileResult, DetectBanksResult, DetectSupportedBanksResult, DocType } from '@shared/types';
+import { useTransactionEdit } from './hooks/useTransactionEdit';
+import { useOverrideModal } from './hooks/useOverrideModal';
+import { useSingleFile } from './hooks/useSingleFile';
+import type { BatchResult, Transaction, ParseFileParams, ParseFileResult, DetectBanksResult, DetectSupportedBanksResult } from '@shared/types';
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
@@ -36,28 +39,13 @@ declare global {
   }
 }
 
-type OverrideContext = {
-  fileCount: number;
-  isPdfOnly: boolean;
-  onConfirm: (bank: string, docType: string, forceOcr: boolean) => void;
-};
-
-// 单文件检测阶段状态
-type DetectState = 'idle' | 'detecting' | 'detected' | 'unknown';
-
 function App() {
   // ====== 模式 & 结果 ======
   const [mode, setMode] = useState<'single' | 'batch'>('single');
-  const [currentResult, setCurrentResult] = useState<any>(null);
   const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
 
-  // ====== 单文件检测阶段 ======
-  const [detectState, setDetectState] = useState<DetectState>('idle');
-  const [detectInfo, setDetectInfo] = useState<{ bank: string; docType: string; isManual: boolean }>({ bank: '', docType: '', isManual: false });
-  const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
-
-  // ====== 加载 ======
-  const [loading, setLoading] = useState(false);  // 单文件解析
+  // ====== 单文件 ======
+  const single = useSingleFile();
 
   // ====== 批量编排 ======
   const batch = useBatchOrchestrator({
@@ -77,12 +65,11 @@ function App() {
   // ====== 账号-科目管理 ======
   const [accountManagerVisible, setAccountManagerVisible] = useState(false);
 
+  // ====== 交易编辑弹窗 ======
+  const txnEdit = useTransactionEdit();
+
   // ====== 手动覆盖模态框 ======
-  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
-  const [overrideContext, setOverrideContext] = useState<OverrideContext | null>(null);
-  const [overrideInitialBank, setOverrideInitialBank] = useState('');
-  const [overrideInitialDocType, setOverrideInitialDocType] = useState('');
-  const [overrideInitialOcr, setOverrideInitialOcr] = useState(false);
+  const overrideModal = useOverrideModal();
 
   // ====== 启动时查询 ======
   useEffect(() => {
@@ -118,7 +105,7 @@ function App() {
       // 单文件模式
       setMode('single');
       setBatchResult(null);
-      handleSingleFileDetect(filePaths[0]);
+      single.detect(filePaths[0]);
     } else {
       // 批量模式
       setMode('batch');
@@ -127,111 +114,43 @@ function App() {
     }
   }, [batch.clearFiles, batch.addFiles]);
 
-  // ====== 单文件：检测银行 ======
-  const handleSingleFileDetect = useCallback(async (filePath: string) => {
-    setCurrentFilePath(filePath);
-    setCurrentResult(null);
-    setBatchResult(null);
-    setDetectState('detecting');
-    setDetectInfo({ bank: '', docType: '', isManual: false });
-
-    try {
-      const ext = filePath.toLowerCase().split('.').pop();
-      const fileType = ext === 'csv' ? 'CSV' : ext === 'xlsx' ? 'Excel' : 'PDF';
-      message.info(`正在检测${fileType}文件...`);
-
-      const result = await window.electronAPI.detectBanks([filePath]);
-      const detected = result?.results?.[0];
-
-      if (detected && detected.status === 'ok' && detected.bank && detected.bank !== '未知银行') {
-        setDetectInfo({ bank: detected.bank, docType: detected.docType || 'unknown', isManual: false });
-        setDetectState('detected');
-        message.success(`检测到：${detected.bank} · ${detected.docType || 'unknown'}`);
-      } else {
-        setDetectInfo({ bank: '未知', docType: 'unknown', isManual: false });
-        setDetectState('unknown');
-        message.warning('未能自动识别银行类型');
-      }
-    } catch (error: unknown) {
-      setDetectInfo({ bank: '未知', docType: 'unknown', isManual: false });
-      setDetectState('unknown');
-      message.error('检测失败：' + (error instanceof Error ? error.message : String(error)));
-    }
-  }, []);
-
-  // ====== 单文件：确认解析 ======
-  const handleSingleFileParse = useCallback(async (filePath: string, bank: string, docType: string, forceOcr: boolean) => {
-    if (!filePath) return;
-    setLoading(true);
-    setOverrideModalOpen(false);
-
-    try {
-      // 未知银行时传 '未知银行'，让后端走 generic BankStatementParser fallback
-      const effectiveBank = (bank === '未知' || bank === '未知银行' || !bank) ? undefined : bank;
-      message.info(`正在解析${effectiveBank ? `（${effectiveBank} · ${docType}）` : '...'}...`);
-      const params: ParseFileParams = { filePath };
-      if (effectiveBank) params.bank = effectiveBank;
-      if (docType) params.docType = docType as DocType;
-      if (forceOcr) params.forceOcr = true;
-
-      const result = await window.electronAPI.parseFile(params);
-
-      if (result.success) {
-        setCurrentResult(result);
-        setDetectState('detected');
-        setDetectInfo({ bank: result.bank || bank, docType: result.docType || docType, isManual: false });
-        message.success(`解析成功，共 ${result.transactions?.length || 0} 笔交易`);
-      } else {
-        message.error(`解析失败：${result.errors?.join(", ") || "未知错误"}`);
-      }
-    } catch (error: unknown) {
-      message.error(`解析出错：${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // ====== 单文件：从 fallback 手动设置配置（不解析） ======
-  const handleSingleOverrideConfirm = useCallback((bank: string, docType: string, _forceOcr: boolean) => {
-    setDetectInfo({ bank, docType, isManual: true });
-    setDetectState('detected');
-    setOverrideModalOpen(false);
-  }, []);
-
   // ====== 打开单文件 fallback 模态框 ======
   const openSingleOverride = useCallback(() => {
-    const ext = currentFilePath?.toLowerCase().split('.').pop();
+    const ext = single.filePath?.toLowerCase().split('.').pop();
     const isPdfOnly = ext === 'pdf';
-    setOverrideInitialBank(detectInfo.bank || '');
-    setOverrideInitialDocType(detectInfo.docType || '');
-    setOverrideInitialOcr(false);
-    setOverrideContext({
-      fileCount: 1,
-      isPdfOnly,
-      onConfirm: handleSingleOverrideConfirm,
+    overrideModal.show({
+      context: {
+        fileCount: 1,
+        isPdfOnly,
+        onConfirm: (bank: string, docType: string, _forceOcr: boolean) => {
+          single.applyOverride(bank, docType);
+          overrideModal.close();
+        },
+      },
+      initialBank: single.detectInfo.bank || '',
+      initialDocType: single.detectInfo.docType || '',
+      initialOcr: false,
     });
-    setOverrideModalOpen(true);
-  }, [detectInfo.bank, detectInfo.docType, handleSingleOverrideConfirm, currentFilePath]);
+  }, [single.filePath, single.detectInfo, single.applyOverride, overrideModal]);
 
   // ====== 打开批量 fallback 模态框 ======
   const openBatchOverride = useCallback((filePaths: string[]) => {
     const allPdf = filePaths.every(fp => fp.toLowerCase().endsWith('.pdf'));
-    setOverrideInitialBank('');
-    setOverrideInitialDocType('');
-    setOverrideInitialOcr(false);
-    setOverrideContext({
-      fileCount: filePaths.length,
-      isPdfOnly: allPdf,
-      onConfirm: (bank: string, docType: string, _forceOcr: boolean) => {
-        setOverrideModalOpen(false);
-        // 只更新检测值，不触发解析
-        for (const fp of filePaths) {
-          batch.updateFile(fp, { bank, docType: docType as any, error: undefined, isManual: true });
-        }
+    overrideModal.show({
+      context: {
+        fileCount: filePaths.length,
+        isPdfOnly: allPdf,
+        onConfirm: (bank: string, docType: string, _forceOcr: boolean) => {
+          overrideModal.close();
+          // 只更新检测值，不触发解析
+          for (const fp of filePaths) {
+            batch.updateFile(fp, { bank, docType: docType as any, error: undefined, isManual: true });
+          }
+        },
       },
+      initialOcr: false,
     });
-    setOverrideModalOpen(true);
-  }, [batch.updateFile]);
+  }, [batch.updateFile, overrideModal]);
 
   // ====== 导入科目表 ======
   const handleImportSubjects = useCallback(async () => {
@@ -254,13 +173,6 @@ function App() {
     }
   }, []);
 
-  // ====== 单文件：确认解析按钮（检测阶段） ======
-  const handleSingleConfirmParse = useCallback(() => {
-    if (currentFilePath) {
-      handleSingleFileParse(currentFilePath, detectInfo.bank, detectInfo.docType, false);
-    }
-  }, [currentFilePath, detectInfo.bank, detectInfo.docType, handleSingleFileParse]);
-
   // ====== 批量：开始解析 ======
   const handleBatchStartParse = useCallback(() => {
     batch.parseOnly();
@@ -273,20 +185,21 @@ function App() {
 
     const ext = file.filePath.toLowerCase().split('.').pop();
     const isPdfOnly = ext === 'pdf';
-    setOverrideInitialBank(file.bank || '');
-    setOverrideInitialDocType(file.docType || '');
-    setOverrideInitialOcr(false);
-    setOverrideContext({
-      fileCount: 1,
-      isPdfOnly,
-      onConfirm: (bank: string, docType: string, _forceOcr: boolean) => {
-        setOverrideModalOpen(false);
-        // 只更新检测值，不触发解析
-        batch.updateFile(filePath, { bank, docType: docType as any, error: undefined, isManual: true });
+    overrideModal.show({
+      context: {
+        fileCount: 1,
+        isPdfOnly,
+        onConfirm: (bank: string, docType: string, _forceOcr: boolean) => {
+          overrideModal.close();
+          // 只更新检测值，不触发解析
+          batch.updateFile(filePath, { bank, docType: docType as any, error: undefined, isManual: true });
+        },
       },
+      initialBank: file.bank || '',
+      initialDocType: file.docType || '',
+      initialOcr: false,
     });
-    setOverrideModalOpen(true);
-  }, [batch.files, batch.updateFile]);
+  }, [batch.files, batch.updateFile, overrideModal]);
 
   // ====== 批量：addFiles / detectOnly / parse / clear ======
   const handleBatchAddFiles = useCallback((filePaths: string[]) => {
@@ -307,10 +220,44 @@ function App() {
     openBatchOverride(filePaths);
   }, [openBatchOverride]);
 
+  // ====== 交易编辑保存 ======
+  const handleSaveEdit = useCallback((updated: Transaction) => {
+    if (txnEdit.filePath && batchResult) {
+      // 批量模式：更新对应文件的交易
+      setBatchResult({
+        ...batchResult,
+        files: batchResult.files.map((f) =>
+          f.filePath === txnEdit.filePath && f.transactions
+            ? {
+                ...f,
+                transactions: f.transactions.map((t) =>
+                  t === txnEdit.txn ? updated : t
+                ),
+              }
+            : f
+        ),
+      });
+    } else {
+      // 单文件模式
+      single.setResult(
+        single.result
+          ? {
+              ...single.result,
+              transactions: single.result.transactions.map((t: Transaction) =>
+                t === txnEdit.txn ? updated : t
+              ),
+            }
+          : single.result
+      );
+    }
+    txnEdit.close();
+    message.success('交易已更新');
+  }, [txnEdit, batchResult]);
+
   // ====== 批量：导出凭证（合并所有成功文件） ======
   const getTransactionsForExport = useCallback((): Transaction[] => {
     if (mode === 'single') {
-      return currentResult?.transactions || [];
+      return single.result?.transactions || [];
     }
     if (!batchResult) {
       return [];
@@ -318,10 +265,10 @@ function App() {
     return batchResult.files.flatMap((f) =>
       f.status === 'success' ? (f.transactions || []) : []
     );
-  }, [mode, currentResult, batchResult]);
+  }, [mode, single.result, batchResult]);
 
   // ====== 辅助 ======
-  const detectUnknown = detectState === 'unknown';
+  const detectUnknown = single.detectState === 'unknown';
 
   // ====== 凭证生成子页面 ======
   if (voucherFlow.showPage) {
@@ -398,53 +345,19 @@ function App() {
 
           {/* ====== 单文件模式视图 ====== */}
           {mode === 'single' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-              {/* 检测中 */}
-              {detectState === 'detecting' && (
-                <Card title="检测中">
-                  <Text type="secondary">正在识别银行类型...</Text>
-                </Card>
-              )}
-
-              {/* 检测完成 / 解析中 / 解析结果 — 同一卡片贯穿全流程 */}
-              {(detectState === 'detected' || detectState === 'unknown' || loading || currentResult) && (
-                <ResultCard
-                  key={currentFilePath || undefined}
-                  phase={
-                    loading
-                      ? 'parsing'
-                      : currentResult
-                      ? currentResult.success
-                        ? 'success'
-                        : 'failed'
-                      : 'detect'
-                  }
-                  bank={currentResult?.bank || detectInfo.bank || '未知'}
-                  docType={currentResult?.docType || detectInfo.docType || 'unknown'}
-                  transactionCount={currentResult?.transactions?.length || 0}
-                  statementDate={currentResult?.statementDate}
-                  error={currentResult?.error}
-                  detectUnknown={detectUnknown}
-                  isManual={detectInfo.isManual}
-                  onRedetect={() => currentFilePath && handleSingleFileDetect(currentFilePath)}
-                  onModifyConfig={openSingleOverride}
-                  onStartParse={handleSingleConfirmParse}
-                  onPreviewVoucher={() => voucherFlow.preview(currentResult?.transactions || [])}
-                />
-              )}
-
-              {/* 交易列表 */}
-              {currentResult?.success && currentResult.transactions?.length > 0 && (
-                <Card title="交易列表">
-                  <TransactionTable
-                    transactions={currentResult.transactions}
-                    loading={loading}
-                  />
-                </Card>
-              )}
-
-            </div>
+            <SingleFileResultPanel
+              detectState={single.detectState}
+              loading={single.loading}
+              currentFilePath={single.filePath}
+              currentResult={single.result}
+              detectInfo={single.detectInfo}
+              detectUnknown={detectUnknown}
+              onRedetect={() => single.filePath && single.detect(single.filePath)}
+              onModifyConfig={openSingleOverride}
+              onStartParse={() => single.parse()}
+              onPreviewVoucher={(txns) => voucherFlow.preview(txns)}
+              onEditTransaction={txnEdit.openSingle}
+            />
           )}
 
           {/* ====== 批量模式视图 ====== */}
@@ -469,6 +382,7 @@ function App() {
                 <BatchResultPanel
                   files={batchResult.files}
                   onRetry={handleBatchRetry}
+                  onEditTransaction={txnEdit.openBatch}
                   onPreviewVoucher={() => {
                     const txns = getTransactionsForExport();
                     if (txns.length === 0) { message.warning('没有成功的交易数据'); return; }
@@ -482,17 +396,25 @@ function App() {
         </div>
       </Content>
 
+      {/* 交易编辑弹窗 */}
+      <TransactionEditModal
+        open={txnEdit.open}
+        transaction={txnEdit.txn}
+        onSave={handleSaveEdit}
+        onCancel={txnEdit.close}
+      />
+
       {/* 手动覆盖模态框（单文件 + 批量共用） */}
-      {overrideContext && (
+      {overrideModal.context && (
         <ManualOverrideModal
-          open={overrideModalOpen}
-          fileCount={overrideContext.fileCount}
-          isPdfOnly={overrideContext.isPdfOnly}
-          initialBank={overrideInitialBank}
-          initialDocType={overrideInitialDocType}
-          initialOcr={overrideInitialOcr}
-          onConfirm={(bank, docType, forceOcr) => overrideContext.onConfirm(bank, docType, forceOcr)}
-          onCancel={() => setOverrideModalOpen(false)}
+          open={overrideModal.open}
+          fileCount={overrideModal.context.fileCount}
+          isPdfOnly={overrideModal.context.isPdfOnly}
+          initialBank={overrideModal.initialBank}
+          initialDocType={overrideModal.initialDocType}
+          initialOcr={overrideModal.initialOcr}
+          onConfirm={(bank, docType, forceOcr) => overrideModal.context!.onConfirm(bank, docType, forceOcr)}
+          onCancel={overrideModal.close}
         />
       )}
 
