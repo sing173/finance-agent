@@ -6,29 +6,9 @@ import os
 import sys
 import sqlite3
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import pytest
 from finance_agent_backend import db
-
-
-@pytest.fixture
-def tmp_db_path(tmp_path):
-    """临时数据库文件，pytest 自动清理。"""
-    path = str(tmp_path / "test.db")
-    return path
-
-
-@pytest.fixture(autouse=True)
-def reset_db_module():
-    """每个测试前重置 db 模块状态。"""
-    db.close_db()
-    db._conn = None
-    db._db_path = None
-    yield
-    db.close_db()
-    db._conn = None
-    db._db_path = None
 
 
 class TestInitDB:

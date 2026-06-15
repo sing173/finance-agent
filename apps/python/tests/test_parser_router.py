@@ -10,7 +10,6 @@ import os
 import sys
 import time
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import pytest
 from finance_agent_backend.parser_router import detect_bank_from_pdf, route

@@ -7,7 +7,6 @@ import os
 import tempfile
 import atexit
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 
 def _cleanup_db(db_path):

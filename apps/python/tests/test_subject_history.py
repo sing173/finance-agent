@@ -8,24 +8,11 @@ import os
 import sys
 import sqlite3
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import pytest
 from finance_agent_backend.subject_matcher import match, MatchResult
 from finance_agent_backend.subject_history_repo import _hash_summary
 
-
-@pytest.fixture
-def tmp_db(tmp_path):
-    """临时 WAL 模式 SQLite 数据库（pytest 自动清理）。"""
-    path = str(tmp_path / "test.db")
-    conn = sqlite3.connect(path)
-    conn.execute("PRAGMA journal_mode=WAL")
-    from finance_agent_backend.db import init_db
-    init_db(conn)
-    conn.commit()
-    conn.close()
-    return path
 
 
 class TestInsertAndFind:

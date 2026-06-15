@@ -6,7 +6,6 @@ import sys
 import os
 import tempfile
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from finance_agent_backend.tools.excel_builder import ExcelBuilder
 

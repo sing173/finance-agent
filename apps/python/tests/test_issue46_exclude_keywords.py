@@ -5,7 +5,6 @@ RED 阶段：测试应 FAIL，因为 _matches() 尚未实现 exclude_keywords。
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from finance_agent_backend.subject_matcher import RuleMatcher
 

@@ -7,7 +7,6 @@ import pytest
 
 # Ensure the package is importable
 import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from finance_agent_backend.account_registry import AccountRegistry, AccountMappingRepository
 from finance_agent_backend.models import AccountEntry

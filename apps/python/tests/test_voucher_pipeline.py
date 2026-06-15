@@ -5,7 +5,6 @@
 """
 import os, sys, json, uuid
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import pytest
 from finance_agent_backend.bridge import handle_request
@@ -17,12 +16,6 @@ BASE = os.path.join(os.path.dirname(__file__), "fixtures")
 REAL_CMB_PDF = os.path.join(BASE, "cmb_statement.pdf")
 
 # ── 辅助 ──────────────────────────────────────────────────────
-
-@pytest.fixture
-def tmp_db(tmp_path):
-    """临时 SQLite 数据库（pytest 自动清理）。"""
-    path = str(tmp_path / "test.db")
-    return path
 
 
 @pytest.fixture

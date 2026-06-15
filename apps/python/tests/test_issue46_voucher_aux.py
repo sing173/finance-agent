@@ -5,7 +5,6 @@ RED 阶段：测试应 FAIL，因为 _entry() 尚未输出 aux_category。
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from finance_agent_backend.voucher_composer import VoucherEntryFactory, VoucherGroup, GroupedTxn
 from finance_agent_backend.models import Transaction

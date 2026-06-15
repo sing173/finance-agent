@@ -4,20 +4,10 @@ Tests: voucher.export, voucher.load_draft, voucher.list_drafts, voucher.delete_d
 """
 import os, sys, sqlite3
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import pytest
 from finance_agent_backend.db import init_db
 
-
-@pytest.fixture
-def tmp_db(tmp_path):
-    """临时数据库（pytest 自动清理），初始化 schema。"""
-    path = str(tmp_path / "test.db")
-    conn = sqlite3.connect(path)
-    init_db(conn)
-    conn.close()
-    return path
 
 
 @pytest.fixture
