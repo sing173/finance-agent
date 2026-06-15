@@ -451,13 +451,15 @@ import finance_agent_backend.account_registry as reg_module
 
 @pytest.fixture
 def _patch_config(temp_accounts_file):
-    """Patch module-level entries cache → load from temp file."""
+    """Patch module-level entries cache → load from temp file.
+    Yields temp_accounts_file path for use as config_path in RPC calls.
+    """
     from finance_agent_backend.account_registry import AccountMappingRepository
 
     repo = AccountMappingRepository(temp_accounts_file)
     original_cache = reg_module._entries_cache
     reg_module._entries_cache = repo.load()
-    yield
+    yield temp_accounts_file
     reg_module._entries_cache = original_cache
 
 
@@ -487,39 +489,47 @@ def temp_accounts_file():
     os.unlink(tmp.name)
 
 
-def _rpc(method, params=None):
+def _rpc(method, params=None, config_path=None):
     """Shorthand: send JSON-RPC request, return result dict."""
+    p = dict(params or {})
+    if config_path:
+        p["config_path"] = config_path
     response = handle_request({
-        "jsonrpc": "2.0", "id": 1, "method": method, "params": params or {},
+        "jsonrpc": "2.0", "id": 1, "method": method, "params": p,
     })
     return response.get("result", {})
 
 
 class TestBridgeAccountRegistry:
-    """account_registry.list / match / add / update / delete via bridge RPC."""
+    """account_registry.list / match / add / update / delete via bridge RPC.
+
+    所有 RPC 调用传 config_path 指向临时文件，不操作真实 account_mapping.json。
+    """
 
     def test_list(self, _patch_config):
-        result = _rpc("account_registry.list")
+        result = _rpc("account_registry.list", config_path=_patch_config)
         assert "accounts" in result
         assert len(result["accounts"]) == 2
         assert result["accounts"][0]["bankCode"] == "ICBC"
 
     def test_match_found(self, _patch_config):
-        result = _rpc("account_registry.match", {"accountNumber": "12345678904363"})
+        result = _rpc("account_registry.match",
+                       {"accountNumber": "12345678904363"}, config_path=_patch_config)
         assert result["success"] is True
         assert result["entry"]["bankCode"] == "ICBC"
 
     def test_match_not_found(self, _patch_config):
-        result = _rpc("account_registry.match", {"accountNumber": "0000000000"})
+        result = _rpc("account_registry.match",
+                       {"accountNumber": "0000000000"}, config_path=_patch_config)
         assert result["success"] is True
         assert result["entry"] is None
 
-    def test_add(self, _patch_config, temp_accounts_file):
+    def test_add(self, _patch_config):
         result = _rpc("account_registry.add", {
             "matchType": "suffix", "pattern": "7931",
             "bank": "工商银行", "bankCode": "ICBC",
             "subjectCode": "1000205", "subjectName": "银行存款-工商银行（7931）",
-        })
+        }, config_path=_patch_config)
         assert result["success"] is True
         assert "id" in result
         assert result["entry"]["bankCode"] == "ICBC"
@@ -529,24 +539,25 @@ class TestBridgeAccountRegistry:
             "matchType": "suffix", "pattern": "7931",
             "bank": "工商银行", "bankCode": "",
             "subjectCode": "1000205", "subjectName": "测试",
-        })
+        }, config_path=_patch_config)
         assert result.get("success") is False
         assert "bankCode" in result.get("error", "")
 
-    def test_update(self, _patch_config, temp_accounts_file):
+    def test_update(self, _patch_config):
         result = _rpc("account_registry.update", {
             "id": "acc_001", "matchType": "exact", "pattern": "4363",
             "bank": "工商银行", "bankCode": "ICBC",
             "subjectCode": "1000201", "subjectName": "银行存款-工行基本户（已更新）",
-        })
+        }, config_path=_patch_config)
         assert result["success"] is True
-        list_result = _rpc("account_registry.list")
+        list_result = _rpc("account_registry.list", config_path=_patch_config)
         updated = next(e for e in list_result["accounts"] if e["id"] == "acc_001")
         assert updated["subjectName"] == "银行存款-工行基本户（已更新）"
 
-    def test_delete(self, _patch_config, temp_accounts_file):
-        result = _rpc("account_registry.delete", {"id": "acc_001"})
+    def test_delete(self, _patch_config):
+        result = _rpc("account_registry.delete",
+                       {"id": "acc_001"}, config_path=_patch_config)
         assert result["success"] is True
-        list_result = _rpc("account_registry.list")
+        list_result = _rpc("account_registry.list", config_path=_patch_config)
         assert len(list_result["accounts"]) == 1
         assert list_result["accounts"][0]["id"] == "acc_002"

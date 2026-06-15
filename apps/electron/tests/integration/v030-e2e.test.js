@@ -29,8 +29,6 @@ const OUTPUT_DIR = path.resolve(__dirname, 'output');
 const TEST_DB = path.join(os.tmpdir(), `v030_test_${Date.now()}.db`);
 const TEST_EXCEL = path.join(OUTPUT_DIR, 'v030_regression_export.xlsx');
 const TEST_ACCOUNT_MAPPING = path.join(OUTPUT_DIR, 'account_mapping_test.json');
-const REAL_ACCOUNT_MAPPING = path.resolve(__dirname, '..', '..', '..', 'python', 'src', 'finance_agent_backend', 'config', 'account_mapping.json');
-const REAL_ACCOUNT_MAPPING_BAK = REAL_ACCOUNT_MAPPING + '.e2ebak';
 
 const BASE = path.resolve(__dirname, '..', '..', '..', 'python', 'tests', 'fixtures');
 
@@ -59,11 +57,6 @@ function cleanup() {
       const wal = f + '-wal', shm = f + '-shm';
       [wal, shm].forEach(x => { try { if (fs.existsSync(x)) fs.unlinkSync(x); } catch {} });
     } catch { /* Windows file lock — will be cleaned on next run */ }
-  }
-  // 无条件恢复真实 account_mapping.json（Phase 0 备份）
-  if (fs.existsSync(REAL_ACCOUNT_MAPPING_BAK)) {
-    fs.copyFileSync(REAL_ACCOUNT_MAPPING_BAK, REAL_ACCOUNT_MAPPING);
-    fs.unlinkSync(REAL_ACCOUNT_MAPPING_BAK);
   }
 }
 
@@ -103,11 +96,6 @@ async function main() {
     await pythonProcess.start();
     await new Promise(r => setTimeout(r, 1500));
     ok('进程启动完成');
-
-    // ── Phase 0: 保护真实配置文件 ──
-    if (fs.existsSync(REAL_ACCOUNT_MAPPING)) {
-      fs.copyFileSync(REAL_ACCOUNT_MAPPING, REAL_ACCOUNT_MAPPING_BAK);
-    }
 
     // ════════════════════════════════════════════
     // Phase 1: db.health
@@ -588,16 +576,6 @@ async function main() {
 
     const acctCfg = TEST_ACCOUNT_MAPPING;
 
-    // 缓存路径测试（不传 config_path，走 get_account_entries() 缓存）
-    run('account_registry.list 缓存路径');
-    {
-      const r = await pythonProcess.call('account_registry.list', {});
-      assert(r.success === true, '缓存路径应成功');
-      assert(Array.isArray(r.accounts), 'accounts 应为数组');
-      assert(r.accounts.length >= 1, `真实配置应 >= 1 条: ${r.accounts.length}`);
-      ok(`${r.accounts.length} 条（缓存）`);
-    }
-
     let testEntryId = null;
 
     run('account_registry.list 列出映射');
@@ -730,7 +708,7 @@ async function main() {
     console.log('  ✅ voucher.preview — 凭证预览 + 借贷平衡 + 17 字段 + match_source 分布');
     console.log('  ✅ voucher.save_draft → load_draft 往返');
     console.log('  ✅ voucher.list_drafts + delete_draft CASCADE');
-    console.log('  ✅ account_registry 缓存路径 + config_path CRUD');
+    console.log('  ✅ account_registry config_path CRUD + match');
     console.log('  ✅ generate_excel 回归');
     console.log('  ✅ parse_pdf / generate_excel 参数验证');
     console.log('  ✅ detect_supported_banks 回归');
