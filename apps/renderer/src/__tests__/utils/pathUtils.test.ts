@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getFileNameFromPath } from '../utils/pathUtils';
+import { getFileNameFromPath } from '../../utils/pathUtils';
 
 describe('getFileNameFromPath', () => {
   it('extracts filename from Windows path', () => {

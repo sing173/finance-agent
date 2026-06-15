@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { VoucherPreviewPanel } from '../VoucherPreviewPanel';
+import { VoucherPreviewPanel } from '../../components/VoucherPreviewPanel';
 import type { VoucherData } from '@shared/types';
 
 const mockSubjects = [

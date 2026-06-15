@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useBatchOrchestrator } from '../hooks/useBatchOrchestrator';
+import { useBatchOrchestrator } from '../../hooks/useBatchOrchestrator';
 
 function mockElectronAPI(overrides: Record<string, any> = {}) {
   (window as any).electronAPI = {
