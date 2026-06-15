@@ -8,36 +8,8 @@ import {
 } from '@ant-design/icons';
 // SwapOutlined — 翻转列暂时隐藏
 import { SubjectPickerModal } from './SubjectPickerModal';
-import type { SubjectItem } from '@shared/types';
+import type { SubjectItem, VoucherEntry, VoucherData } from '@shared/types';
 import { isUnmatchedNonBank } from '../hooks/voucher_utils';
-
-interface VoucherEntry {
-  entry_seq: number;
-  voucher_no: number;
-  date: string;
-  summary: string;
-  subject_code: string;
-  subject_name: string;
-  debit_amount: number | null;
-  credit_amount: number | null;
-  direction: string;
-  counterparty: string;
-  match_source: string;
-  original_summary: string;
-  original_amount: number;
-  is_manual: boolean;
-}
-
-export type { VoucherEntry };
-
-interface VoucherData {
-  voucher_no: number;
-  date: string;
-  direction: string;
-  bank_subject_code: string;
-  counterpart_subject_code: string;
-  entries: VoucherEntry[];
-}
 
 interface VoucherPreviewPanelProps {
   vouchers: VoucherData[];

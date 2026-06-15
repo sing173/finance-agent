@@ -13,10 +13,10 @@ import fitz
 
 from ..models import ParseResult, Transaction
 from .shared_utils import BANK_CMB, extract_all_spans
-from .base_parser import BaseStatementParser
+from .shared_utils import open_pdf
 
 
-class CMBReceiptParser(BaseStatementParser):
+class CMBReceiptParser:
     """招商银行回单解析器。"""
 
     BANK_NAME = BANK_CMB
@@ -49,7 +49,7 @@ class CMBReceiptParser(BaseStatementParser):
         errors: List[str] = []
 
         try:
-            doc = self._open_pdf(file_path)
+            doc = open_pdf(file_path)
         except Exception as e:
             return ParseResult(
                 transactions=[], bank=self.BANK_NAME,

@@ -9,6 +9,29 @@ from typing import List, Optional
 from finance_agent_backend.models import AccountEntry
 from finance_agent_backend.paths import get_config_path
 
+DEFAULT_BANK_SUBJECT_CODE = '10002'
+
+# ---------------------------------------------------------------------------
+# 模块级缓存
+# ---------------------------------------------------------------------------
+
+_entries_cache: List[AccountEntry] | None = None
+
+
+def get_account_entries() -> List[AccountEntry]:
+    """获取 account_mapping.json 条目（模块级缓存，首次加载后复用）。"""
+    global _entries_cache
+    if _entries_cache is None:
+        repo = AccountMappingRepository(get_config_path('account_mapping.json'))
+        _entries_cache = repo.load()
+    return _entries_cache
+
+
+def invalidate_account_entries() -> None:
+    """使缓存失效（save / add / delete 后调用）。"""
+    global _entries_cache
+    _entries_cache = None
+
 
 # ---------------------------------------------------------------------------
 # Repository — 数据访问层（JSON 读写）
@@ -42,7 +65,7 @@ class AccountMappingRepository:
             ))
         return entries
 
-    def save(self, entries: List[AccountEntry], default_bank_subject_code: str = "10002") -> None:
+    def save(self, entries: List[AccountEntry], default_bank_subject_code: str = DEFAULT_BANK_SUBJECT_CODE) -> None:
         """将条目列表持久化到 JSON 文件。"""
         data = {
             "accounts": [
@@ -61,6 +84,7 @@ class AccountMappingRepository:
         }
         with open(self._config_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+        invalidate_account_entries()
 
 
 # ---------------------------------------------------------------------------
@@ -130,33 +154,3 @@ class AccountRegistry:
     def delete(self, entry_id: str) -> None:
         """删除条目（按 id）。"""
         self._entries = [e for e in self._entries if e.id != entry_id]
-
-
-# ------------------------------------------------------------------ #
-#  Singleton accessor (DEPRECATED — use dependency injection instead)
-# ------------------------------------------------------------------ #
-# NOTE: get_registry() is kept for backward compatibility with bridge.py
-# and any external callers. New code should use:
-#   repo = AccountMappingRepository(path)
-#   registry = AccountRegistry(repo.load(), subject_codes)
-# ------------------------------------------------------------------ #
-
-_registry: Optional[AccountRegistry] = None
-
-
-def get_registry() -> AccountRegistry:
-    """[DEPRECATED] Return the singleton AccountRegistry.
-
-    New code should inject AccountRegistry directly instead of calling
-    this global accessor, to avoid hidden state and improve testability.
-    """
-    global _registry
-    if _registry is None:
-        repo = AccountMappingRepository(_default_config_path())
-        _registry = AccountRegistry(repo.load())
-    return _registry
-
-
-def _default_config_path() -> str:
-    """account_mapping.json 默认路径（委托 paths 模块）。"""
-    return get_config_path('account_mapping.json')

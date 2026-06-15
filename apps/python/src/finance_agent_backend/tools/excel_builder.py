@@ -2,7 +2,7 @@
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
-from typing import List
+from typing import List, Optional
 
 from ..models import Transaction
 
@@ -87,6 +87,45 @@ class ExcelBuilder:
     #  凭证 Excel 导出（v0.3.0 凭证系统：直接从分录 dict 列表写入）       #
     # ------------------------------------------------------------------ #
 
+    # 金蝶凭证导出：PipelineEntry 字段 → (Excel 列号, 转换函数)
+    # 声明式映射：新增字段只改这里
+    VOUCHER_COLUMN_MAP: dict[int, tuple[str, Optional[str]]] = {
+        1:  ('date', '_as_str'),
+        3:  ('voucher_no', None),
+        5:  ('entry_seq', None),
+        6:  ('summary', None),
+        7:  ('subject_code', None),
+        8:  ('subject_name', None),
+        9:  ('debit_amount', '_fmt_money'),
+        10: ('credit_amount', '_fmt_money'),
+        15: ('aux_category', '_or_none'),
+        23: ('original_amount', '_fmt_orig'),
+    }
+
+    @staticmethod
+    def _as_str(value):
+        """转为字符串（None → ''）。"""
+        return str(value) if value is not None else ''
+
+    @staticmethod
+    def _fmt_money(value):
+        """格式化金额（#，##0.00）。"""
+        if value is None:
+            return None
+        return float(value)
+
+    @staticmethod
+    def _fmt_orig(value):
+        """格式化原币金额（##.00#####）。"""
+        if value is None:
+            return None
+        return float(value)
+
+    @staticmethod
+    def _or_none(value):
+        """空字符串转 None，否则原样返回。"""
+        return value or None
+
     def build_voucher_from_entries(
         self,
         entries: list[dict],
@@ -121,48 +160,22 @@ class ExcelBuilder:
             ws.column_dimensions[get_column_letter(i)].width = 15
 
         for row_idx, e in enumerate(entries, start=2):
-            ws.cell(row=row_idx, column=1, value=str(e.get('date', '')))
+            # 声明式映射驱动写入
+            for col, (field, transform_name) in self.VOUCHER_COLUMN_MAP.items():
+                value = e.get(field)
+                if transform_name:
+                    transform = getattr(self, transform_name)
+                    value = transform(value)
+                cell = ws.cell(row=row_idx, column=col, value=value)
+                # 金额列加 number_format
+                if transform_name == '_fmt_money':
+                    cell.number_format = '#,##0.00'
+                elif transform_name == '_fmt_orig':
+                    cell.number_format = '##.00#####'
+
+            # 常量列
             ws.cell(row=row_idx, column=2, value='记')
-            ws.cell(row=row_idx, column=3, value=e.get('voucher_no', 1))
             ws.cell(row=row_idx, column=4, value=0)
-            ws.cell(row=row_idx, column=5, value=e.get('entry_seq', 1))
-            ws.cell(row=row_idx, column=6, value=e.get('summary', ''))
-            ws.cell(row=row_idx, column=7, value=e.get('subject_code', ''))
-            ws.cell(row=row_idx, column=8, value=e.get('subject_name', ''))
-
-            debit = e.get('debit_amount')
-            cell_debit = ws.cell(row=row_idx, column=9)
-            if debit is not None:
-                cell_debit.value = float(debit)
-                cell_debit.number_format = '#,##0.00'
-
-            credit = e.get('credit_amount')
-            cell_credit = ws.cell(row=row_idx, column=10)
-            if credit is not None:
-                cell_credit.value = float(credit)
-                cell_credit.number_format = '#,##0.00'
-
-            # 客户(11) 供应商(12) 职员(13) 项目(14) 部门(15)=aux_category
-            ws.cell(row=row_idx, column=11, value=None)
-            ws.cell(row=row_idx, column=12, value=None)
-            ws.cell(row=row_idx, column=13, value=None)
-            ws.cell(row=row_idx, column=14, value=None)
-            ws.cell(row=row_idx, column=15, value=e.get('aux_category') or None)
-            ws.cell(row=row_idx, column=16, value=None)
-            ws.cell(row=row_idx, column=17, value=None)
-            ws.cell(row=row_idx, column=18, value=None)
-            ws.cell(row=row_idx, column=19, value=None)
-            ws.cell(row=row_idx, column=20, value=None)
-            # 数量
-            ws.cell(row=row_idx, column=21, value=None)
-            # 单价
-            ws.cell(row=row_idx, column=22, value=None)
-            # 原币金额
-            orig = e.get('original_amount')
-            cell_orig = ws.cell(row=row_idx, column=23)
-            if orig is not None:
-                cell_orig.value = float(orig)
-                cell_orig.number_format = '##.00#####'
             ws.cell(row=row_idx, column=24, value='RMB')
             cell_rate = ws.cell(row=row_idx, column=25, value=1.0)
             cell_rate.number_format = '##.00#####'

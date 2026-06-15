@@ -27,10 +27,10 @@ from rapidocr_onnxruntime import RapidOCR
 
 from ..models import Transaction, ParseResult
 from .shared_utils import BANK_ICBC, parse_date_chinese, parse_timestamp_date, parse_amount_lenient, render_page
-from .base_parser import BaseStatementParser
+from .shared_utils import open_pdf
 
 
-class ICBCReceiptGridParser(BaseStatementParser):
+class ICBCReceiptGridParser:
     """中国工商银行 OCR 回单解析器 (icbc_parser grid方案)"""
 
     BANK_NAME = BANK_ICBC
@@ -54,12 +54,10 @@ class ICBCReceiptGridParser(BaseStatementParser):
         """懒初始化 AccountRegistry（构造时未注入则从文件加载）。"""
         if self._account_registry is None:
             from finance_agent_backend.account_registry import (
-                AccountMappingRepository,
                 AccountRegistry,
-                _default_config_path,
+                get_account_entries,
             )
-            repo = AccountMappingRepository(_default_config_path())
-            self._account_registry = AccountRegistry(repo.load())
+            self._account_registry = AccountRegistry(get_account_entries())
         return self._account_registry
 
     @property
@@ -74,7 +72,7 @@ class ICBCReceiptGridParser(BaseStatementParser):
         transactions: List[Transaction] = []
         errors: List[str] = []
 
-        doc = self._open_pdf(file_path)
+        doc = open_pdf(file_path)
 
         for page_num in range(len(doc)):
             try:

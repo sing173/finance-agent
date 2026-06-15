@@ -123,13 +123,11 @@ def detect_bank_from_pdf(file_path: str) -> dict:
     bank 中文名由 BANK_CODE_TO_NAME 推导（调用方无需再查映射表）。
     """
     from finance_agent_backend.account_registry import (
-        AccountMappingRepository,
         AccountRegistry,
-        _default_config_path,
+        get_account_entries,
     )
 
-    repo = AccountMappingRepository(_default_config_path())
-    registry = AccountRegistry(repo.load())
+    registry = AccountRegistry(get_account_entries())
 
     def _build(bank_code: str, doc_type: str) -> dict:
         return {
@@ -325,12 +323,10 @@ def _dispatch_registry_parser(
     account_registry = None
     if bank_code == 'ICBC':
         from finance_agent_backend.account_registry import (
-            AccountMappingRepository,
             AccountRegistry,
-            _default_config_path,
+            get_account_entries,
         )
-        repo = AccountMappingRepository(_default_config_path())
-        account_registry = AccountRegistry(repo.load())
+        account_registry = AccountRegistry(get_account_entries())
 
     for entry in registry:
         t0 = time.time()

@@ -19,21 +19,20 @@ from typing import List, Optional
 
 from ..models import Transaction, ParseResult
 from .shared_utils import BANK_CMB
-from .base_parser import BaseStatementParser
+from .shared_utils import open_pdf
 
 
-class CMBParser(BaseStatementParser):
+class CMBParser:
     """招商银行 PDF 银行流水解析器"""
 
     BANK_NAME = BANK_CMB
 
     def __init__(self):
-        super().__init__()
         self.confidence = 1.0
 
     def parse(self, file_path: str) -> ParseResult:
         """解析招商银行 PDF 流水，传入文件路径"""
-        doc = self._open_pdf(file_path)
+        doc = open_pdf(file_path)
 
         transactions = []
         errors = []

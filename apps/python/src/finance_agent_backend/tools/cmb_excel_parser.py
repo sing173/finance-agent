@@ -26,10 +26,9 @@ from typing import Dict, List, Optional, Tuple
 
 from ..models import ParseResult, Transaction
 from .shared_utils import BANK_CMB, parse_date_flexible, parse_amount_clean
-from .base_parser import BaseStatementParser
 
 
-class CMBExcelParser(BaseStatementParser):
+class CMBExcelParser:
     """招商银行交易流水 Excel 解析器"""
 
     BANK_NAME = BANK_CMB
