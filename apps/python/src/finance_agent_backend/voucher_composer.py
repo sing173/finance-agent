@@ -10,7 +10,10 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 
 from finance_agent_backend.models import Transaction, PipelineEntry
-from finance_agent_backend.subject_matcher import match as match_subject
+from finance_agent_backend.subject_matcher import (
+    SubjectMatcher, RuleMatcher, HistoryMatcher, MatchResult,
+)
+from finance_agent_backend.account_registry import DEFAULT_BANK_SUBJECT_CODE
 
 
 # ── 数据结构 ──────────────────────────────────────────────────
@@ -49,8 +52,8 @@ class VoucherGrouper:
     消除 compose() 中对同一笔交易调用 3 次 match_subject() 的问题。
     """
 
-    def __init__(self, repo=None, account_registry=None):
-        self._repo = repo
+    def __init__(self, matcher=None, account_registry=None):
+        self._matcher = matcher
         self._registry = account_registry
 
     def group(self, transactions: list[Transaction], subject_mapping: dict) -> list[VoucherGroup]:
@@ -59,14 +62,15 @@ class VoucherGrouper:
 
         registry = self._registry or AccountRegistry([])
 
+        matcher = self._matcher or self._build_matcher(subject_mapping)
+
         raw: dict[tuple, list[GroupedTxn]] = {}
 
         for txn in transactions:
             # 预计算对方科目匹配（仅一次）
-            result = match_subject(
+            result = matcher.match(
                 txn.description, txn.direction,
-                txn.counterparty or '', rules=subject_mapping,
-                repo=self._repo,
+                txn.counterparty or '',
             )
             counter_code = result.subject_code or '__unmatched__'
 
@@ -92,7 +96,7 @@ class VoucherGrouper:
         groups: list[VoucherGroup] = []
         for (acct, counter_code, direction, cpty_acct), gtxns in raw.items():
             bank_entry = registry.match_by_account(acct)
-            bank_code = bank_entry.subjectCode if bank_entry else '10002'
+            bank_code = bank_entry.subjectCode if bank_entry else DEFAULT_BANK_SUBJECT_CODE
             bank_name = bank_entry.subjectName if bank_entry else '银行存款'
 
             groups.append(VoucherGroup(
@@ -105,6 +109,13 @@ class VoucherGrouper:
                 txns=gtxns,
             ))
         return groups
+
+    @staticmethod
+    def _build_matcher(subject_mapping: dict, repo=None) -> SubjectMatcher:
+        """从 subject_mapping dict 构建 SubjectMatcher。"""
+        rule_matcher = RuleMatcher(subject_mapping)
+        history_matcher = HistoryMatcher(repo) if repo else None
+        return SubjectMatcher(rule_matcher=rule_matcher, history_matcher=history_matcher)
 
 
 # ── 分录工厂 ──────────────────────────────────────────────────
@@ -198,8 +209,9 @@ class VoucherEntryFactory:
 class VoucherComposer:
     """凭证组装——编排 grouper + factory，生成凭证列表。"""
 
-    def __init__(self, repo=None):
+    def __init__(self, repo=None, matcher=None):
         self._repo = repo
+        self._matcher = matcher
 
     def compose(
         self,
@@ -211,7 +223,11 @@ class VoucherComposer:
 
         compose() 仅做编排：grouper 负责分组+预匹配，factory 负责分录格式。
         """
-        grouper = VoucherGrouper(repo=self._repo, account_registry=account_registry)
+        matcher = self._matcher
+        if matcher is None and self._repo is not None:
+            matcher = VoucherGrouper._build_matcher(subject_mapping, repo=self._repo)
+
+        grouper = VoucherGrouper(matcher=matcher, account_registry=account_registry)
         groups = grouper.group(transactions, subject_mapping)
 
         vouchers = []

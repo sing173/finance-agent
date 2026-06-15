@@ -105,7 +105,7 @@ class RuleMatcher:
         """加载 subjects.json（委托模块级缓存）。"""
         return get_subjects()
 
-    def _get_aux_category(self, subject_code: str) -> tuple[str, str]:
+    def get_aux_category(self, subject_code: str) -> tuple[str, str]:
         """从 subjects.json 查找 aux_category 和 aux_category_name。"""
         subj = self._subjects.get(subject_code, {})
         return subj.get('aux_category', ''), subj.get('aux_category_name', '')
@@ -118,7 +118,7 @@ class RuleMatcher:
         for rule in sorted(rules_list, key=lambda r: r.get("priority", 999)):
             if self._matches(rule, summary, counterparty):
                 code = rule.get("subject_code", "")
-                aux_cat, aux_cat_name = self._get_aux_category(code)
+                aux_cat, aux_cat_name = self.get_aux_category(code)
                 return MatchResult(
                     subject_code=code,
                     subject_name=rule.get("subject_name", ""),
@@ -204,7 +204,7 @@ class SubjectMatcher:
             hist = self._history.match(summary, direction)
             if hist is not None:
                 # L2 结果补充 aux_category
-                aux_cat, aux_cat_name = self._rules._get_aux_category(hist.subject_code)
+                aux_cat, aux_cat_name = self._rules.get_aux_category(hist.subject_code)
                 if not hist.aux_category:
                     hist.aux_category = aux_cat
                 if not hist.aux_category_name:
