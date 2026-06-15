@@ -223,6 +223,48 @@ class TestVoucherService:
         assert os.path.exists(output_path)
         assert export_result["entry_count"] == 1
 
+    def test_export_writes_history_for_manual_only(self, tmp_db, tmp_path):
+        """导出时仅 is_manual=True 分录写入 subject_history。"""
+        from finance_agent_backend.services import VoucherService
+        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+
+        svc = VoucherService(db_path=tmp_db)
+        entries = [
+            {
+                "entry_seq": 1, "voucher_no": 1, "date": "2024-01-15",
+                "summary": "手动修正", "subject_code": "5060203", "subject_name": "物业管理费",
+                "debit_amount": 100.0, "credit_amount": None,
+                "direction": "expense", "counterparty": "启胜物业",
+                "match_source": "manual", "rule_id": "",
+                "original_summary": "手动修正", "original_amount": 100.0,
+                "is_manual": True, "aux_category": "", "aux_category_name": "",
+            },
+            {
+                "entry_seq": 2, "voucher_no": 1, "date": "2024-01-15",
+                "summary": "自动匹配", "subject_code": "1022120", "subject_name": "手续费",
+                "debit_amount": 50.0, "credit_amount": None,
+                "direction": "expense", "counterparty": "银行",
+                "match_source": "rule", "rule_id": "rule_003",
+                "original_summary": "自动匹配", "original_amount": 50.0,
+                "is_manual": False, "aux_category": "", "aux_category_name": "",
+            },
+        ]
+        save = svc.save_draft("历史测试", "202401", entries)
+        draft_id = save["draft_id"]
+
+        output_path = str(tmp_path / "history_export.xlsx")
+        svc.export(draft_id=draft_id, output_path=output_path, period="202401")
+
+        # 验证 subject_history 只有 manual 分录
+        repo = SubjectHistoryRepo(tmp_db)
+        match = repo.find_similar("手动修正", "expense")
+        assert match is not None
+        assert match.subject_code == "5060203"
+
+        # 自动匹配的分录不应写入历史
+        no_match = repo.find_similar("自动匹配", "expense")
+        assert no_match is None
+
 
 # ═══════════════════════════════════════════════════════════════════
 # SubjectService
@@ -248,6 +290,53 @@ class TestSubjectService:
         assert isinstance(codes, set)
         assert len(codes) > 0
         assert "5060203" in codes  # 管理费用_物业管理费
+
+    def test_import_from_xlsx(self, tmp_path, monkeypatch):
+        """import_from_xlsx 写入 subjects.json 并失效缓存。"""
+        from finance_agent_backend.models import Subject
+        from finance_agent_backend.services import SubjectService
+        from finance_agent_backend import subject_matcher as _sm
+
+        mock_subjects = {
+            "10001": Subject(code="10001", name="现金", category="资产",
+                             direction="借", full_name="现金"),
+            "5060203": Subject(code="5060203", name="物业管理费", category="费用",
+                               direction="借", aux_category="04", full_name="管理费用_物业管理费"),
+        }
+
+        class FakeLoader:
+            def load(self, path):
+                return mock_subjects
+
+        # 指向临时 subjects.json
+        fake_config_dir = str(tmp_path)
+        monkeypatch.setattr(
+            "finance_agent_backend.services.subject_service.get_config_path",
+            lambda filename: os.path.join(fake_config_dir, filename),
+        )
+        monkeypatch.setattr(
+            "finance_agent_backend.tools.subject_loader.SubjectLoader",
+            FakeLoader,
+        )
+
+        # 预设缓存，验证 import 后失效
+        _sm._subjects_cache = {"old": True}
+
+        svc = SubjectService()
+        result = svc.import_from_xlsx("dummy.xlsx")
+        assert result["success"] is True
+        assert result["count"] == 2
+
+        # 验证文件写入
+        subjects_path = os.path.join(fake_config_dir, "subjects.json")
+        assert os.path.exists(subjects_path)
+        with open(subjects_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        assert "10001" in data
+        assert data["5060203"]["aux_category"] == "04"
+
+        # 验证缓存失效
+        assert _sm._subjects_cache is None
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -293,3 +382,19 @@ class TestParseService:
         output_path = str(tmp_path / "test.xlsx")
         result_path = svc.generate_excel(txns, output_path)
         assert os.path.exists(result_path)
+
+    def test_parse_csv(self):
+        """ParseService.parse 解析 ICBC CSV 文件。"""
+        from finance_agent_backend.services import ParseService
+
+        csv_path = os.path.join(
+            os.path.dirname(__file__), "..", "fixtures", "icbc_statement.csv"
+        )
+        if not os.path.exists(csv_path):
+            pytest.skip("ICBC CSV fixture 不存在")
+
+        svc = ParseService()
+        result = svc.parse(csv_path)
+        assert result["success"] is True
+        assert result["bank"] in ("中国工商银行", "工商银行")
+        assert len(result["transactions"]) > 0

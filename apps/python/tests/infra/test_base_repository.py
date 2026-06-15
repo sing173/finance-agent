@@ -106,6 +106,17 @@ class TestInsertMany:
         repo.conn.commit()
         assert len(repo.find_all()) == 0
 
+    def test_insert_many_large_batch(self, repo):
+        """大批量 500 条 insert_many 应在 1 秒内完成。"""
+        import time
+        objects = [SampleModel(name=f"batch_{i}", value=i) for i in range(500)]
+        start = time.monotonic()
+        repo.insert_many(objects)
+        repo.conn.commit()
+        elapsed = time.monotonic() - start
+        assert elapsed < 1.0, f"500 条批量插入耗时 {elapsed:.2f}s，应 < 1s"
+        assert len(repo.find_all()) == 500
+
 
 class TestSelect:
     """公共 select() 方法。"""
