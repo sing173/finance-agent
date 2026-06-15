@@ -60,6 +60,13 @@ def invalidate_subjects() -> None:
     """使 subjects 缓存失效（import_subjects 后调用）。"""
     global _subjects_cache
     _subjects_cache = None
+    invalidate_rule_matcher()
+
+
+def invalidate_rule_matcher() -> None:
+    """使默认 RuleMatcher 单例失效（subjects/规则变更后调用）。"""
+    global _default_rule_matcher
+    _default_rule_matcher = None
 
 
 # ── L1: 规则匹配器 ──────────────────────────────────────────
