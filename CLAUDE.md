@@ -140,3 +140,19 @@ cd apps/renderer && npm run lint
 - [openpyxl](https://openpyxl.readthedocs.io/) · [PyInstaller](https://pyinstaller.org/) · [electron-builder](https://www.electron.build/)
 - `CONTEXT.md` — 领域语言、架构、匹配逻辑
 - `docs/voucher-system-prd.md` — 凭证功能规格
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs live as GitHub Issues for `sing173/finance-agent`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical role names (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
