@@ -1,8 +1,18 @@
 import { useState, useCallback } from 'react';
 import { message } from 'antd';
-import type { VoucherData } from '@shared/types';
+import type { VoucherData, VoucherEntry } from '@shared/types';
 import { isUnmatchedNonBank } from './voucher_utils';
 import { useSubjects } from './useSubjects';
+
+function collectEntries(vouchers: VoucherData[]): VoucherEntry[] {
+  const entries: VoucherEntry[] = [];
+  for (const vc of vouchers) {
+    for (const e of vc.entries) {
+      entries.push(e);
+    }
+  }
+  return entries;
+}
 
 export function useVoucherFlow() {
   const [vouchers, setVouchers] = useState<VoucherData[]>([]);
@@ -15,13 +25,11 @@ export function useVoucherFlow() {
   const [period, setPeriod] = useState('');
   const [showPage, setShowPage] = useState(false);
 
-  const api = () => (window as any).electronAPI;
-
   // ── preview: transactions → vouchers ──
   const preview = useCallback(async (transactions: any[], p?: string) => {
     setPreviewLoading(true);
     try {
-      const r = await api()?.invoke?.('voucher.preview', { transactions });
+      const r = await window.electronAPI?.invoke?.('voucher.preview', { transactions });
       if (r?.success) {
         setVouchers(r.vouchers);
         setCurrentDraftId(null);
@@ -53,17 +61,12 @@ export function useVoucherFlow() {
   const handleSaveDraft = useCallback(async () => {
     const v = editedVouchers.length > 0 ? editedVouchers : vouchers;
     if (v.length === 0) return;
-    const allEntries: any[] = [];
-    for (const vc of v) {
-      for (const e of vc.entries) {
-        allEntries.push(e);
-      }
-    }
+    const allEntries = collectEntries(v);
     if (allEntries.length === 0) return;
 
     setSaving(true);
     try {
-      const r = await api()?.invoke?.('voucher.save_draft', {
+      const r = await window.electronAPI?.invoke?.('voucher.save_draft', {
         name: `凭证草稿_${period || Date.now()}`,
         period: period || '未命名期间',
         entries: allEntries,
@@ -71,9 +74,12 @@ export function useVoucherFlow() {
       if (r?.success) {
         setCurrentDraftId(r.draft_id);
         message.success('草稿已保存');
+      } else {
+        message.error(`草稿保存失败: ${r?.error || '未知错误'}`);
       }
-    } catch { /* ignore */ }
-    finally { setSaving(false); }
+    } catch (e: any) {
+      message.error(`草稿保存出错: ${e.message}`);
+    } finally { setSaving(false); }
   }, [editedVouchers, vouchers, period]);
 
   // ── export ──
@@ -91,13 +97,8 @@ export function useVoucherFlow() {
       // 先保存草稿（无草稿时自动保存）
       let draftId = currentDraftId;
       if (!draftId) {
-        const allEntries: any[] = [];
-        for (const vc of v) {
-          for (const e of vc.entries) {
-            allEntries.push(e);
-          }
-        }
-        const saveR = await api()?.invoke?.('voucher.save_draft', {
+        const allEntries = collectEntries(v);
+        const saveR = await window.electronAPI?.invoke?.('voucher.save_draft', {
           name: `凭证草稿_${period || Date.now()}`,
           period: period || '未命名期间',
           entries: allEntries,
@@ -111,13 +112,13 @@ export function useVoucherFlow() {
         }
       }
 
-      const outputPath = await api()?.saveFileDialog?.({
+      const outputPath = await window.electronAPI?.saveFileDialog?.({
         title: '保存凭证 Excel',
         defaultPath: `voucher_${period || Date.now()}.xlsx`,
       });
       if (!outputPath) return;
 
-      const r = await api()?.invoke?.('voucher.export', {
+      const r = await window.electronAPI?.invoke?.('voucher.export', {
         draft_id: draftId,
         period: period || '未命名期间',
         output_path: outputPath,
