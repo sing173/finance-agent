@@ -3,21 +3,9 @@ from __future__ import annotations
 
 import os
 
-from finance_agent_backend.account_registry import (
-    AccountRegistry,
-    get_account_entries,
-)
-
 
 class ParseService:
-    """封装 parser_router + detect_banks，自 wire AccountRegistry。"""
-
-    def __init__(self):
-        self._account_registry = self._load_account_registry()
-
-    @staticmethod
-    def _load_account_registry() -> AccountRegistry:
-        return AccountRegistry(get_account_entries())
+    """封装 parser_router + detect_banks。"""
 
     def parse(self, file_path: str, bank: str | None = None, doc_type: str | None = None) -> dict:
         """解析单个文件（PDF / CSV / Excel）。"""

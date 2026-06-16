@@ -51,13 +51,17 @@ class ICBCReceiptGridParser:
         self._account_registry = account_registry
 
     def _get_account_registry(self):
-        """懒初始化 AccountRegistry（构造时未注入则从文件加载）。"""
+        """懒初始化 AccountRegistry（构造时未注入则从 DB 加载）。"""
         if self._account_registry is None:
-            from finance_agent_backend.account_registry import (
-                AccountRegistry,
-                get_account_entries,
-            )
-            self._account_registry = AccountRegistry(get_account_entries())
+            from finance_agent_backend.account_registry import AccountRegistry
+            from finance_agent_backend.repo.account_mapping_repo import AccountMappingRepository
+            from finance_agent_backend import db as _db
+            from finance_agent_backend.paths import get_db_path
+
+            conn = _db.get_db(db_path=get_db_path())
+            _db.init_db(conn)
+            account_repo = AccountMappingRepository(conn)
+            self._account_registry = AccountRegistry(account_repo)
         return self._account_registry
 
     @property

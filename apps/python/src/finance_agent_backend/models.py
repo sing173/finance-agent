@@ -174,7 +174,11 @@ class PipelineEntry:
         unknown = set(d) - allowed
         if unknown:
             raise ValueError(f"Dict has unknown fields {unknown}")
-        return cls(**{k: v for k, v in d.items() if k in allowed})
+        kwargs = {k: v for k, v in d.items() if k in allowed}
+        # JSON-RPC int 0/1 → bool
+        if 'is_manual' in kwargs:
+            kwargs['is_manual'] = bool(kwargs['is_manual'])
+        return cls(**kwargs)
 
     @classmethod
     def from_db_row(cls, row) -> 'PipelineEntry':

@@ -31,8 +31,16 @@ class BaseRepository(Generic[T]):
         self._insert_cols = [
             c for c in self._all_cols if c not in (insert_exclude or [])
         ]
+        # 保存原始 row_factory 以便恢复，仅在必要时设置 sqlite3.Row
+        self._saved_row_factory = conn.row_factory
         if conn.row_factory is not sqlite3.Row:
             conn.row_factory = sqlite3.Row
+
+    def _build_instance(self, row: sqlite3.Row) -> T:
+        """从 DB row 构造 model 实例。优先使用 from_db_row（含类型转换），回退到 **kwargs。"""
+        if hasattr(self.model_cls, 'from_db_row'):
+            return self.model_cls.from_db_row(row)
+        return self.model_cls(**row)
 
     # ── SQL 生成 ──
 
@@ -85,11 +93,20 @@ class BaseRepository(Generic[T]):
         sql = self._insert_sql(extra_cols=extra_cols, or_ignore=True)
         self.conn.execute(sql, vals)
 
+    def save(self, obj: T) -> T:
+        """Upsert: INSERT OR REPLACE. Returns the saved object."""
+        vals = [getattr(obj, c) for c in self._all_cols]
+        cols = ", ".join(self._all_cols)
+        placeholders = ", ".join("?" * len(self._all_cols))
+        sql = f"INSERT OR REPLACE INTO {self.table} ({cols}) VALUES ({placeholders})"
+        self.conn.execute(sql, vals)
+        return obj
+
     def find_by_pk(self, pk_value) -> T | None:
         row = self.conn.execute(
             self._select_sql(where=f"{self.pk} = ?"), (pk_value,)
         ).fetchone()
-        return self.model_cls(**row) if row else None
+        return self._build_instance(row) if row else None
 
     def find_all(
         self,
@@ -108,7 +125,7 @@ class BaseRepository(Generic[T]):
             ),
             params,
         ).fetchall()
-        return [self.model_cls(**r) for r in rows]
+        return [self._build_instance(r) for r in rows]
 
     def delete_by_pk(self, pk_value) -> None:
         self.conn.execute(

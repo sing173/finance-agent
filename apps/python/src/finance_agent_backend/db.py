@@ -147,6 +147,17 @@ SCHEMA_STATEMENTS: list[str] = [
         draft_id          TEXT
     )""",
 
+    # ── 账号-科目映射 ──
+    """CREATE TABLE IF NOT EXISTS account_mapping (
+        id              TEXT PRIMARY KEY,
+        matchType       TEXT NOT NULL,
+        pattern         TEXT NOT NULL,
+        bank            TEXT NOT NULL,
+        bankCode        TEXT NOT NULL,
+        subjectCode     TEXT NOT NULL,
+        subjectName     TEXT NOT NULL
+    )""",
+
     # ── Schema 版本管理 ──
     """CREATE TABLE IF NOT EXISTS schema_version (
         version   INTEGER PRIMARY KEY,
@@ -154,7 +165,7 @@ SCHEMA_STATEMENTS: list[str] = [
     )""",
 ]
 
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 5
 
 
 def _migrate_v2(conn: sqlite3.Connection) -> None:
@@ -227,6 +238,41 @@ def _migrate_v4(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_v5(conn: sqlite3.Connection) -> None:
+    """v5 迁移: 从 account_mapping.json 导入数据到 account_mapping 表。"""
+    import json
+    import os
+    from finance_agent_backend.paths import get_config_path
+
+    json_path = get_config_path('account_mapping.json')
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            for item in data.get('accounts', []):
+                conn.execute(
+                    """INSERT OR IGNORE INTO account_mapping
+                       (id, matchType, pattern, bank, bankCode, subjectCode, subjectName)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        item.get('id', ''),
+                        item.get('matchType', 'suffix'),
+                        item.get('pattern', ''),
+                        item.get('bank', ''),
+                        item.get('bankCode', ''),
+                        item.get('subjectCode', ''),
+                        item.get('subjectName', ''),
+                    ),
+                )
+        except Exception:
+            pass  # JSON 读取失败不阻塞迁移
+
+    conn.execute(
+        "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (?, ?)",
+        (5, datetime.now(timezone.utc).isoformat()),
+    )
+
+
 def init_db(conn: sqlite3.Connection) -> None:
     """幂等建表 + schema 迁移。可安全多次调用。"""
     for stmt in SCHEMA_STATEMENTS:
@@ -255,5 +301,9 @@ def init_db(conn: sqlite3.Connection) -> None:
     if current < 4:
         # v4: 添加 rule_id 列
         _migrate_v4(conn)
+
+    if current < 5:
+        # v5: account_mapping 表 + JSON 导入
+        _migrate_v5(conn)
 
     conn.commit()

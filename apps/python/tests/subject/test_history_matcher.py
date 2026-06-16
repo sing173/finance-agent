@@ -11,7 +11,7 @@ import sqlite3
 
 import pytest
 from finance_agent_backend.subject_matcher import match, MatchResult
-from finance_agent_backend.subject_history_repo import _hash_summary
+from finance_agent_backend.repo.subject_history_repo import _hash_summary
 
 
 
@@ -19,7 +19,7 @@ class TestInsertAndFind:
     """写入 + 查询：基本路径。"""
 
     def test_insert_and_find_similar_exact_match(self, tmp_db):
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
 
         repo = SubjectHistoryRepo(tmp_db)
         repo.insert("支付启胜物业管理费1月", "expense", "5060203",
@@ -36,7 +36,7 @@ class TestInsertAndFind:
         assert result.source == "history"
 
     def test_find_similar_no_match(self, tmp_db):
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
 
         repo = SubjectHistoryRepo(tmp_db)
         repo.insert("支付物业管理费", "expense", "5060203",
@@ -47,7 +47,7 @@ class TestInsertAndFind:
         assert result is None
 
     def test_unique_constraint_dedup(self, tmp_db):
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
 
         repo = SubjectHistoryRepo(tmp_db)
         summary = "支付物业管理费"
@@ -64,7 +64,7 @@ class TestInsertAndFind:
 
     def test_direction_filter(self, tmp_db):
         """expense 历史不匹配 income 摘要。"""
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
 
         repo = SubjectHistoryRepo(tmp_db)
         repo.insert("收到货款", "income", "10122", "应收账款", "客户A")
@@ -82,7 +82,7 @@ class TestTFIDFWithIDF:
 
         两条几乎相同的历史（仅月份不同），查询应命中其中一条。
         """
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
 
         repo = SubjectHistoryRepo(tmp_db)
         repo.insert("支付启胜物业管理费", "expense", "5060203",
@@ -94,7 +94,7 @@ class TestTFIDFWithIDF:
 
     def test_compute_idf_rare_term_has_higher_weight(self):
         """IDF 应给稀有词（仅 1 条文档出现）更高权重。"""
-        from finance_agent_backend.subject_history_repo import _compute_idf, _tokenize
+        from finance_agent_backend.repo.subject_history_repo import _compute_idf, _tokenize
 
         docs = ["支付服务费", "支付手续费", "支付银行转账费"]
         doc_tokens = [_tokenize(d) for d in docs]
@@ -117,7 +117,7 @@ class TestFindSimilarCache:
 
     def test_repeated_calls_return_same_result(self, tmp_db):
         """同一 repo 连续调用 find_similar 应返回一致结果。"""
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
 
         repo = SubjectHistoryRepo(tmp_db)
         repo.insert("支付网银转账手续费", "expense", "1022120",
@@ -130,7 +130,7 @@ class TestFindSimilarCache:
 
     def test_cache_invalidated_after_insert(self, tmp_db):
         """insert 新记录后，find_similar 应能看到新数据。"""
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
 
         repo = SubjectHistoryRepo(tmp_db)
         repo.insert("支付物业管理费", "expense", "5060203",
@@ -150,12 +150,12 @@ class TestThresholdBoundary:
 
     def test_default_threshold_is_075(self):
         """DEFAULT_SIMILARITY_THRESHOLD 应为 0.75。"""
-        from finance_agent_backend.subject_history_repo import DEFAULT_SIMILARITY_THRESHOLD
+        from finance_agent_backend.repo.subject_history_repo import DEFAULT_SIMILARITY_THRESHOLD
         assert DEFAULT_SIMILARITY_THRESHOLD == 0.75
 
     def test_above_threshold_returns_match(self, tmp_db):
         """精确相同摘要（score=1.0）应命中。"""
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
 
         repo = SubjectHistoryRepo(tmp_db)
         repo.insert("支付启胜物业管理费", "expense", "5060203",
@@ -167,7 +167,7 @@ class TestThresholdBoundary:
 
     def test_low_threshold_allows_loose_match(self, tmp_db):
         """降低阈值应允许更宽松的匹配。"""
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
 
         repo = SubjectHistoryRepo(tmp_db)
         repo.insert("支付网银转账手续费", "expense", "1022120",
@@ -188,7 +188,7 @@ class TestThreeLayerChain:
         assert result.source == "rule"
 
     def test_l1_miss_l2_hit(self, tmp_db):
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
 
         # Insert a history entry
         repo = SubjectHistoryRepo(tmp_db)
@@ -201,7 +201,7 @@ class TestThreeLayerChain:
         assert result.source in ("history", "rule")  # L1 might hit "手续" — check
 
     def test_both_miss_returns_unmatched(self, tmp_db):
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
 
         repo = SubjectHistoryRepo(tmp_db)
         repo.insert("旧摘要不匹配", "expense", "5060203", "管理费用", "")
@@ -215,7 +215,7 @@ class TestConnectionReuse:
 
     def test_insert_accepts_external_conn(self, tmp_db):
         """insert() 应接受可选 conn 参数，使用外部连接写入。"""
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
 
         shared = sqlite3.connect(tmp_db)
         shared.row_factory = sqlite3.Row
@@ -237,7 +237,7 @@ class TestConnectionReuse:
 
     def test_find_similar_accepts_external_conn(self, tmp_db):
         """find_similar() 应接受可选 conn 参数。"""
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
 
         shared = sqlite3.connect(tmp_db)
         shared.row_factory = sqlite3.Row
@@ -261,7 +261,7 @@ class TestConnectionReuse:
 
     def test_batch_insert_reuses_connection(self, tmp_db):
         """批量写入 N 条应复用同一连接（性能基线）。"""
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
         import time
 
         shared = sqlite3.connect(tmp_db)

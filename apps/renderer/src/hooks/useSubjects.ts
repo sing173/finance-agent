@@ -37,11 +37,19 @@ export function useSubjects(initial?: SubjectItem[]) {
     await _load();
   }, [_load]);
 
+  // initial 未提供或为空数组时自动加载
   useEffect(() => {
-    if (initial === undefined) {
+    if (initial === undefined || (Array.isArray(initial) && initial.length === 0)) {
       _load();
     }
   }, [initial, _load]);
+
+  // initial 变化时同步内部状态（父组件 reload 后传入新数据）
+  useEffect(() => {
+    if (initial !== undefined && initial.length > 0) {
+      setSubjects(initial);
+    }
+  }, [initial]);
 
   return { subjects, loading, error, reload };
 }

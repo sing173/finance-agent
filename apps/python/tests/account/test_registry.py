@@ -1,63 +1,64 @@
 """Tests for account_registry — Phase 0 match_by_account() + Phase 1 CRUD."""
-import json
-import os
+import sqlite3
 import tempfile
 
 import pytest
 
-# Ensure the package is importable
 import sys
 
-from finance_agent_backend.account_registry import AccountRegistry, AccountMappingRepository
+from finance_agent_backend.account_registry import AccountRegistry
 from finance_agent_backend.models import AccountEntry
+from finance_agent_backend.repo.account_mapping_repo import AccountMappingRepository
+from finance_agent_backend import db as _db
 
 
-def _make_v2_json(entries: list[dict], default_code: str = "10002") -> str:
-    """Write a temporary v2 account_mapping.json and return its path."""
-    data = {
-        "accounts": entries,
-        "defaultBankSubjectCode": default_code,
-    }
-    tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8')
-    json.dump(data, tmp, ensure_ascii=False)
+def _make_db(entries: list[dict]) -> tuple[str, sqlite3.Connection]:
+    """Create a temp SQLite DB with account_mapping table, return (path, conn)."""
+    tmp = tempfile.NamedTemporaryFile(suffix='.db', delete=False)
+    db_path = tmp.name
     tmp.close()
-    return tmp.name
+
+    conn = _db.get_db(db_path=db_path)
+    conn.execute("""CREATE TABLE IF NOT EXISTS account_mapping (
+        id              TEXT PRIMARY KEY,
+        matchType       TEXT NOT NULL,
+        pattern         TEXT NOT NULL,
+        bank            TEXT NOT NULL,
+        bankCode        TEXT NOT NULL,
+        subjectCode     TEXT NOT NULL,
+        subjectName     TEXT NOT NULL
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS schema_version (
+        version   INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL
+    )""")
+    conn.execute("INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
+                 (5, "2024-01-01T00:00:00+00:00"))
+    conn.commit()
+
+    repo = AccountMappingRepository(conn)
+    for entry_dict in entries:
+        entry = AccountEntry(**entry_dict)
+        repo.save(entry)
+
+    conn.commit()
+    return db_path, conn
 
 
-def _make_repo(entries: list[dict], default_code: str = "10002") -> tuple[str, AccountMappingRepository]:
-    """Write a temp account_mapping.json, return (path, repo)."""
-    path = _make_v2_json(entries, default_code)
-    repo = AccountMappingRepository(path)
-    return path, repo
+def _make_repo(entries: list[dict]) -> tuple[str, AccountMappingRepository]:
+    """Create a temp DB with entries, return (path, repo)."""
+    db_path, conn = _make_db(entries)
+    repo = AccountMappingRepository(conn)
+    return db_path, repo
 
 
 def _make_registry(entries: list[dict], subject_codes: list[str] | None = None) -> tuple[str, AccountRegistry]:
-    """Write a temp account_mapping.json, load via Repository, return (path, registry)."""
-    path = _make_v2_json(entries)
-    repo = AccountMappingRepository(path)
+    """Create a temp DB with entries, return (path, registry)."""
+    db_path, conn = _make_db(entries)
+    repo = AccountMappingRepository(conn)
     subject_set = set(subject_codes) if subject_codes else None
-    registry = AccountRegistry(repo.load(), subject_codes=subject_set)
-    return path, registry
-
-
-def _make_registry_from_file(path: str, subjects_path: str | None = None) -> AccountRegistry:
-    """Load registry from an existing file path."""
-    repo = AccountMappingRepository(path)
-    subject_set = None
-    if subjects_path:
-        with open(subjects_path, 'r', encoding='utf-8') as f:
-            import json as _json
-            subject_set = set(_json.load(f).keys())
-    return AccountRegistry(repo.load(), subject_codes=subject_set)
-
-
-def _make_subjects_json(codes: list[str]) -> str:
-    """Write a minimal subjects.json with given codes and return path."""
-    data = {c: {"code": c, "name": f"科目{c}", "category": "测试", "direction": "借", "aux_category": "", "is_cash": False, "enabled": True, "full_name": f"科目{c}"} for c in codes}
-    tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8')
-    json.dump(data, tmp, ensure_ascii=False)
-    tmp.close()
-    return tmp.name
+    registry = AccountRegistry(repo, subject_codes=subject_set)
+    return db_path, registry
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +66,7 @@ def _make_subjects_json(codes: list[str]) -> str:
 # ---------------------------------------------------------------------------
 
 def test_load_v2_format():
-    """加载 v2 account_mapping.json → 正确解析为 AccountEntry 列表。"""
+    """加载 account_mapping 表 → 正确解析为 AccountEntry 列表。"""
     entries = [
         {
             "id": "acc_001", "matchType": "suffix", "pattern": "4363",
@@ -79,7 +80,7 @@ def test_load_v2_format():
         },
     ]
     _, repo = _make_repo(entries)
-    all_entries = repo.load()
+    all_entries = repo.find_all()
     assert len(all_entries) == 2
     assert all_entries[0].id == "acc_001"
     assert all_entries[1].bankCode == "CMB"
@@ -99,7 +100,7 @@ def test_match_by_account_exact():
         },
     ]
     _, repo = _make_repo(entries)
-    reg = AccountRegistry(repo.load())
+    reg = AccountRegistry(repo)
     result = reg.match_by_account("6217001234567890")
     assert result is not None
     assert result.bankCode == "ICBC"
@@ -116,7 +117,7 @@ def test_match_by_account_exact_no_partial():
         },
     ]
     _, repo = _make_repo(entries)
-    reg = AccountRegistry(repo.load())
+    reg = AccountRegistry(repo)
     result = reg.match_by_account("6217001234567890_extra")
     assert result is None
 
@@ -135,7 +136,7 @@ def test_match_by_account_suffix():
         },
     ]
     _, repo = _make_repo(entries)
-    reg = AccountRegistry(repo.load())
+    reg = AccountRegistry(repo)
     result = reg.match_by_account("12345678904363")
     assert result is not None
     assert result.bankCode == "ICBC"
@@ -156,8 +157,7 @@ def test_match_by_account_suffix_exact_priority():
         },
     ]
     _, repo = _make_repo(entries)
-    reg = AccountRegistry(repo.load())
-    # "12344363" matches exact pattern AND suffix 4363 — exact wins
+    reg = AccountRegistry(repo)
     result = reg.match_by_account("12344363")
     assert result is not None
     assert result.bankCode == "CMB"
@@ -167,54 +167,40 @@ def test_match_by_account_suffix_exact_priority():
 # AccountMappingRepository — 数据访问层
 # ---------------------------------------------------------------------------
 
-from finance_agent_backend.account_registry import AccountMappingRepository
-
 
 def test_repository_load():
-    """Repository.load() 从 JSON 文件读取 AccountEntry 列表。"""
-    path = _make_v2_json([
+    """Repository.find_all() 从 DB 读取 AccountEntry 列表。"""
+    _, repo = _make_repo([
         {"id": "acc_001", "matchType": "suffix", "pattern": "4363",
          "bank": "工商银行", "bankCode": "ICBC",
          "subjectCode": "1000201", "subjectName": "银行存款-工行"},
     ])
-    try:
-        repo = AccountMappingRepository(path)
-        entries = repo.load()
-        assert len(entries) == 1
-        assert entries[0].bankCode == "ICBC"
-    finally:
-        os.unlink(path)
+    entries = repo.find_all()
+    assert len(entries) == 1
+    assert entries[0].bankCode == "ICBC"
 
 
 def test_repository_load_empty():
-    """Repository.load() 空文件返回空列表。"""
-    path = _make_v2_json([])
-    try:
-        repo = AccountMappingRepository(path)
-        entries = repo.load()
-        assert entries == []
-    finally:
-        os.unlink(path)
+    """Repository.find_all() 空表返回空列表。"""
+    _, repo = _make_repo([])
+    entries = repo.find_all()
+    assert entries == []
 
 
 def test_repository_save():
-    """Repository.save() 写入 JSON，重新 load 内容一致。"""
-    path = _make_v2_json([])
-    try:
-        repo = AccountMappingRepository(path)
-        entries = [
-            AccountEntry(id="acc_001", matchType="suffix", pattern="4363",
+    """Repository.save() 写入 DB，重新 find_all 内容一致。"""
+    _, conn = _make_db([])
+    repo = AccountMappingRepository(conn)
+    entry = AccountEntry(id="acc_001", matchType="suffix", pattern="4363",
                          bank="工商银行", bankCode="ICBC",
-                         subjectCode="1000201", subjectName="银行存款-工行"),
-        ]
-        repo.save(entries, "10002")
+                         subjectCode="1000201", subjectName="银行存款-工行")
+    repo.save(entry)
+    conn.commit()
 
-        repo2 = AccountMappingRepository(path)
-        loaded = repo2.load()
-        assert len(loaded) == 1
-        assert loaded[0].subjectName == "银行存款-工行"
-    finally:
-        os.unlink(path)
+    repo2 = AccountMappingRepository(conn)
+    loaded = repo2.find_all()
+    assert len(loaded) == 1
+    assert loaded[0].subjectName == "银行存款-工行"
 
 
 # ---------------------------------------------------------------------------
@@ -223,62 +209,52 @@ def test_repository_save():
 
 def test_update_entry():
     """update() 按 id 更新条目。"""
-    path = _make_v2_json([
+    _, conn = _make_db([
         {"id": "acc_001", "matchType": "suffix", "pattern": "4363",
          "bank": "工商银行", "bankCode": "ICBC",
          "subjectCode": "1000201", "subjectName": "银行存款-工行"},
     ])
-    try:
-        repo = AccountMappingRepository(path)
-        reg = AccountRegistry(repo.load())
-        reg.update(AccountEntry(
-            id="acc_001", matchType="exact", pattern="4363",
-            bank="工商银行", bankCode="ICBC",
-            subjectCode="1000201", subjectName="银行存款-工行基本户",
-        ))
-        repo.save(reg.list_all(), "10002")
-        reg2 = AccountRegistry(repo.load())
-        entries = reg2.list_all()
-        assert len(entries) == 1
-        assert entries[0].matchType == "exact"
-        assert entries[0].subjectName == "银行存款-工行基本户"
-    finally:
-        os.unlink(path)
+    repo = AccountMappingRepository(conn)
+    reg = AccountRegistry(repo)
+    reg.update(AccountEntry(
+        id="acc_001", matchType="exact", pattern="4363",
+        bank="工商银行", bankCode="ICBC",
+        subjectCode="1000201", subjectName="银行存款-工行基本户",
+    ))
+    conn.commit()
+    reg2 = AccountRegistry(repo)
+    entries = reg2.list_all()
+    assert len(entries) == 1
+    assert entries[0].matchType == "exact"
+    assert entries[0].subjectName == "银行存款-工行基本户"
 
 
 def test_save_persistence():
-    """save() 写入 JSON，重新加载内容一致。"""
-    path = _make_v2_json([
+    """save() 写入 DB，重新加载内容一致。"""
+    _, conn = _make_db([
         {"id": "acc_001", "matchType": "suffix", "pattern": "4363",
          "bank": "工商银行", "bankCode": "ICBC",
          "subjectCode": "1000201", "subjectName": "银行存款-工行"},
     ])
-    try:
-        repo = AccountMappingRepository(path)
-        reg = AccountRegistry(repo.load())
-        # 修改一条
-        reg.update(AccountEntry(
-            id="acc_001", matchType="exact", pattern="4363",
-            bank="工商银行", bankCode="ICBC",
-            subjectCode="1000201", subjectName="银行存款-工行基本户",
-        ))
-        repo.save(reg.list_all(), "10002")
+    repo = AccountMappingRepository(conn)
+    reg = AccountRegistry(repo)
+    reg.update(AccountEntry(
+        id="acc_001", matchType="exact", pattern="4363",
+        bank="工商银行", bankCode="ICBC",
+        subjectCode="1000201", subjectName="银行存款-工行基本户",
+    ))
+    conn.commit()
 
-        # 重新加载验证
-        with open(path, 'r', encoding='utf-8') as f:
-            raw = json.load(f)
-
-        assert len(raw['accounts']) == 1
-        assert raw['accounts'][0]['matchType'] == 'exact'
-        assert raw['accounts'][0]['subjectName'] == "银行存款-工行基本户"
-        assert raw['defaultBankSubjectCode'] == "10002"
-    finally:
-        os.unlink(path)
+    repo2 = AccountMappingRepository(conn)
+    loaded = repo2.find_all()
+    assert len(loaded) == 1
+    assert loaded[0].matchType == "exact"
+    assert loaded[0].subjectName == "银行存款-工行基本户"
 
 
 def test_delete_entry():
     """delete() 按 id 删除条目。"""
-    path = _make_v2_json([
+    _, conn = _make_db([
         {"id": "acc_001", "matchType": "suffix", "pattern": "4363",
          "bank": "工商银行", "bankCode": "ICBC",
          "subjectCode": "1000201", "subjectName": "银行存款-工行"},
@@ -286,115 +262,85 @@ def test_delete_entry():
          "bank": "招商银行", "bankCode": "CMB",
          "subjectCode": "1000203", "subjectName": "银行存款-招行"},
     ])
-    try:
-        repo = AccountMappingRepository(path)
-        reg = AccountRegistry(repo.load())
-        reg.delete("acc_001")
-        repo.save(reg.list_all(), "10002")
-        reg2 = AccountRegistry(repo.load())
-        entries = reg2.list_all()
-        assert len(entries) == 1
-        assert entries[0].id == "acc_002"
-    finally:
-        os.unlink(path)
+    repo = AccountMappingRepository(conn)
+    reg = AccountRegistry(repo)
+    reg.delete("acc_001")
+    conn.commit()
+    reg2 = AccountRegistry(repo)
+    entries = reg2.list_all()
+    assert len(entries) == 1
+    assert entries[0].id == "acc_002"
 
 
 def test_delete_entry_not_found():
     """delete() id 不存在时静默不报错。"""
-    path = _make_v2_json([
+    _, repo = _make_repo([
         {"id": "acc_001", "matchType": "suffix", "pattern": "4363",
          "bank": "工商银行", "bankCode": "ICBC",
          "subjectCode": "1000201", "subjectName": "银行存款-工行"},
     ])
-    try:
-        repo = AccountMappingRepository(path)
-        reg = AccountRegistry(repo.load())
-        reg.delete("acc_999")  # 不报错
-        assert len(reg.list_all()) == 1
-    finally:
-        os.unlink(path)
+    reg = AccountRegistry(repo)
+    reg.delete("acc_999")
+    assert len(reg.list_all()) == 1
 
 
 def test_update_entry_not_found():
     """update() id 不存在时抛 ValueError。"""
-    path = _make_v2_json([
+    _, repo = _make_repo([
         {"id": "acc_001", "matchType": "suffix", "pattern": "4363",
          "bank": "工商银行", "bankCode": "ICBC",
          "subjectCode": "1000201", "subjectName": "银行存款-工行"},
     ])
-    try:
-        repo = AccountMappingRepository(path)
-        reg = AccountRegistry(repo.load())
-        with pytest.raises(ValueError, match="不存在"):
-            reg.update(AccountEntry(
-                id="acc_999", matchType="suffix", pattern="9999",
-                bank="工商银行", bankCode="ICBC",
-                subjectCode="1000201", subjectName="测试",
-            ))
-    finally:
-        os.unlink(path)
+    reg = AccountRegistry(repo)
+    with pytest.raises(ValueError, match="不存在"):
+        reg.update(AccountEntry(
+            id="acc_999", matchType="suffix", pattern="9999",
+            bank="工商银行", bankCode="ICBC",
+            subjectCode="1000201", subjectName="测试",
+        ))
 
 
 def test_add_entry_subjectcode_validation():
-    """add() subjectCode 不存在于 subjects.json 时抛 ValueError。"""
-    path = _make_v2_json([])
-    subjects_path = _make_subjects_json(["1000201"])  # 只含 1000201
-    try:
-        repo = AccountMappingRepository(path)
-        import json as _json
-        with open(subjects_path, "r", encoding="utf-8") as _f:
-            _subject_set = set(_json.load(_f).keys())
-        reg = AccountRegistry(repo.load(), subject_codes=_subject_set)
-        with pytest.raises(ValueError, match="subjectCode"):
-            reg.add(AccountEntry(
-                id="", matchType="suffix", pattern="4363",
-                bank="工商银行", bankCode="ICBC",
-                subjectCode="9999999", subjectName="不存在的科目",
-            ))
-    finally:
-        os.unlink(path)
-        os.unlink(subjects_path)
+    """add() subjectCode 不存在于 subject_codes 时抛 ValueError。"""
+    _, repo = _make_repo([])
+    reg = AccountRegistry(repo, subject_codes={"1000201"})
+    with pytest.raises(ValueError, match="subjectCode"):
+        reg.add(AccountEntry(
+            id="", matchType="suffix", pattern="4363",
+            bank="工商银行", bankCode="ICBC",
+            subjectCode="9999999", subjectName="不存在的科目",
+        ))
 
 
 def test_add_entry_bankcode_required():
     """add() bankCode 为空时抛 ValueError。"""
-    path = _make_v2_json([])
-    try:
-        repo = AccountMappingRepository(path)
-        reg = AccountRegistry(repo.load())
-        with pytest.raises(ValueError, match="bankCode"):
-            reg.add(AccountEntry(
-                id="", matchType="suffix", pattern="4363",
-                bank="工商银行", bankCode="",
-                subjectCode="1000201", subjectName="银行存款-工行",
-            ))
-    finally:
-        os.unlink(path)
+    _, repo = _make_repo([])
+    reg = AccountRegistry(repo)
+    with pytest.raises(ValueError, match="bankCode"):
+        reg.add(AccountEntry(
+            id="", matchType="suffix", pattern="4363",
+            bank="工商银行", bankCode="",
+            subjectCode="1000201", subjectName="银行存款-工行",
+        ))
 
 
 def test_add_entry():
     """add() 新增条目，自动生成 id，保存后可 list_all 查到。"""
-    path = _make_v2_json([])
-    subjects_path = _make_subjects_json(["1000201"])
-    try:
-        repo = AccountMappingRepository(path)
-        reg = AccountRegistry(repo.load())
-        reg.add(AccountEntry(
-            id="", matchType="suffix", pattern="4363",
-            bank="工商银行", bankCode="ICBC",
-            subjectCode="1000201", subjectName="银行存款-工行",
-        ))
-        repo.save(reg.list_all(), "10002")
-        # 重新加载验证持久化
-        reg2 = AccountRegistry(repo.load())
-        all_entries = reg2.list_all()
-        assert len(all_entries) == 1
-        assert all_entries[0].bankCode == "ICBC"
-        assert all_entries[0].subjectCode == "1000201"
-        assert all_entries[0].id != ""  # id 自动生成
-    finally:
-        os.unlink(path)
-        os.unlink(subjects_path)
+    _, conn = _make_db([])
+    repo = AccountMappingRepository(conn)
+    reg = AccountRegistry(repo)
+    reg.add(AccountEntry(
+        id="", matchType="suffix", pattern="4363",
+        bank="工商银行", bankCode="ICBC",
+        subjectCode="1000201", subjectName="银行存款-工行",
+    ))
+    conn.commit()
+    reg2 = AccountRegistry(repo)
+    all_entries = reg2.list_all()
+    assert len(all_entries) == 1
+    assert all_entries[0].bankCode == "ICBC"
+    assert all_entries[0].subjectCode == "1000201"
+    assert all_entries[0].id != ""
 
 def test_match_by_account_no_match():
     """无匹配 → 返回 None。"""
@@ -406,7 +352,7 @@ def test_match_by_account_no_match():
         },
     ]
     _, repo = _make_repo(entries)
-    reg = AccountRegistry(repo.load())
+    reg = AccountRegistry(repo)
     result = reg.match_by_account("0000000000")
     assert result is None
 
@@ -421,7 +367,7 @@ def test_match_masked_account():
         },
     ]
     _, repo = _make_repo(entries)
-    reg = AccountRegistry(repo.load())
+    reg = AccountRegistry(repo)
     result = reg.match_by_account("6222****4363")
     assert result is not None
     assert result.bankCode == "ICBC"
@@ -437,7 +383,7 @@ def test_match_empty_account():
         },
     ]
     _, repo = _make_repo(entries)
-    reg = AccountRegistry(repo.load())
+    reg = AccountRegistry(repo)
     assert reg.match_by_account("") is None
 
 
@@ -446,54 +392,32 @@ def test_match_empty_account():
 # ---------------------------------------------------------------------------
 
 from finance_agent_backend.bridge import handle_request
-import finance_agent_backend.account_registry as reg_module
 
 
 @pytest.fixture
-def _patch_config(temp_accounts_file):
-    """Patch module-level entries cache → load from temp file.
-    Yields temp_accounts_file path for use as config_path in RPC calls.
-    """
-    from finance_agent_backend.account_registry import AccountMappingRepository
-
-    repo = AccountMappingRepository(temp_accounts_file)
-    original_cache = reg_module._entries_cache
-    reg_module._entries_cache = repo.load()
-    yield temp_accounts_file
-    reg_module._entries_cache = original_cache
-
-
-@pytest.fixture
-def temp_accounts_file():
-    """Create a temporary account_mapping.json with 2 entries."""
-    import json as _json
-    data = {
-        "accounts": [
-            {
-                "id": "acc_001", "matchType": "suffix", "pattern": "4363",
-                "bank": "工商银行", "bankCode": "ICBC",
-                "subjectCode": "1000201", "subjectName": "银行存款-工行基本户",
-            },
-            {
-                "id": "acc_002", "matchType": "suffix", "pattern": "0288",
-                "bank": "招商银行", "bankCode": "CMB",
-                "subjectCode": "1000203", "subjectName": "银行存款-招商银行（0288）",
-            },
-        ],
-        "defaultBankSubjectCode": "10002",
-    }
-    tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8')
-    _json.dump(data, tmp, ensure_ascii=False, indent=2)
-    tmp.close()
-    yield tmp.name
-    os.unlink(tmp.name)
+def temp_db():
+    """Create a temporary SQLite DB with 2 entries, yield db_path."""
+    entries = [
+        {
+            "id": "acc_001", "matchType": "suffix", "pattern": "4363",
+            "bank": "工商银行", "bankCode": "ICBC",
+            "subjectCode": "1000201", "subjectName": "银行存款-工行基本户",
+        },
+        {
+            "id": "acc_002", "matchType": "suffix", "pattern": "0288",
+            "bank": "招商银行", "bankCode": "CMB",
+            "subjectCode": "1000203", "subjectName": "银行存款-招商银行（0288）",
+        },
+    ]
+    db_path, _conn = _make_db(entries)
+    yield db_path
 
 
-def _rpc(method, params=None, config_path=None):
+def _rpc(method, params=None, db_path=None):
     """Shorthand: send JSON-RPC request, return result dict."""
     p = dict(params or {})
-    if config_path:
-        p["config_path"] = config_path
+    if db_path:
+        p["db_path"] = db_path
     response = handle_request({
         "jsonrpc": "2.0", "id": 1, "method": method, "params": p,
     })
@@ -503,61 +427,61 @@ def _rpc(method, params=None, config_path=None):
 class TestBridgeAccountRegistry:
     """account_registry.list / match / add / update / delete via bridge RPC.
 
-    所有 RPC 调用传 config_path 指向临时文件，不操作真实 account_mapping.json。
+    所有 RPC 调用传 db_path 指向临时 DB，不操作真实数据库。
     """
 
-    def test_list(self, _patch_config):
-        result = _rpc("account_registry.list", config_path=_patch_config)
+    def test_list(self, temp_db):
+        result = _rpc("account_registry.list", db_path=temp_db)
         assert "accounts" in result
         assert len(result["accounts"]) == 2
         assert result["accounts"][0]["bankCode"] == "ICBC"
 
-    def test_match_found(self, _patch_config):
+    def test_match_found(self, temp_db):
         result = _rpc("account_registry.match",
-                       {"accountNumber": "12345678904363"}, config_path=_patch_config)
+                       {"accountNumber": "12345678904363"}, db_path=temp_db)
         assert result["success"] is True
         assert result["entry"]["bankCode"] == "ICBC"
 
-    def test_match_not_found(self, _patch_config):
+    def test_match_not_found(self, temp_db):
         result = _rpc("account_registry.match",
-                       {"accountNumber": "0000000000"}, config_path=_patch_config)
+                       {"accountNumber": "0000000000"}, db_path=temp_db)
         assert result["success"] is True
         assert result["entry"] is None
 
-    def test_add(self, _patch_config):
+    def test_add(self, temp_db):
         result = _rpc("account_registry.add", {
             "matchType": "suffix", "pattern": "7931",
             "bank": "工商银行", "bankCode": "ICBC",
             "subjectCode": "1000205", "subjectName": "银行存款-工商银行（7931）",
-        }, config_path=_patch_config)
+        }, db_path=temp_db)
         assert result["success"] is True
         assert "id" in result
         assert result["entry"]["bankCode"] == "ICBC"
 
-    def test_add_validation_bankcode(self, _patch_config):
+    def test_add_validation_bankcode(self, temp_db):
         result = _rpc("account_registry.add", {
             "matchType": "suffix", "pattern": "7931",
             "bank": "工商银行", "bankCode": "",
             "subjectCode": "1000205", "subjectName": "测试",
-        }, config_path=_patch_config)
+        }, db_path=temp_db)
         assert result.get("success") is False
         assert "bankCode" in result.get("error", "")
 
-    def test_update(self, _patch_config):
+    def test_update(self, temp_db):
         result = _rpc("account_registry.update", {
             "id": "acc_001", "matchType": "exact", "pattern": "4363",
             "bank": "工商银行", "bankCode": "ICBC",
             "subjectCode": "1000201", "subjectName": "银行存款-工行基本户（已更新）",
-        }, config_path=_patch_config)
+        }, db_path=temp_db)
         assert result["success"] is True
-        list_result = _rpc("account_registry.list", config_path=_patch_config)
+        list_result = _rpc("account_registry.list", db_path=temp_db)
         updated = next(e for e in list_result["accounts"] if e["id"] == "acc_001")
         assert updated["subjectName"] == "银行存款-工行基本户（已更新）"
 
-    def test_delete(self, _patch_config):
+    def test_delete(self, temp_db):
         result = _rpc("account_registry.delete",
-                       {"id": "acc_001"}, config_path=_patch_config)
+                       {"id": "acc_001"}, db_path=temp_db)
         assert result["success"] is True
-        list_result = _rpc("account_registry.list", config_path=_patch_config)
+        list_result = _rpc("account_registry.list", db_path=temp_db)
         assert len(list_result["accounts"]) == 1
         assert list_result["accounts"][0]["id"] == "acc_002"

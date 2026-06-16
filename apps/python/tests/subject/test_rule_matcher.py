@@ -245,7 +245,7 @@ class TestHistoryMatcher:
 
     def test_match_hit(self, tmp_db):
         """有历史数据时返回匹配。"""
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
         repo = SubjectHistoryRepo(tmp_db)
         repo.insert("支付AWS云主机托管服务费", "expense", "9990001",
                     "管理费用_办公费", "阿里云计算")
@@ -256,7 +256,7 @@ class TestHistoryMatcher:
 
     def test_match_miss(self, tmp_db):
         """无历史数据时返回 None。"""
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
         repo = SubjectHistoryRepo(tmp_db)
         m = HistoryMatcher(repo)
         r = m.match("完全不存在的摘要", "expense")
@@ -270,7 +270,7 @@ class TestHistoryMatcher:
 
     def test_match_direction_filter(self, tmp_db):
         """不同方向不交叉匹配。"""
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
         repo = SubjectHistoryRepo(tmp_db)
         repo.insert("收到货款", "income", "10122", "应收账款", "")
         m = HistoryMatcher(repo)
@@ -287,7 +287,7 @@ class TestSubjectMatcher:
 
     def test_l1_hit_skips_l2(self, tmp_db):
         """L1 命中时 L2 不被调用。"""
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
         repo = SubjectHistoryRepo(tmp_db)
         # 插入一条 L2 会误匹配的数据
         repo.insert("支付物业管理费", "expense", "9999999",
@@ -301,7 +301,7 @@ class TestSubjectMatcher:
 
     def test_l1_miss_l2_hit(self, tmp_db):
         """L1 未命中时降级到 L2。"""
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
         repo = SubjectHistoryRepo(tmp_db)
         repo.insert("支付AWS云主机托管服务费", "expense", "5060201",
                     "管理费用_办公费", "阿里云计算")
