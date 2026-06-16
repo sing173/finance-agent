@@ -40,6 +40,10 @@ dist_electron/
 memory/
 AGENTS.md
 
+# CodeBuddy (local agent config)
+.codebuddy/
+CODEBUDDY.md
+
 # OS
 .DS_Store
 Thumbs.db
