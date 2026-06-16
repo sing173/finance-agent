@@ -44,6 +44,9 @@ AGENTS.md
 .codebuddy/
 CODEBUDDY.md
 
+# Database
+data.db*
+
 # OS
 .DS_Store
 Thumbs.db
