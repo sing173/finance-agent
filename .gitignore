@@ -40,7 +40,12 @@ dist_electron/
 memory/
 AGENTS.md
 
-# OS
+# CodeBuddy (local agent config)
+.codebuddy/
+CODEBUDDY.md
+
+# Database
+data.db*
 .DS_Store
 Thumbs.db
 
@@ -100,4 +105,4 @@ apps/renderer/package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
 # poetry.lock
-apps/python/src/data.db*
+data.db*

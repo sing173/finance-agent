@@ -3,6 +3,7 @@ import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from typing import List, Optional
+import types
 
 from ..models import Transaction
 
@@ -88,8 +89,8 @@ class ExcelBuilder:
     # ------------------------------------------------------------------ #
 
     # 金蝶凭证导出：PipelineEntry 字段 → (Excel 列号, 转换函数)
-    # 声明式映射：新增字段只改这里
-    VOUCHER_COLUMN_MAP: dict[int, tuple[str, Optional[str]]] = {
+    # 声明式映射：新增字段只改这里。MappingProxyType 防止意外修改。
+    _COLUMN_MAP = {
         1:  ('date', '_as_str'),
         3:  ('voucher_no', None),
         5:  ('entry_seq', None),
@@ -101,6 +102,7 @@ class ExcelBuilder:
         15: ('aux_category', '_or_none'),
         23: ('original_amount', '_fmt_orig'),
     }
+    VOUCHER_COLUMN_MAP = types.MappingProxyType(_COLUMN_MAP)
 
     @staticmethod
     def _as_str(value):
@@ -123,8 +125,8 @@ class ExcelBuilder:
 
     @staticmethod
     def _or_none(value):
-        """空字符串转 None，否则原样返回。"""
-        return value or None
+        """空字符串或 None 转 None，否则原样返回（保留 0/0.0/False）。"""
+        return None if value is None or value == '' else value
 
     def build_voucher_from_entries(
         self,

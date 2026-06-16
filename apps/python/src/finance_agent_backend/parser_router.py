@@ -122,12 +122,15 @@ def detect_bank_from_pdf(file_path: str) -> dict:
 
     bank 中文名由 BANK_CODE_TO_NAME 推导（调用方无需再查映射表）。
     """
-    from finance_agent_backend.account_registry import (
-        AccountRegistry,
-        get_account_entries,
-    )
+    from finance_agent_backend.account_registry import AccountRegistry
+    from finance_agent_backend.repo.account_mapping_repo import AccountMappingRepository
+    from finance_agent_backend import db as _db
+    from finance_agent_backend.paths import get_db_path
 
-    registry = AccountRegistry(get_account_entries())
+    conn = _db.get_db(db_path=get_db_path())
+    _db.init_db(conn)
+    account_repo = AccountMappingRepository(conn)
+    registry = AccountRegistry(account_repo)
 
     def _build(bank_code: str, doc_type: str) -> dict:
         return {
@@ -322,11 +325,15 @@ def _dispatch_registry_parser(
     # ── Issue #47: ICBC 解析器解耦 — AccountRegistry 只创建一次 ───────
     account_registry = None
     if bank_code == 'ICBC':
-        from finance_agent_backend.account_registry import (
-            AccountRegistry,
-            get_account_entries,
-        )
-        account_registry = AccountRegistry(get_account_entries())
+        from finance_agent_backend.account_registry import AccountRegistry
+        from finance_agent_backend.repo.account_mapping_repo import AccountMappingRepository
+        from finance_agent_backend import db as _db
+        from finance_agent_backend.paths import get_db_path
+
+        conn = _db.get_db(db_path=get_db_path())
+        _db.init_db(conn)
+        account_repo = AccountMappingRepository(conn)
+        account_registry = AccountRegistry(account_repo)
 
     for entry in registry:
         t0 = time.time()
