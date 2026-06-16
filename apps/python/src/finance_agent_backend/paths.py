@@ -17,24 +17,28 @@ import sys
 def get_project_root() -> str:
     """获取项目根目录（开发环境）。
 
-    通过当前文件位置向上推导 2 层到达项目根。
+    通过当前文件位置向上推导 5 层到达 monorepo 根。
     打包环境不适用（使用 sys._MEIPASS）。
     """
-    # finance_agent_backend/paths.py → parent = src/, parent's parent = project root
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # finance_agent_backend/paths.py → src/ → python/ → apps/ → project root
+    path = os.path.abspath(__file__)
+    for _ in range(5):
+        path = os.path.dirname(path)
+    return path
 
 
 def get_config_path(filename: str = '') -> str:
     """获取 config 目录下的文件路径。
 
-    - 开发环境: <project_root>/finance_agent_backend/config/<filename>
+    - 开发环境: <backend_dir>/config/<filename>
     - 打包环境: <sys._MEIPASS>/finance_agent_backend/config/<filename>
     """
     if getattr(sys, 'frozen', False):
         base = sys._MEIPASS
-    else:
-        base = get_project_root()
-    return os.path.join(base, 'finance_agent_backend', 'config', filename)
+        return os.path.join(base, 'finance_agent_backend', 'config', filename)
+    # 开发环境：config 目录与 paths.py 同级
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(backend_dir, 'config', filename)
 
 
 def get_db_path() -> str:
