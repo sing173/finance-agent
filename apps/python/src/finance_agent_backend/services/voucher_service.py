@@ -35,7 +35,7 @@ class VoucherService:
     def preview(self, transactions: list[dict], subject_mapping: dict | None) -> dict:
         """交易列表 → 凭证预览（含科目匹配 + 同类合并）。"""
         from finance_agent_backend.models import Transaction
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
         from finance_agent_backend.voucher_composer import VoucherComposer
 
         if not transactions:
@@ -115,7 +115,7 @@ class VoucherService:
         source_files: list | None = None,
     ) -> dict:
         """确认导出：生成 Excel + 写入审计日志 + 写入历史库。"""
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
         from finance_agent_backend.tools import excel_builder
 
         if not draft_id:

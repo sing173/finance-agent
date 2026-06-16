@@ -52,7 +52,7 @@ def _reset_global_state():
     _db._db_path = None
 
     # 清理类级 / 模块级缓存
-    from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+    from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
     SubjectHistoryRepo._cache.clear()
 
     import finance_agent_backend.subject_matcher as _sm

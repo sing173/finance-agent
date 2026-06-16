@@ -226,7 +226,7 @@ class TestVoucherService:
     def test_export_writes_history_for_manual_only(self, tmp_db, tmp_path):
         """导出时仅 is_manual=True 分录写入 subject_history。"""
         from finance_agent_backend.services import VoucherService
-        from finance_agent_backend.subject_history_repo import SubjectHistoryRepo
+        from finance_agent_backend.repo.subject_history_repo import SubjectHistoryRepo
 
         svc = VoucherService(db_path=tmp_db)
         entries = [
