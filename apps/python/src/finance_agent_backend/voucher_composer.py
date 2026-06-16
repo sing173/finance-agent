@@ -58,9 +58,7 @@ class VoucherGrouper:
 
     def group(self, transactions: list[Transaction], subject_mapping: dict) -> list[VoucherGroup]:
         """分组 + 预匹配，返回 VoucherGroup 列表。"""
-        from finance_agent_backend.account_registry import AccountRegistry
-
-        registry = self._registry or AccountRegistry([])
+        registry = self._registry
 
         matcher = self._matcher or self._build_matcher(subject_mapping)
 
@@ -95,7 +93,7 @@ class VoucherGrouper:
         # 构建 VoucherGroup，预解析银行科目
         groups: list[VoucherGroup] = []
         for (acct, counter_code, direction, cpty_acct), gtxns in raw.items():
-            bank_entry = registry.match_by_account(acct)
+            bank_entry = registry.match_by_account(acct) if registry else None
             bank_code = bank_entry.subjectCode if bank_entry else DEFAULT_BANK_SUBJECT_CODE
             bank_name = bank_entry.subjectName if bank_entry else '银行存款'
 
@@ -222,6 +220,10 @@ class VoucherComposer:
         """将交易组装为凭证列表。
 
         compose() 仅做编排：grouper 负责分组+预匹配，factory 负责分录格式。
+
+        返回 list[dict]，每个 dict 含 voucher_no/date/direction 等元数据 +
+        ``entries: list[PipelineEntry]``（dataclass 实例，非 dict）。
+        消费方需用 .asdict() 序列化后再传给 JSON-RPC 边界。
         """
         matcher = self._matcher
         if matcher is None and self._repo is not None:

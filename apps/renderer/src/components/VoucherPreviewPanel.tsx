@@ -242,7 +242,16 @@ export function VoucherPreviewPanel({
         </Card>
       ))}
 
-      <Space style={{ marginTop: 16 }}>
+      <Space
+        style={{
+          marginTop: 16,
+          position: 'sticky',
+          bottom: 0,
+          background: 'transparent',
+          padding: '12px 0',
+          zIndex: 10,
+        }}
+      >
         {unmatchedCount > 0 && (
           <Dropdown
             menu={{
