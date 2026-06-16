@@ -98,10 +98,10 @@ def test_from_db_row_dynamic_mapping():
     conn.close()
 
 
-# ── 4. DB schema v4 ──────────────────────────────────────────────
+# ── 4. DB schema v5 ──────────────────────────────────────────────
 
-def test_db_schema_v4_has_rule_id():
-    """DB schema v4 应包含 rule_id 列。"""
+def test_db_schema_v5_has_account_mapping():
+    """DB schema v5 应包含 account_mapping 表。"""
     with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
         db_path = f.name
     _cleanup_db(db_path)
@@ -109,10 +109,14 @@ def test_db_schema_v4_has_rule_id():
         from finance_agent_backend import db as _db
         conn = _db.get_db(db_path=db_path)
         _db.init_db(conn)
+        # 检查 voucher_draft_entry 仍有 rule_id 列（v4 迁移）
         cols = [r[1] for r in conn.execute("PRAGMA table_info(voucher_draft_entry)").fetchall()]
         assert 'rule_id' in cols, "voucher_draft_entry 缺少 rule_id 列"
+        # 检查 account_mapping 表存在（v5 迁移）
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        assert 'account_mapping' in tables, "缺少 account_mapping 表"
         ver = conn.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()
-        assert ver[0] == 4, f"schema_version 应为 4，实际 {ver[0]}"
+        assert ver[0] == 5, f"schema_version 应为 5，实际 {ver[0]}"
     finally:
         pass
 

@@ -7,10 +7,6 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from finance_agent_backend.account_registry import (
-    AccountRegistry,
-    get_account_entries,
-)
 from finance_agent_backend.models import PipelineEntry
 from finance_agent_backend.paths import get_db_path
 from finance_agent_backend.repo import (
@@ -18,6 +14,8 @@ from finance_agent_backend.repo import (
     ExportLogRepository,
     VoucherDraftRepository,
 )
+from finance_agent_backend.repo.account_mapping_repo import AccountMappingRepository
+from finance_agent_backend.account_registry import AccountRegistry
 
 
 class VoucherService:
@@ -30,7 +28,8 @@ class VoucherService:
         self._conn = _db.get_db(db_path=db_path)
         _db.init_db(self._conn)
         self._draft_repo = VoucherDraftRepository(self._conn)
-        self._account_registry = AccountRegistry(get_account_entries())
+        account_repo = AccountMappingRepository(self._conn)
+        self._account_registry = AccountRegistry(account_repo)
 
     def preview(self, transactions: list[dict], subject_mapping: dict | None) -> dict:
         """交易列表 → 凭证预览（含科目匹配 + 同类合并）。"""

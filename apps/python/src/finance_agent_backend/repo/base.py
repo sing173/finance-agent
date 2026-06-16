@@ -93,6 +93,15 @@ class BaseRepository(Generic[T]):
         sql = self._insert_sql(extra_cols=extra_cols, or_ignore=True)
         self.conn.execute(sql, vals)
 
+    def save(self, obj: T) -> T:
+        """Upsert: INSERT OR REPLACE. Returns the saved object."""
+        vals = [getattr(obj, c) for c in self._all_cols]
+        cols = ", ".join(self._all_cols)
+        placeholders = ", ".join("?" * len(self._all_cols))
+        sql = f"INSERT OR REPLACE INTO {self.table} ({cols}) VALUES ({placeholders})"
+        self.conn.execute(sql, vals)
+        return obj
+
     def find_by_pk(self, pk_value) -> T | None:
         row = self.conn.execute(
             self._select_sql(where=f"{self.pk} = ?"), (pk_value,)

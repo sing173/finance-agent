@@ -18,28 +18,50 @@ from finance_agent_backend.models import Transaction
 
 @pytest.fixture
 def test_config(tmp_path):
-    """创建独立的测试 account_mapping.json。"""
-    config = {
-        "accounts": [
-            {"id": "t1", "matchType": "suffix", "pattern": "1234",
-             "bank": "测试银行", "bankCode": "TEST",
-             "subjectCode": "10001", "subjectName": "现金"},
-        ],
-        "defaultBankSubjectCode": "10002",
-    }
-    path = str(tmp_path / "account_mapping_test.json")
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(config, f)
-    return path
+    """创建独立的测试 SQLite DB。"""
+    from finance_agent_backend import db as _db
+    from finance_agent_backend.repo.account_mapping_repo import AccountMappingRepository
+    from finance_agent_backend.models import AccountEntry
+
+    db_path = str(tmp_path / "test.db")
+    conn = _db.get_db(db_path=db_path)
+    # 直接建表，不跑迁移
+    conn.execute("""CREATE TABLE IF NOT EXISTS account_mapping (
+        id              TEXT PRIMARY KEY,
+        matchType       TEXT NOT NULL,
+        pattern         TEXT NOT NULL,
+        bank            TEXT NOT NULL,
+        bankCode        TEXT NOT NULL,
+        subjectCode     TEXT NOT NULL,
+        subjectName     TEXT NOT NULL
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS schema_version (
+        version   INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL
+    )""")
+    conn.execute("INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
+                 (5, "2024-01-01T00:00:00+00:00"))
+
+    # 插入测试数据
+    repo = AccountMappingRepository(conn)
+    entry = AccountEntry(
+        id="t1", matchType="suffix", pattern="1234",
+        bank="测试银行", bankCode="TEST",
+        subjectCode="10001", subjectName="现金",
+    )
+    repo.save(entry)
+    conn.commit()
+
+    return db_path
 
 
 class TestAccountRegistryService:
-    """AccountRegistryService — config_path 隔离测试。"""
+    """AccountRegistryService — db_path 隔离测试。"""
 
     def test_list_all(self, test_config):
         from finance_agent_backend.services import AccountRegistryService
 
-        svc = AccountRegistryService(config_path=test_config)
+        svc = AccountRegistryService(db_path=test_config)
         result = svc.list_all()
         assert result["success"] is True
         assert len(result["accounts"]) == 1
@@ -48,7 +70,7 @@ class TestAccountRegistryService:
     def test_match_found(self, test_config):
         from finance_agent_backend.services import AccountRegistryService
 
-        svc = AccountRegistryService(config_path=test_config)
+        svc = AccountRegistryService(db_path=test_config)
         result = svc.match("99991234")
         assert result["success"] is True
         assert result["entry"]["bankCode"] == "TEST"
@@ -56,7 +78,7 @@ class TestAccountRegistryService:
     def test_match_not_found(self, test_config):
         from finance_agent_backend.services import AccountRegistryService
 
-        svc = AccountRegistryService(config_path=test_config)
+        svc = AccountRegistryService(db_path=test_config)
         result = svc.match("0000")
         assert result["success"] is True
         assert result["entry"] is None
@@ -64,8 +86,10 @@ class TestAccountRegistryService:
     def test_add_and_delete(self, test_config):
         from finance_agent_backend.services import AccountRegistryService
         from finance_agent_backend.account_registry import AccountEntry
+        from finance_agent_backend.repo.account_mapping_repo import AccountMappingRepository
+        from finance_agent_backend import db as _db
 
-        svc = AccountRegistryService(config_path=test_config)
+        svc = AccountRegistryService(db_path=test_config)
         entry = AccountEntry(
             id="", matchType="exact", pattern="5678",
             bank="新银行", bankCode="NEW",
@@ -75,32 +99,16 @@ class TestAccountRegistryService:
         assert add_result["success"] is True
         assert add_result["id"]
 
-        # 验证持久化到测试文件
-        with open(test_config, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        assert len(data["accounts"]) == 2
+        # 验证持久化到测试 DB
+        conn = _db.get_db(db_path=test_config)
+        repo = AccountMappingRepository(conn)
+        assert len(repo.find_all()) == 2
 
         # 删除
         del_result = svc.delete(add_result["id"])
         assert del_result["success"] is True
 
-        with open(test_config, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        assert len(data["accounts"]) == 1
-
-    def test_config_path_none_uses_cache(self):
-        """config_path=None 时使用模块级缓存。"""
-        from finance_agent_backend.services import AccountRegistryService
-
-        svc = AccountRegistryService()
-        assert svc._use_cache is True
-
-    def test_config_path_provided_bypasses_cache(self, test_config):
-        """config_path 指定时绕过缓存。"""
-        from finance_agent_backend.services import AccountRegistryService
-
-        svc = AccountRegistryService(config_path=test_config)
-        assert svc._use_cache is False
+        assert len(repo.find_all()) == 1
 
 
 # ═══════════════════════════════════════════════════════════════════
