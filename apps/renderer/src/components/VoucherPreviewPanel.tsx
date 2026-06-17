@@ -279,7 +279,7 @@ export function VoucherPreviewPanel({
           okText="确认导出"
           cancelText="取消"
         >
-          <Button type="primary" icon={<ExportOutlined />}>
+          <Button style={{ background: '#dc2626', color: '#fff', borderColor: '#dc2626' }} icon={<ExportOutlined />}>
             确认导出
           </Button>
         </Popconfirm>

@@ -1,6 +1,6 @@
-import { Layout, Typography, Button, Card, message, Space, Modal } from 'antd';
+import { ConfigProvider, Layout, Typography, Button, Card, message, Space, Modal } from 'antd';
 import { useState, useEffect, useCallback } from 'react';
-import { SettingOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { SettingOutlined } from '@ant-design/icons';
 import { FileDropZone } from './components/FileDropZone';
 import { ManualOverrideModal } from './components/ManualOverrideModal';
 import { TransactionEditModal } from './components/TransactionEditModal';
@@ -16,8 +16,144 @@ import { useOverrideModal } from './hooks/useOverrideModal';
 import { useSingleFile } from './hooks/useSingleFile';
 import type { BatchResult, Transaction, ParseFileParams, ParseFileResult, DetectBanksResult, DetectSupportedBanksResult } from '@shared/types';
 
-const { Header, Content } = Layout;
-const { Title, Text } = Typography;
+const { Content } = Layout;
+const { Text } = Typography;
+
+/* ── Ledger 风格主题 ── */
+const ledgerTheme = {
+  token: {
+    // 主色
+    colorPrimary: '#1e3a5f',
+    colorPrimaryHover: '#2a4a73',
+    colorPrimaryActive: '#142a4a',
+    colorPrimaryTextHover: '#2a4a73',
+    // 语义色（文字/边框用深色，背景另设浅色）
+    colorError: '#991b1b',
+    colorWarning: '#d97706',
+    colorSuccess: '#065f46',
+    colorInfo: '#1e3a5f',
+    // 语义背景色（浅色，保证黑字可读）
+    colorErrorBg: '#fef2f2',
+    colorErrorBorder: '#fecaca',
+    colorWarningBg: '#fffbeb',
+    colorWarningBorder: '#fde68a',
+    colorSuccessBg: '#ecfdf5',
+    colorSuccessBorder: '#a7f3d0',
+    colorInfoBg: '#e8eef5',
+    colorInfoBorder: '#bfdbfe',
+    // 边框
+    borderRadius: 2,
+    borderRadiusLG: 2,
+    borderRadiusSM: 0,
+    colorBorder: '#d6d3cd',
+    colorBorderSecondary: '#e7e5e4',
+    // 背景
+    colorBgContainer: '#ffffff',
+    colorBgElevated: '#ffffff',
+    colorBgLayout: '#faf9f7',
+    colorBgSpotlight: '#1c1917',
+    // 文字
+    colorText: '#1c1917',
+    colorTextSecondary: '#44403c',
+    colorTextDescription: '#78716c',
+    colorTextHeading: '#1c1917',
+    // 字体
+    fontFamily:
+      'system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif',
+    fontSize: 14,
+    // 控件尺寸（紧凑）
+    controlHeight: 32,
+    controlHeightLG: 40,
+    controlHeightSM: 24,
+    // 阴影
+    boxShadow: 'none',
+    boxShadowSecondary: 'none',
+  },
+  components: {
+    Table: {
+      headerBg: '#faf9f7',
+      headerColor: '#1c1917',
+      headerSplitColor: '#d6d3cd',
+      rowHoverBg: 'rgba(0,0,0,0.025)',
+      borderColor: '#d6d3cd',
+      cellPaddingBlock: 8,
+      cellPaddingInline: 12,
+      fontSize: 13,
+    },
+    Card: {
+      headerBg: '#ffffff',
+      actionsBg: '#faf9f7',
+      borderRadiusLG: 2,
+      borderRadius: 2,
+      headerFontSize: 14,
+      headerHeight: 40,
+    },
+    Button: {
+      borderRadius: 2,
+      primaryShadow: 'none',
+      defaultShadow: 'none',
+      dangerShadow: 'none',
+    },
+    Modal: {
+      borderRadiusLG: 2,
+      borderRadius: 2,
+    },
+    Tag: {
+      borderRadiusSM: 0,
+      borderRadius: 0,
+    },
+    Alert: {
+      borderRadiusLG: 2,
+      borderRadius: 2,
+    },
+    Layout: {
+      headerBg: '#faf9f7',
+      headerColor: '#1c1917',
+      headerHeight: 48,
+      bodyBg: '#faf9f7',
+      siderBg: '#ffffff',
+    },
+    Menu: {
+      borderRadius: 0,
+    },
+    Dropdown: {
+      borderRadiusLG: 2,
+    },
+    Tooltip: {
+      borderRadius: 2,
+    },
+    Popover: {
+      borderRadiusLG: 2,
+    },
+    Select: {
+      borderRadius: 2,
+    },
+    Input: {
+      borderRadius: 2,
+    },
+    InputNumber: {
+      borderRadius: 2,
+    },
+    DatePicker: {
+      borderRadius: 2,
+    },
+    Form: {
+      itemMarginBottom: 16,
+    },
+    List: {
+      borderRadiusLG: 2,
+    },
+    Collapse: {
+      borderRadiusLG: 2,
+    },
+    Descriptions: {
+      borderRadius: 2,
+    },
+    Empty: {
+      borderRadius: 2,
+    },
+  },
+};
 
 // 声明 window.electronAPI 类型
 declare global {
@@ -43,6 +179,7 @@ function App() {
   // ====== 模式 & 结果 ======
   const [mode, setMode] = useState<'single' | 'batch'>('single');
   const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
+  const [showBatchSelector, setShowBatchSelector] = useState(true);
 
   // ====== 单文件 ======
   const single = useSingleFile();
@@ -51,6 +188,7 @@ function App() {
   const batch = useBatchOrchestrator({
     onComplete: (result) => {
       setBatchResult(result);
+      setShowBatchSelector(false);
     },
   });
 
@@ -109,6 +247,8 @@ function App() {
     } else {
       // 批量模式
       setMode('batch');
+      setBatchResult(null);
+      setShowBatchSelector(true);
       batch.clearFiles();
       batch.addFiles(filePaths);
     }
@@ -142,10 +282,11 @@ function App() {
         isPdfOnly: allPdf,
         onConfirm: (bank: string, docType: string, _forceOcr: boolean) => {
           overrideModal.close();
-          // 只更新检测值，不触发解析
           for (const fp of filePaths) {
             batch.updateFile(fp, { bank, docType: docType as any, error: undefined, isManual: true });
           }
+          setBatchResult(null);
+          setShowBatchSelector(true);
         },
       },
       initialOcr: false,
@@ -175,6 +316,8 @@ function App() {
 
   // ====== 批量：开始解析 ======
   const handleBatchStartParse = useCallback(() => {
+    setBatchResult(null);
+    setShowBatchSelector(false);
     batch.parseOnly();
   }, [batch.parseOnly]);
 
@@ -203,17 +346,14 @@ function App() {
 
   // ====== 批量：addFiles / detectOnly / parse / clear ======
   const handleBatchAddFiles = useCallback((filePaths: string[]) => {
+    setBatchResult(null);
+    setShowBatchSelector(true);
     batch.addFiles(filePaths);
   }, [batch.addFiles]);
 
   const handleBatchDetectOnly = useCallback(() => {
     batch.detectOnly();
   }, [batch.detectOnly]);
-
-  const handleBatchClear = useCallback(() => {
-    batch.clearFiles();
-    setBatchResult(null);
-  }, [batch.clearFiles]);
 
   // ====== 批量：重试单个失败文件 ======
   const handleBatchRetry = useCallback((filePaths: string[]) => {
@@ -274,44 +414,24 @@ function App() {
   // ====== 辅助 ======
   const detectUnknown = single.detectState === 'unknown';
 
-  // ====== 凭证生成子页面 ======
-  if (voucherFlow.showPage) {
-    return (
-      <Layout style={{ minHeight: '100vh' }}>
-        <Header style={{ background: '#001529', padding: '0 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Button
-            type="text"
-            icon={<ArrowLeftOutlined />}
-            onClick={voucherFlow.closePage}
-            style={{ color: '#fff', fontSize: 16 }}
-          >
-            返回
-          </Button>
-          <Title level={4} style={{ color: '#fff', margin: 0 }}>凭证生成</Title>
-        </Header>
-        <Content style={{ padding: '20px 24px' }}>
-          <VoucherPreviewPanel
-            vouchers={voucherFlow.vouchers}
-            subjects={voucherFlow.subjects}
-            onVouchersChange={voucherFlow.onVouchersChange}
-            onSaveDraft={voucherFlow.handleSaveDraft}
-            onExport={voucherFlow.handleExport}
-            onCancel={voucherFlow.closePage}
-            saveDisabled={voucherFlow.saving}
-            loading={voucherFlow.previewLoading}
-          />
-        </Content>
-      </Layout>
-    );
-  }
-
-  return (
+  // ====== 页面内容 ======
+  const pageContent = voucherFlow.showPage ? (
     <Layout style={{ minHeight: '100vh' }}>
-      <Header style={{ background: '#001529', padding: '0 24px' }}>
-        <Title level={3} style={{ color: '#fff', margin: '16px 0' }}>
-          财务助手
-        </Title>
-      </Header>
+      <Content style={{ padding: '20px 24px' }}>
+        <VoucherPreviewPanel
+          vouchers={voucherFlow.vouchers}
+          subjects={voucherFlow.subjects}
+          onVouchersChange={voucherFlow.onVouchersChange}
+          onSaveDraft={voucherFlow.handleSaveDraft}
+          onExport={voucherFlow.handleExport}
+          onCancel={voucherFlow.closePage}
+          saveDisabled={voucherFlow.saving}
+          loading={voucherFlow.previewLoading}
+        />
+      </Content>
+    </Layout>
+  ) : (
+    <Layout style={{ minHeight: '100vh' }}>
       <Content style={{ padding: '20px 24px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
@@ -367,25 +487,32 @@ function App() {
           {/* ====== 批量模式视图 ====== */}
           {mode === 'batch' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <BatchFileSelector
-                files={batch.files}
-                onAddFiles={handleBatchAddFiles}
-                onRemoveFile={batch.removeFile}
-                onClear={handleBatchClear}
-                onDetect={handleBatchDetectOnly}
-                onStartParse={handleBatchStartParse}
-                onModifyConfig={handleBatchModifyConfig}
-                isDetecting={batch.isDetecting}
-                isParsing={batch.isParsing}
-                detectDone={batch.detectDone}
-                currentIndex={batch.currentIndex}
-                totalCount={batch.totalCount}
-              />
+              {/* 识别列表：解析完成后自动隐藏，点击重新识别后恢复 */}
+              {showBatchSelector && (
+                <BatchFileSelector
+                  files={batch.files}
+                  onAddFiles={handleBatchAddFiles}
+                  onRemoveFile={batch.removeFile}
+                  onDetect={handleBatchDetectOnly}
+                  onStartParse={handleBatchStartParse}
+                  onModifyConfig={handleBatchModifyConfig}
+                  isDetecting={batch.isDetecting}
+                  detectDone={batch.detectDone}
+                  currentIndex={batch.currentIndex}
+                />
+              )}
 
-              {batchResult && (
+              {/* 解析过程中 + 解析完成后显示结果卡片 */}
+              {(batch.isParsing || batchResult) && !showBatchSelector && (
                 <BatchResultPanel
-                  files={batchResult.files}
+                  files={batch.files}
+                  isParsing={batch.isParsing}
+                  currentIndex={batch.currentIndex}
                   onRetry={handleBatchRetry}
+                  onRetryDetect={() => {
+                    setShowBatchSelector(true);
+                    setBatchResult(null);
+                  }}
                   onEditTransaction={txnEdit.openBatch}
                   onPreviewVoucher={() => {
                     const txns = getTransactionsForExport();
@@ -441,6 +568,12 @@ function App() {
         />
       </Modal>
     </Layout>
+  );
+
+  return (
+    <ConfigProvider theme={ledgerTheme}>
+      {pageContent}
+    </ConfigProvider>
   );
 }
 

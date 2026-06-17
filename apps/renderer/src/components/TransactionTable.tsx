@@ -1,7 +1,7 @@
 import { Table, Tag, Space, Typography, Button } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Transaction } from '@shared/types';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 const { Text } = Typography;
 
@@ -13,10 +13,14 @@ interface TransactionTableProps {
 }
 
 export function TransactionTable({ transactions, loading, onEdit, onDelete }: TransactionTableProps) {
+  const [currentPageSize, setCurrentPageSize] = useState(10);
+
   const dataSource = useMemo(() =>
     transactions.map((t, i) => ({ ...t, _key: t.reference_number || `tx-${i}` })),
     [transactions]
   );
+
+  const needScroll = currentPageSize >= 20 && dataSource.length > 10;
 
   const columns: ColumnsType<Transaction> = [
     {
@@ -38,7 +42,7 @@ export function TransactionTable({ transactions, loading, onEdit, onDelete }: Tr
       dataIndex: 'amount',
       key: 'amount',
       render: (amount: number, record: Transaction) => (
-        <Text strong style={{ color: record.direction === 'income' ? '#52c41a' : '#ff4d4f' }}>
+        <Text strong style={{ color: record.direction === 'income' ? '#065f46' : '#991b1b' }}>
           {Math.abs(amount).toFixed(2)}
         </Text>
       ),
@@ -50,7 +54,7 @@ export function TransactionTable({ transactions, loading, onEdit, onDelete }: Tr
       dataIndex: 'direction',
       key: 'direction',
       render: (dir: string) => (
-        <Tag color={dir === 'income' ? 'green' : 'red'}>
+        <Tag color={dir === 'income' ? 'success' : 'error'}>
           {dir === 'income' ? '收入' : '支出'}
         </Tag>
       ),
@@ -110,8 +114,14 @@ export function TransactionTable({ transactions, loading, onEdit, onDelete }: Tr
       dataSource={dataSource}
       rowKey="_key"
       loading={loading}
-      pagination={{ defaultPageSize: 20, showSizeChanger: true, showTotal: (total: number) => `共 ${total} 条` }}
-      scroll={{ y: 400 }}
+      pagination={{
+        defaultPageSize: 10,
+        showSizeChanger: true,
+        pageSizeOptions: ['10', '20', '50', '100'],
+        showTotal: (total: number) => `共 ${total} 条`,
+        onShowSizeChange: (_, size) => setCurrentPageSize(size),
+      }}
+      scroll={needScroll ? { y: 470 } : undefined}
       bordered
       size="middle"
     />

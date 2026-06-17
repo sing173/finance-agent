@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { message } from 'antd';
-import type { BatchFileResult, BatchResult, DetectFileResult, ParseFileParams, DocType } from '@shared/types';
+import type { BatchFileResult, BatchResult, ParseFileParams, DocType } from '@shared/types';
 import { getFileNameFromPath } from '../utils/pathUtils';
 
 interface UseBatchOrchestratorOptions {
@@ -98,35 +98,38 @@ export function useBatchOrchestrator(
   const detectOnly = useCallback(async () => {
     if (phase !== 'idle' || files.length === 0) return;
     setPhase('detecting');
+    setCurrentIndex(0);
+    setFiles((prev) =>
+      prev.map((f) => ({ ...f, status: 'pending' as const, bank: '', docType: '流水', error: undefined, isManual: false, transactionCount: 0, transactions: undefined })),
+    );
     try {
-      const detectResp = await window.electronAPI?.detectBanks?.(
-        files.map((f) => f.filePath),
-      );
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setCurrentIndex(i + 1);
 
-      const detectMap: Record<string, DetectFileResult> = {};
-      if (detectResp?.success && detectResp.results) {
-        for (const r of detectResp.results) {
-          detectMap[r.filePath] = r;
+        const detectResp = await window.electronAPI?.detectBanks?.([file.filePath]);
+
+        if (detectResp?.success && detectResp.results?.length > 0) {
+          const detected = detectResp.results[0];
+          setFiles((prev) =>
+            prev.map((f) => {
+              if (f.filePath !== file.filePath) return f;
+              return {
+                ...f,
+                bank: detected.bank,
+                docType: detected.docType,
+                status: detected.status === 'ok' ? 'pending' : 'failed',
+                error: detected.status === 'failed' ? '检测失败' : f.error,
+              };
+            }),
+          );
         }
       }
-
-      setFiles((prev) =>
-        prev.map((f) => {
-          const detected = detectMap[f.filePath];
-          if (!detected) return f;
-          return {
-            ...f,
-            bank: detected.bank,
-            docType: detected.docType,
-            status: detected.status === 'ok' ? 'pending' : 'failed',
-            error: detected.status === 'failed' ? '检测失败' : f.error,
-          };
-        }),
-      );
     } catch (err: any) {
       message.error('检测失败：' + err.message);
     } finally {
       setPhase('idle');
+      setCurrentIndex(0);
     }
   }, [files, phase]);
 
@@ -135,13 +138,16 @@ export function useBatchOrchestrator(
     setPhase('parsing');
     setIsParsing(true);
     setCurrentIndex(0);
+    setFiles((prev) =>
+      prev.map((f) => ({ ...f, status: 'pending' as const, error: undefined, transactionCount: 0, transactions: undefined })),
+    );
 
     try {
-      const results: BatchFileResult[] = [];
-
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         setCurrentIndex(i + 1);
+
+        let updated: BatchFileResult;
 
         // 强制验证：银行和文件类型必须都已配置，否则跳过
         const isUnknownBank = !file.bank ||
@@ -150,7 +156,7 @@ export function useBatchOrchestrator(
         const isMissingDocType = !file.docType;
 
         if (isUnknownBank || isMissingDocType) {
-          results.push({
+          updated = {
             filePath: file.filePath,
             fileName: file.fileName,
             bank: file.bank || '未知',
@@ -158,59 +164,64 @@ export function useBatchOrchestrator(
             status: 'failed',
             error: '无法识别银行类型或文件类型，请手动选择银行和文件类型后再解析',
             transactionCount: 0,
-          });
-          continue;
-        }
+          };
+        } else {
+          try {
+            const params: ParseFileParams = { filePath: file.filePath };
+            if (file.bank) params.bank = file.bank;
+            if (file.docType) params.docType = file.docType;
 
-        try {
-          const params: ParseFileParams = { filePath: file.filePath };
-          if (file.bank) params.bank = file.bank;
-          if (file.docType) params.docType = file.docType;
+            const r = await window.electronAPI?.parseFile?.(params);
 
-          const r = await window.electronAPI?.parseFile?.(params);
-
-          if (r?.success) {
-            results.push({
-              filePath: file.filePath,
-              fileName: file.fileName,
-              bank: r.bank || file.bank || '未知',
-              docType: r.docType || file.docType || 'unknown',
-              statementDate: r.statementDate,
-              status: 'success',
-              transactions: r.transactions,
-              transactionCount: r.transactions?.length || 0,
-            });
-          } else {
-            results.push({
+            if (r?.success) {
+              updated = {
+                filePath: file.filePath,
+                fileName: file.fileName,
+                bank: r.bank || file.bank || '未知',
+                docType: r.docType || file.docType || 'unknown',
+                statementDate: r.statementDate,
+                status: 'success',
+                transactions: r.transactions,
+                transactionCount: r.transactions?.length || 0,
+              };
+            } else {
+              updated = {
+                filePath: file.filePath,
+                fileName: file.fileName,
+                bank: file.bank || '未知',
+                docType: file.docType || '流水',
+                status: 'failed',
+                error: r?.errors?.join(", ") || '解析失败',
+                transactionCount: 0,
+              };
+            }
+          } catch (err: any) {
+            updated = {
               filePath: file.filePath,
               fileName: file.fileName,
               bank: file.bank || '未知',
               docType: file.docType || '流水',
               status: 'failed',
-              error: r?.errors?.join(", ") || '解析失败',
+              error: err.message,
               transactionCount: 0,
-            });
+            };
           }
-        } catch (err: any) {
-          results.push({
-            filePath: file.filePath,
-            fileName: file.fileName,
-            bank: file.bank || '未知',
-            docType: file.docType || '流水',
-            status: 'failed',
-            error: err.message,
-            transactionCount: 0,
-          });
         }
+
+        // 每解析完一个立即更新状态，让 UI 实时显示已完成的结果
+        setFiles((prev) => {
+          const next = [...prev];
+          next[i] = updated;
+          return next;
+        });
       }
 
-      setFiles(results);
       onCompleteRef.current?.({
-        files: results,
-        totalFiles: results.length,
-        successCount: results.filter((f) => f.status === 'success').length,
-        failedCount: results.filter((f) => f.status === 'failed').length,
-        totalTransactions: results.reduce((s, f) => s + f.transactionCount, 0),
+        files,
+        totalFiles: files.length,
+        successCount: files.filter((f) => f.status === 'success').length,
+        failedCount: files.filter((f) => f.status === 'failed').length,
+        totalTransactions: files.reduce((s, f) => s + f.transactionCount, 0),
       });
     } finally {
       setPhase('idle');

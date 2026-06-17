@@ -21,7 +21,7 @@ import fitz
 # Bank name constants (unified — ICBC uses full name everywhere now)
 # ═══════════════════════════════════════════════════════════════════
 
-BANK_ICBC = "中国工商银行"
+BANK_ICBC = "工商银行"
 BANK_CMB = "招商银行"
 BANK_GFB = "广发银行"
 BANK_BOC = "中国银行"
