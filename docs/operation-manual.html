@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinanceAssistant 操作手册</title>
+<style>
+  /* ════════════════════════════════════════
+     Design Tokens
+     ════════════════════════════════════════ */
+  :root {
+    --paper: #faf9f7;
+    --sheet: #ffffff;
+    --ink: #1c1917;
+    --ink-light: #44403c;
+    --slate: #78716c;
+    --rule: #d6d3cd;
+    --rule-light: #e7e5e4;
+    --accent: #1e3a5f;
+    --accent-light: #e8eef5;
+    --warn-bg: #fffbeb;
+    --warn-border: #d97706;
+    --danger: #991b1b;
+    --danger-bg: #fef2f2;
+    --success: #065f46;
+    --success-bg: #ecfdf5;
+  }
+
+  /* ════════════════════════════════════════
+     Reset & Base
+     ════════════════════════════════════════ */
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    line-height: 1.75;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+
+  /* ════════════════════════════════════════
+     Layout
+     ════════════════════════════════════════ */
+  .main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+  @media (min-width: 640px) {
+    .main { padding: 0 40px 96px; }
+  }
+
+  /* ════════════════════════════════════════
+     Hero / Header
+     ════════════════════════════════════════ */
+  .hero {
+    text-align: center;
+    padding: 64px 0 40px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 32px;
+  }
+  .hero h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: var(--ink);
+  }
+  .hero .meta {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--slate);
+    letter-spacing: 0.04em;
+    padding: 4px 14px;
+    border: 1px solid var(--rule);
+  }
+  .hero .lead {
+    margin-top: 16px;
+    font-size: 16px;
+    color: var(--ink-light);
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.7;
+  }
+
+  /* ════════════════════════════════════════
+     In-page Nav (Toc)
+     ════════════════════════════════════════ */
+  .toc {
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    padding: 20px 24px;
+    margin-bottom: 48px;
+  }
+  .toc-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--slate);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+  }
+  .toc-list {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin: 0;
+  }
+  .toc-list a {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-light);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .toc-list a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ════════════════════════════════════════
+     Typography
+     ════════════════════════════════════════ */
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+    color: var(--ink);
+    margin: 56px 0 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--accent);
+    scroll-margin-top: 24px;
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--ink);
+    margin: 32px 0 12px;
+    scroll-margin-top: 24px;
+  }
+  h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--slate);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 24px 0 10px;
+  }
+  p { margin-bottom: 12px; color: var(--ink-light); }
+  ul, ol { margin: 0 0 16px 20px; color: var(--ink-light); }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--slate); }
+  code {
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+    font-size: 13px;
+    background: var(--paper);
+    padding: 2px 6px;
+    border: 1px solid var(--rule-light);
+  }
+  a { color: var(--accent); }
+
+  /* ════════════════════════════════════════
+     Sections
+     ════════════════════════════════════════ */
+  section { margin-bottom: 48px; }
+
+  /* ════════════════════════════════════════
+     Steps
+     ════════════════════════════════════════ */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin: 20px 0;
+  }
+  .step {
+    background: var(--sheet);
+    padding: 24px 16px;
+    text-align: center;
+  }
+  .step-num {
+    display: inline-flex;
+    width: 32px; height: 32px;
+    align-items: center; justify-content: center;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .step p { margin: 0; font-size: 13px; font-weight: 500; color: var(--ink); }
+
+  /* ════════════════════════════════════════
+     Flow Block
+     ════════════════════════════════════════ */
+  .flow {
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    padding: 18px 22px;
+    margin: 16px 0;
+    font-family: "SF Mono", "Cascadia Code", monospace;
+    font-size: 13px;
+    line-height: 1.9;
+    color: var(--ink-light);
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* ════════════════════════════════════════
+     Callouts
+     ════════════════════════════════════════ */
+  .callout {
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 14px;
+    line-height: 1.6;
+    border-left: 3px solid transparent;
+  }
+  .callout-tip   { background: var(--success-bg); border-left-color: var(--success); }
+  .callout-warn  { background: var(--warn-bg);    border-left-color: var(--warn-border); }
+  .callout-note  { background: var(--accent-light); border-left-color: var(--accent); }
+  .callout strong { color: var(--ink); font-weight: 600; }
+
+  /* ════════════════════════════════════════
+     Tables
+     ════════════════════════════════════════ */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+    line-height: 1.55;
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+  }
+  th, td {
+    border: 1px solid var(--rule);
+    padding: 11px 16px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: #f0eeea;
+    font-weight: 600;
+    color: var(--ink);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  tr:nth-child(even) td { background: rgba(0,0,0,0.015); }
+  tr:hover td { background: rgba(0,0,0,0.025); }
+
+  /* ════════════════════════════════════════
+     Voucher Demo
+     ════════════════════════════════════════ */
+  .voucher-demo {
+    position: relative;
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    padding: 28px 24px 20px;
+    margin: 20px 0;
+    font-family: "SF Mono", "Cascadia Code", monospace;
+    font-size: 13px;
+    line-height: 1.85;
+    color: var(--ink-light);
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .voucher-demo::before {
+    content: '凭证示例';
+    position: absolute;
+    top: -1px; left: 16px;
+    background: var(--sheet);
+    padding: 2px 10px;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--slate);
+    letter-spacing: 0.08em;
+    border: 1px solid var(--rule);
+    border-top: none;
+  }
+
+  /* ════════════════════════════════════════
+     Voucher Card
+     ════════════════════════════════════════ */
+  .voucher-card {
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .voucher-header {
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    background: #f0eeea;
+    border-bottom: 1px solid var(--rule);
+  }
+  .voucher-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    border: none;
+  }
+  .voucher-table th,
+  .voucher-table td {
+    border: 1px solid var(--rule-light);
+    padding: 8px 10px;
+  }
+  .voucher-table th {
+    background: #f7f6f3;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--slate);
+  }
+  .voucher-table td { color: var(--ink-light); }
+  .voucher-table .unmatched {
+    color: var(--danger);
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  /* ════════════════════════════════════════
+     Tags
+     ════════════════════════════════════════ */
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    border-left: 3px solid;
+    line-height: 1.4;
+    margin-right: 6px;
+  }
+  .tag-rule      { border-color: var(--accent);  color: var(--accent);  background: var(--accent-light); }
+  .tag-history   { border-color: #b45309;        color: #92400e;        background: #fef3c7; }
+  .tag-manual    { border-color: var(--success); color: var(--success); background: var(--success-bg); }
+  .tag-unmatched { border-color: var(--danger);  color: var(--danger);  background: var(--danger-bg); }
+  .tag-auto      { border-color: var(--slate);   color: var(--slate);   background: #f0eeea; }
+
+  /* ════════════════════════════════════════
+     Match Layers
+     ════════════════════════════════════════ */
+  .layers {
+    display: flex;
+    gap: 0;
+    margin: 20px 0;
+    border: 1px solid var(--rule);
+    background: var(--sheet);
+  }
+  .layer {
+    flex: 1;
+    min-width: 140px;
+    padding: 20px 16px;
+    text-align: center;
+    border-right: 1px solid var(--rule);
+  }
+  .layer:last-child { border-right: none; }
+  .layer h4 {
+    margin: 0 0 6px;
+    font-size: 14px;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ink);
+  }
+  .layer p { margin: 0; font-size: 12px; line-height: 1.55; color: var(--slate); }
+  .layer-l1 { background: var(--accent-light); }
+  .layer-l1 h4 { color: var(--accent); }
+  .layer-l2 { background: #fef3c7; }
+  .layer-l2 h4 { color: #92400e; }
+  .layer-l3 { background: var(--danger-bg); }
+  .layer-l3 h4 { color: var(--danger); }
+
+  /* ════════════════════════════════════════
+     FAQ (Details)
+     ════════════════════════════════════════ */
+  details {
+    border: 1px solid var(--rule);
+    margin: 8px 0;
+    background: var(--sheet);
+  }
+  details + details { margin-top: -1px; }
+  summary {
+    list-style: none;
+    position: relative;
+    padding: 14px 48px 14px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::after {
+    content: '+';
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: monospace;
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--slate);
+  }
+  summary:hover { background: var(--paper); }
+  details[open] summary { background: var(--accent-light); color: var(--accent); }
+  details[open] summary::after { content: '\2212'; color: var(--accent); }
+  details .body {
+    padding: 4px 20px 18px;
+    font-size: 14px;
+    color: var(--ink-light);
+    border-top: 1px solid var(--rule-light);
+  }
+  details .body ul { margin: 8px 0 0 18px; }
+  details .body table { margin: 8px 0 0; }
+
+  /* ════════════════════════════════════════
+     Footer
+     ════════════════════════════════════════ */
+  .page-footer {
+    text-align: center;
+    padding: 32px 0 16px;
+    color: var(--slate);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    border-top: 1px solid var(--rule);
+    margin-top: 64px;
+  }
+
+  /* ════════════════════════════════════════
+     Responsive
+     ════════════════════════════════════════ */
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 22px; }
+    .toc-list { flex-direction: column; gap: 6px; }
+    h2 { font-size: 20px; margin-top: 40px; }
+    .layers { flex-direction: column; }
+    .layer { border-right: none; border-bottom: 1px solid var(--rule); }
+    .layer:last-child { border-bottom: none; }
+    .steps { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ════════════════════════════════════════
+     Print
+     ════════════════════════════════════════ */
+  @media print {
+    .main { padding: 0; max-width: 100%; }
+    body { background: #fff; font-size: 12pt; line-height: 1.6; }
+    h2 { border-bottom: 1pt solid #000; }
+    table { border: 1pt solid #ccc; }
+    th, td { border: 1pt solid #ccc; padding: 8pt; }
+    .flow, .voucher-demo, .callout { border: 1pt solid #ccc; border-left: 3pt solid #1e3a5f; }
+    .layers { border: 1pt solid #ccc; }
+    .layer { border-right: 1pt solid #ccc; }
+    details { border: 1pt solid #ccc; }
+    .toc { border: 1pt solid #ccc; }
+    a { text-decoration: none; color: #000; }
+  }
+</style>
+</head>
+<body>
+
+<main class="main">
+
+<!-- ═══ Header ═══ -->
+<header class="hero">
+  <h1>FinanceAssistant 操作手册</h1>
+  <span class="meta">v0.3.0</span>
+  <p class="lead">银行流水 → 凭证 → 金蝶，四步完成财务凭证自动化</p>
+</header>
+
+<!-- ═══ Table of Contents ═══ -->
+<nav class="toc">
+  <div class="toc-title">目录</div>
+  <ul class="toc-list">
+    <li><a href="#prep">准备工作</a></li>
+    <li><a href="#workflow">核心工作流程</a></li>
+    <li><a href="#advanced">进阶功能</a></li>
+    <li><a href="#data">数据与导出</a></li>
+    <li><a href="#faq">常见问题</a></li>
+  </ul>
+</nav>
+
+<!-- ════════════════════════════════════════
+     1. 准备工作
+     ════════════════════════════════════════ -->
+<section id="prep">
+  <h2>准备工作（首次使用）</h2>
+  <p>第一次使用前，需要完成两项一次性配置。后续日常操作无需重复。</p>
+
+  <h3>导入科目表</h3>
+  <ol>
+    <li>从金蝶精斗云导出科目表（xlsx 格式）</li>
+    <li>点击主界面「导入科目」按钮，选择导出的文件</li>
+    <li>系统内置约 300 条标准科目，导入后将与内置科目合并</li>
+  </ol>
+
+  <h3>配置银行账号映射</h3>
+  <p>让系统自动识别每笔交易的银行科目：</p>
+  <table>
+    <tr><th>操作</th><th>说明</th></tr>
+    <tr><td>新增</td><td>选择银行代码 → 匹配方式（后缀/精确）→ 输入账号模式 → 选科目</td></tr>
+    <tr><td>精确匹配</td><td>账号完全一致才匹配（适用于对公账户）</td></tr>
+    <tr><td>后缀匹配</td><td>账号末尾匹配指定模式即可（如尾号 4363 → 工行基本户）</td></tr>
+    <tr><td>修改/删除</td><td>在「账号管理」表格中直接编辑或删除</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>提示：</strong>账号映射配置完成后，解析流水时系统会自动将银行账号替换为对应的会计科目（如"银行存款_工行基本户"），无需手动选择。
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     2. 核心工作流程
+     ════════════════════════════════════════ -->
+<section id="workflow">
+  <h2>核心工作流程</h2>
+  <p>日常使用的标准操作流程，从文件到金蝶凭证只需四步。</p>
+
+  <div class="steps">
+    <div class="step"><div class="step-num">1</div><p>解析流水</p></div>
+    <div class="step"><div class="step-num">2</div><p>预览凭证</p></div>
+    <div class="step"><div class="step-num">3</div><p>修正科目</p></div>
+    <div class="step"><div class="step-num">4</div><p>导出凭证</p></div>
+  </div>
+
+  <h3>Step 1：解析银行流水</h3>
+  <p>支持拖拽、浏览选择或批量导入文件。</p>
+  <table>
+    <tr><th>银行</th><th>流水 PDF</th><th>回单 PDF</th><th>CSV</th><th>Excel</th></tr>
+    <tr><td>工商银行</td><td>✅</td><td>✅</td><td>✅</td><td>—</td></tr>
+    <tr><td>招商银行</td><td>✅</td><td>✅</td><td>—</td><td>✅</td></tr>
+    <tr><td>广发银行</td><td>✅</td><td>—</td><td>—</td><td>—</td></tr>
+  </table>
+
+  <div class="flow">拖入文件 → 自动检测银行 → 解析交易明细 → 展示结果
+               │                │
+         失败→手动选择      失败→检查文件格式</div>
+
+  <ul>
+    <li><strong>自动识别：</strong>系统检测银行和文档类型。识别失败时弹出手动选择窗口，指定银行 + 文档类型后重试</li>
+    <li><strong>批量处理：</strong>一次最多拖入 5 个文件，自动去重，逐个检测和解析</li>
+    <li><strong>OCR 扫描件：</strong>回单/扫描件自动触发 OCR（约 1–2 秒/页），耗时较长</li>
+  </ul>
+
+  <h3>Step 2：进入凭证预览</h3>
+  <p>解析完成后点击「凭证生成」，进入全屏预览面板。每条凭证是一个独立卡片，内含多条分录：</p>
+
+  <div class="voucher-card">
+    <div class="voucher-header">凭证 #1 — 2026-03-31</div>
+    <table class="voucher-table">
+      <thead>
+        <tr>
+          <th style="width:6%">序号</th>
+          <th style="width:10%">日期</th>
+          <th style="width:24%">摘要</th>
+          <th style="width:22%">科目</th>
+          <th style="width:10%;text-align:right">借方</th>
+          <th style="width:10%;text-align:right">贷方</th>
+          <th style="width:12%">对方名</th>
+          <th style="width:6%">来源</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>2026-03-31</td>
+          <td>支付物业管理费</td>
+          <td>5060203 管理费用_物业管理费</td>
+          <td style="text-align:right">1,200.00</td>
+          <td style="text-align:right"></td>
+          <td>XX物业公司</td>
+          <td><span class="tag tag-rule">规则</span></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>2026-03-31</td>
+          <td>支付物业管理费</td>
+          <td>100201 银行存款_工行基本户</td>
+          <td style="text-align:right"></td>
+          <td style="text-align:right">1,200.00</td>
+          <td>XX物业公司</td>
+          <td><span class="tag tag-auto">自动</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="voucher-card">
+    <div class="voucher-header">凭证 #2 — 2026-03-31</div>
+    <table class="voucher-table">
+      <thead>
+        <tr>
+          <th style="width:6%">序号</th>
+          <th style="width:10%">日期</th>
+          <th style="width:24%">摘要</th>
+          <th style="width:22%">科目</th>
+          <th style="width:10%;text-align:right">借方</th>
+          <th style="width:10%;text-align:right">贷方</th>
+          <th style="width:12%">对方名</th>
+          <th style="width:6%">来源</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>2026-03-31</td>
+          <td>支付办公用品采购费</td>
+          <td class="unmatched">⚠ 点击选择科目</td>
+          <td style="text-align:right">3,500.00</td>
+          <td style="text-align:right"></td>
+          <td>XX办公用品店</td>
+          <td><span class="tag tag-unmatched">未匹配</span></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>2026-03-31</td>
+          <td>支付办公用品采购费</td>
+          <td>100201 银行存款_工行基本户</td>
+          <td style="text-align:right"></td>
+          <td style="text-align:right">3,500.00</td>
+          <td>XX办公用品店</td>
+          <td><span class="tag tag-auto">自动</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout callout-warn" style="margin-top:12px">
+    <strong>提示：</strong>有 1 条分录未匹配到对方科目，请点击科目列选择或使用批量填充
+  </div>
+
+  <table>
+    <tr><th>界面元素</th><th>说明</th></tr>
+    <tr><td>凭证卡片</td><td>每张卡片代表一张凭证，标题显示编号和日期</td></tr>
+    <tr><td>科目列</td><td>黑色 = 自动匹配 &nbsp;|&nbsp; <span style="color:var(--danger)">红色 ⚠ = 未匹配（点击可修改）</span></td></tr>
+    <tr><td>来源列</td><td><span class="tag tag-rule">规则</span> 规则匹配 &nbsp;<span class="tag tag-history">历史</span> 历史学习 &nbsp;<span class="tag tag-manual">手动</span> 手动修正 &nbsp;<span class="tag tag-unmatched">未匹配</span> 未匹配</td></tr>
+    <tr><td>借/贷方</td><td>金额右对齐，空值留空</td></tr>
+  </table>
+
+  <h3>Step 3：检查与修正科目</h3>
+  <p>系统使用三层匹配自动分配科目：</p>
+
+  <div class="layers">
+    <div class="layer layer-l1">
+      <h4>L1 规则匹配</h4>
+      <p>摘要关键词命中预设规则<br>命中即停 · 准确度高</p>
+    </div>
+    <div class="layer layer-l2">
+      <h4>L2 历史学习</h4>
+      <p>TF-IDF 相似度匹配历史记录<br>阈值 0.75 · 越用越准</p>
+    </div>
+    <div class="layer layer-l3">
+      <h4>L3 手动选择</h4>
+      <p>用户手动选科目<br>红色高亮条目</p>
+    </div>
+  </div>
+
+  <p>修正未匹配科目的操作：</p>
+  <ol>
+    <li>点击红色高亮条目 → 弹出科目选择器</li>
+    <li>搜索关键词或按类别筛选 → 点击选择</li>
+    <li>选择后自动更新，匹配来源变为 <span class="tag tag-manual">manual</span></li>
+  </ol>
+
+  <p>如果大量条目科目相同，可使用<strong>批量填充</strong>：上方下拉菜单选择常用预设科目，一键应用到所有未匹配条目。</p>
+
+  <div class="callout callout-note">
+    <strong>学习机制：</strong>只有手动修正的结果会进入历史库供 L2 学习。自动匹配结果不记录。修正越频繁，L2 匹配越准。
+  </div>
+
+  <h3>Step 4：确认导出</h3>
+  <ol>
+    <li>检查所有条目均有科目（无红色 ⚠ 标记）</li>
+    <li>点击「确认导出」→ 选择保存位置</li>
+    <li>导出文件为金蝶精斗云 25 列凭证导入模板，直接导入即可</li>
+  </ol>
+
+  <h4>凭证 Excel 关键列</h4>
+  <table>
+    <tr><th>列号</th><th>名称</th><th>说明</th></tr>
+    <tr><td>1–10</td><td>日期/凭证字/摘要/科目/金额</td><td>基础凭证信息</td></tr>
+    <tr><td>15</td><td>部门</td><td>管理费用自动填充辅助核算</td></tr>
+    <tr><td>23</td><td>原币金额</td><td>交易原始金额</td></tr>
+    <tr><td>24–25</td><td>币别/汇率</td><td>默认 RMB / 1.0</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>金蝶导入路径：</strong>金蝶精斗云 → 凭证管理 → 导入 → 选择导出的文件。自动匹配日期、凭证字、科目、金额、部门。
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     3. 进阶功能
+     ════════════════════════════════════════ -->
+<section id="advanced">
+  <h2>进阶功能</h2>
+
+  <h3>保存与加载草稿</h3>
+  <p>凭证预览未完成时可暂存，下次继续编辑：</p>
+  <table>
+    <tr><th>操作</th><th>说明</th></tr>
+    <tr><td>保存草稿</td><td>当前凭证状态写入本地 SQLite，跨会话不丢失</td></tr>
+    <tr><td>加载草稿</td><td>从历史草稿列表中选择恢复，继续编辑</td></tr>
+    <tr><td>删除草稿</td><td>在草稿列表中移除不需要的记录</td></tr>
+  </table>
+
+  <h3>辅助核算（部门列）</h3>
+  <ul>
+    <li>管理费用科目（50602xx 系列）自动填充部门为"公共部门"</li>
+    <li>导出时写入第 15 列，金蝶导入后自动识别</li>
+    <li>银行分录和收入类科目不填充部门</li>
+  </ul>
+
+  <h3>批量处理多文件</h3>
+  <div class="flow">添加多个文件 → 识别文件（逐个检测银行类型）
+                → 开始解析（逐个解析，显示进度）
+                → 查看结果摘要（成功/失败/总笔数）</div>
+  <ul>
+    <li>检测失败的文件可点击「修改配置」手动指定银行</li>
+    <li>解析失败的文件显示红色，可修改后重试</li>
+    <li>成功文件可合并导出统一凭证</li>
+  </ul>
+</section>
+
+<!-- ════════════════════════════════════════
+     4. 数据与导出
+     ════════════════════════════════════════ -->
+<section id="data">
+  <h2>数据与导出</h2>
+
+  <h3>导出类型</h3>
+  <table>
+    <tr><th>导出类型</th><th>作用</th><th>入口</th></tr>
+    <tr><td>流水明细 Excel</td><td>原始交易列表 + 收支统计</td><td>解析完成后点击「导出明细」</td></tr>
+    <tr><td>金蝶凭证 Excel</td><td>25 列标准凭证导入模板</td><td>凭证预览 → 确认导出</td></tr>
+  </table>
+
+  <h3>数据存储与安全</h3>
+  <ul>
+    <li>所有数据存储在本地电脑，<strong>不上传云端</strong></li>
+    <li>数据库位置：<code>%APPDATA%/FinanceAssistant/data.db</code></li>
+    <li>草稿、历史记录、账号映射、科目表均在本地 SQLite 中</li>
+  </ul>
+</section>
+
+<!-- ════════════════════════════════════════
+     5. 常见问题
+     ════════════════════════════════════════ -->
+<section id="faq">
+  <h2>常见问题</h2>
+
+  <details>
+    <summary>Q1: "无法识别银行类型"怎么办？</summary>
+    <div class="body">
+      <ul>
+        <li>PDF 文件可能不是当前支持银行的格式</li>
+        <li>扫描件需 OCR 识别（约 1–2 秒/页），请耐心等待</li>
+        <li>手动选择银行 + 文档类型即可强制解析</li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>Q2: 科目匹配不准确怎么办？</summary>
+    <div class="body">
+      <ul>
+        <li>在凭证预览中手动修正 → 系统自动学习</li>
+        <li>修正次数越多，L2 历史匹配越准确</li>
+        <li>可在「账号管理」中完善银行账号映射规则</li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>Q3: 导出的 Excel 怎么导入金蝶？</summary>
+    <div class="body">
+      金蝶精斗云 → 凭证管理 → 导入 → 选择导出的文件。系统会自动匹配日期、凭证字、科目、金额、部门等字段。
+    </div>
+  </details>
+
+  <details>
+    <summary>Q4: 支持哪些文件格式？</summary>
+    <div class="body">
+      <table>
+        <tr><th>格式</th><th>说明</th></tr>
+        <tr><td>PDF</td><td>银行流水 / 回单（文本型 + 扫描件 OCR）</td></tr>
+        <tr><td>CSV</td><td>工商银行对账流水（GBK 编码）</td></tr>
+        <tr><td>Excel</td><td>招商银行流水</td></tr>
+      </table>
+    </div>
+  </details>
+
+  <details>
+    <summary>Q5: 辅助核算（部门）如何生效？</summary>
+    <div class="body">
+      <ul>
+        <li>系统自动为管理费用科目填充"公共部门"</li>
+        <li>金蝶导入时自动识别第 15 列（部门列）</li>
+        <li>如需修改部门配置，联系管理员调整 <code>subjects.json</code></li>
+      </ul>
+    </div>
+  </details>
+</section>
+
+<div class="page-footer">
+  FinanceAssistant v0.3.0 · 数据本地存储 · 不上传云端
+</div>
+
+</main>
+
+</body>
+</html>
