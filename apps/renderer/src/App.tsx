@@ -498,6 +498,7 @@ function App() {
                   onModifyConfig={handleBatchModifyConfig}
                   isDetecting={batch.isDetecting}
                   detectDone={batch.detectDone}
+                  allConfigured={batch.allConfigured}
                   currentIndex={batch.currentIndex}
                 />
               )}

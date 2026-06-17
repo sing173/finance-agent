@@ -17,6 +17,7 @@ interface BatchOrchestrator {
   successCount: number;
   failedCount: number;
   detectDone: boolean;
+  allConfigured: boolean;
   result: BatchResult | null;
 
   addFiles: (filePaths: string[]) => void;
@@ -50,6 +51,7 @@ export function useBatchOrchestrator(
   const failedCount = files.filter((f) => f.status === 'failed').length;
   const isDetecting = phase === 'detecting';
   const detectDone = totalCount > 0 && phase === 'idle';
+  const allConfigured = totalCount > 0 && files.every((f) => f.bank && f.bank !== '未知' && f.bank !== 'UNKNOWN' && f.docType);
 
   const result: BatchResult | null = totalCount > 0
     ? {
@@ -142,6 +144,8 @@ export function useBatchOrchestrator(
       prev.map((f) => ({ ...f, status: 'pending' as const, error: undefined, transactionCount: 0, transactions: undefined })),
     );
 
+    const latestFiles: BatchFileResult[] = files.map((f) => ({ ...f, status: 'pending' as const, error: undefined, transactionCount: 0, transactions: undefined }));
+
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -208,6 +212,8 @@ export function useBatchOrchestrator(
           }
         }
 
+        latestFiles[i] = updated;
+
         // 每解析完一个立即更新状态，让 UI 实时显示已完成的结果
         setFiles((prev) => {
           const next = [...prev];
@@ -217,11 +223,11 @@ export function useBatchOrchestrator(
       }
 
       onCompleteRef.current?.({
-        files,
-        totalFiles: files.length,
-        successCount: files.filter((f) => f.status === 'success').length,
-        failedCount: files.filter((f) => f.status === 'failed').length,
-        totalTransactions: files.reduce((s, f) => s + f.transactionCount, 0),
+        files: latestFiles,
+        totalFiles: latestFiles.length,
+        successCount: latestFiles.filter((f) => f.status === 'success').length,
+        failedCount: latestFiles.filter((f) => f.status === 'failed').length,
+        totalTransactions: latestFiles.reduce((s, f) => s + f.transactionCount, 0),
       });
     } finally {
       setPhase('idle');
@@ -319,6 +325,7 @@ export function useBatchOrchestrator(
     successCount,
     failedCount,
     detectDone,
+    allConfigured,
     result,
 
     addFiles,

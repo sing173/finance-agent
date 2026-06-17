@@ -225,29 +225,12 @@ export function VoucherPreviewPanel({
         />
       )}
 
-      {editedVouchers.map((v) => (
-        <Card
-          key={v.voucher_no}
-          title={`凭证 #${v.voucher_no} — ${v.date}`}
-          size="small"
-          style={{ marginBottom: 12 }}
-        >
-          <Table
-            dataSource={v.entries}
-            columns={columns}
-            rowKey="entry_seq"
-            pagination={false}
-            size="small"
-          />
-        </Card>
-      ))}
-
       <Space
         style={{
-          marginTop: 16,
+          marginBottom: 16,
           position: 'sticky',
-          bottom: 0,
-          background: 'transparent',
+          top: 0,
+          background: '#faf9f7',
           padding: '12px 0',
           zIndex: 10,
         }}
@@ -287,6 +270,23 @@ export function VoucherPreviewPanel({
           <Button onClick={onCancel}>取消</Button>
         )}
       </Space>
+
+      {editedVouchers.map((v) => (
+        <Card
+          key={v.voucher_no}
+          title={`凭证 #${v.voucher_no} — ${v.date}`}
+          size="small"
+          style={{ marginBottom: 12 }}
+        >
+          <Table
+            dataSource={v.entries}
+            columns={columns}
+            rowKey="entry_seq"
+            pagination={false}
+            size="small"
+          />
+        </Card>
+      ))}
 
       <SubjectPickerModal
         visible={pickerVisible}

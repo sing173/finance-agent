@@ -12,6 +12,7 @@ interface BatchFileSelectorProps {
   onModifyConfig: (filePath: string) => void;
   isDetecting: boolean;
   detectDone: boolean;
+  allConfigured: boolean;
   currentIndex?: number;
 }
 
@@ -24,6 +25,7 @@ export function BatchFileSelector({
   onModifyConfig,
   isDetecting,
   detectDone,
+  allConfigured,
   currentIndex = 0,
 }: BatchFileSelectorProps) {
   const [maxFiles, setMaxFiles] = useState(5);
@@ -75,7 +77,7 @@ export function BatchFileSelector({
         {files.length > 0 && (
           <>
             <Button onClick={onDetect} disabled={isDetecting} loading={isDetecting} icon={<EditOutlined />}>识别文件</Button>
-            <Button style={{ background: '#dc2626', color: '#fff', borderColor: '#dc2626' }} onClick={onStartParse} disabled={isDetecting || !detectDone} icon={<PlayCircleOutlined />}>开始解析</Button>
+            <Button style={{ background: '#dc2626', color: '#fff', borderColor: '#dc2626' }} onClick={() => allConfigured ? onStartParse() : message.warning('请先识别文件或手动设置类型')} disabled={isDetecting} icon={<PlayCircleOutlined />}>开始解析</Button>
           </>
         )}
       </Space>
