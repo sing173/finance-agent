@@ -1,7 +1,6 @@
-import { Card } from 'antd';
 import type { Transaction, ParseFileResult } from '@shared/types';
 import { ResultCard } from './ResultCard';
-import { TransactionTable } from './TransactionTable';
+import { getFileNameFromPath } from '../utils/pathUtils';
 
 interface SingleFileResultPanelProps {
   detectState: 'idle' | 'detecting' | 'detected' | 'unknown';
@@ -31,18 +30,11 @@ export function SingleFileResultPanel({
   onEditTransaction,
 }: SingleFileResultPanelProps) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* 检测中 */}
-      {detectState === 'detecting' && (
-        <Card title="检测中">
-          <span style={{ color: '#999' }}>正在识别银行类型...</span>
-        </Card>
-      )}
-
-      {/* 检测完成 / 解析中 / 解析结果 */}
+    <div>
       {(detectState === 'detected' || detectState === 'unknown' || loading || currentResult) && (
         <ResultCard
           key={currentFilePath || undefined}
+          fileName={currentFilePath ? getFileNameFromPath(currentFilePath) : undefined}
           phase={
             loading
               ? 'parsing'
@@ -59,22 +51,13 @@ export function SingleFileResultPanel({
           error={currentResult?.errors?.join(', ') || undefined}
           detectUnknown={detectUnknown}
           isManual={detectInfo.isManual}
+          transactions={currentResult?.transactions || []}
           onRedetect={onRedetect}
           onModifyConfig={onModifyConfig}
           onStartParse={onStartParse}
           onPreviewVoucher={() => onPreviewVoucher(currentResult?.transactions || [])}
+          onEditTransaction={onEditTransaction}
         />
-      )}
-
-      {/* 交易列表 */}
-      {currentResult?.success && currentResult.transactions?.length > 0 && (
-        <Card title="交易列表">
-          <TransactionTable
-            transactions={currentResult.transactions}
-            loading={loading}
-            onEdit={onEditTransaction}
-          />
-        </Card>
       )}
     </div>
   );

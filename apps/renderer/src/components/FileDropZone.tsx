@@ -63,8 +63,8 @@ export function FileDropZone({ onFilesSelected }: FileDropZoneProps) {
       style={{
         height: 200,
         cursor: 'pointer',
-        border: isDragOver ? '2px dashed #1677ff' : '2px dashed #1677ff33',
-        background: isDragOver ? '#e6f4ff' : undefined,
+        border: isDragOver ? '2px dashed #1e3a5f' : '2px dashed #d6d3cd',
+        background: isDragOver ? '#e8eef5' : undefined,
         transition: 'border-color 0.2s, background 0.2s',
       }}
       styles={{
@@ -81,7 +81,7 @@ export function FileDropZone({ onFilesSelected }: FileDropZoneProps) {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
-      <InboxOutlined style={{ fontSize: 48, color: '#1677ff', marginBottom: 12 }} />
+      <InboxOutlined style={{ fontSize: 48, color: '#1e3a5f', marginBottom: 12 }} />
       <span style={{ fontSize: 15, fontWeight: 500, color: '#333' }}>
         点击或拖拽文件至此区域
       </span>

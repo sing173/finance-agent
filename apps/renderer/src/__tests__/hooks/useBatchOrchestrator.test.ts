@@ -79,13 +79,15 @@ describe('useBatchOrchestrator', () => {
 
   describe('detectOnly', () => {
     it('updates files with detected bank and docType', async () => {
-      const detectBanks = vi.fn().mockResolvedValue({
-        success: true,
-        results: [
-          { filePath: '/a.pdf', bank: '工商银行', docType: '流水', status: 'ok' },
-          { filePath: '/b.pdf', bank: '招商银行', docType: '流水', status: 'ok' },
-        ],
-      });
+      const detectBanks = vi.fn()
+        .mockResolvedValueOnce({
+          success: true,
+          results: [{ filePath: '/a.pdf', bank: '工商银行', docType: '流水', status: 'ok' }],
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          results: [{ filePath: '/b.pdf', bank: '招商银行', docType: '流水', status: 'ok' }],
+        });
       mockElectronAPI({ detectBanks });
 
       const { result } = renderHook(() => useBatchOrchestrator());

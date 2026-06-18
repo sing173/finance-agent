@@ -45,7 +45,7 @@ const Row = memo(function Row({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Text strong>{item.code}</Text>
           <Text>{item.name}</Text>
-          {item.is_cash && <Tag color="green">现金</Tag>}
+          {item.is_cash && <Tag color="success">现金</Tag>}
         </div>
         {item.full_name && item.full_name !== item.name && (
           <Text type="secondary" style={{ fontSize: 12 }}>

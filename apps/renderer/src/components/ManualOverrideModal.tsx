@@ -80,7 +80,7 @@ export function ManualOverrideModal({
         </Button>,
         <Button
           key="confirm"
-          type="primary"
+          style={{ background: '#dc2626', color: '#fff', borderColor: '#dc2626' }}
           disabled={!bank}
           onClick={handleConfirm}
         >

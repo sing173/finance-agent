@@ -1,44 +1,32 @@
 import { useState, useEffect } from 'react';
 import { Button, Space, Typography, Tag, message, Tooltip, Spin } from 'antd';
-import { PlusOutlined, CloseOutlined, DeleteOutlined, EditOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, EditOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import type { BatchFileResult } from '@shared/types';
 
 interface BatchFileSelectorProps {
   files: BatchFileResult[];
   onAddFiles: (filePaths: string[]) => void;
   onRemoveFile: (filePath: string) => void;
-  onClear: () => void;
-  /** Detect banks (no parse) */
   onDetect: () => void;
-  /** Parse all files based on detected results */
   onStartParse: () => void;
-  /** Modify a single file's detection config (no parse) */
   onModifyConfig: (filePath: string) => void;
-  /** Currently detecting banks */
   isDetecting: boolean;
-  /** Currently parsing files */
-  isParsing: boolean;
-  /** Detection done (files added and not detecting) */
   detectDone: boolean;
-  /** Current parsing index (1-based), 0 means not parsing */
+  allConfigured: boolean;
   currentIndex?: number;
-  /** Total file count */
-  totalCount?: number;
 }
 
 export function BatchFileSelector({
   files,
   onAddFiles,
   onRemoveFile,
-  onClear,
   onDetect,
   onStartParse,
   onModifyConfig,
   isDetecting,
-  isParsing,
   detectDone,
+  allConfigured,
   currentIndex = 0,
-  totalCount = 0,
 }: BatchFileSelectorProps) {
   const [maxFiles, setMaxFiles] = useState(5);
 
@@ -70,77 +58,36 @@ export function BatchFileSelector({
     }
   };
 
-  const getStatusTag = (file: BatchFileResult) => {
-    if (file.status === 'success') return <Tag color="green">解析成功</Tag>;
-    if (file.status === 'failed') return <Tag color="red">解析失败</Tag>;
-    if (file.bank && file.bank !== '未知') return <Tag color={file.isManual ? 'purple' : 'blue'}>{file.isManual ? '已设置' : '已检测'}</Tag>;
+  const getStatusTag = (file: BatchFileResult, isCurrentDetecting: boolean) => {
+    if (isCurrentDetecting) return <Tag color="processing">识别中...</Tag>;
+    if (file.isManual && file.bank && file.bank !== '未知') return <Tag color="purple">已设置</Tag>;
+    if (file.status === 'failed') return <Tag color="error">检测失败</Tag>;
+    if (file.bank && file.bank !== '未知') return <Tag color="success">已检测</Tag>;
     return <Tag>待检测</Tag>;
   };
 
-  // Parsing progress text
-  const parsingProgress = isParsing && totalCount > 0
-    ? `正在解析 ${currentIndex}/${totalCount}`
-    : null;
-
   return (
     <div style={{ marginBottom: 16 }}>
+      {/* 操作按钮区 */}
       <Space style={{ marginBottom: 12 }}>
         <Tooltip title={atLimit ? `最多 ${maxFiles} 个文件` : ''}>
-          <Button
-            icon={<PlusOutlined />}
-            onClick={handleAddFiles}
-            disabled={atLimit}
-          >
-            添加文件
-          </Button>
+          <Button icon={<PlusOutlined />} onClick={handleAddFiles} disabled={atLimit}>添加文件</Button>
         </Tooltip>
 
         {files.length > 0 && (
           <>
-            <Button
-              onClick={onDetect}
-              disabled={isDetecting || isParsing}
-              loading={isDetecting}
-              icon={<EditOutlined />}
-            >
-              识别文件
-            </Button>
-
-            <Button
-              type="primary"
-              onClick={onStartParse}
-              disabled={isDetecting || isParsing || !detectDone}
-              loading={isParsing}
-              icon={<PlayCircleOutlined />}
-            >
-              开始解析
-            </Button>
-
-            <Button
-              icon={<CloseOutlined />}
-              onClick={onClear}
-              disabled={isDetecting || isParsing}
-            >
-              清空列表
-            </Button>
+            <Button onClick={onDetect} disabled={isDetecting} loading={isDetecting} icon={<EditOutlined />}>识别文件</Button>
+            <Button style={{ background: '#dc2626', color: '#fff', borderColor: '#dc2626' }} onClick={() => allConfigured ? onStartParse() : message.warning('请先识别文件或手动设置类型')} disabled={isDetecting} icon={<PlayCircleOutlined />}>开始解析</Button>
           </>
         )}
       </Space>
 
-      {isParsing && parsingProgress && (
-        <div style={{ marginBottom: 8 }}>
-          <Typography.Text type="secondary">
-            <Spin size="small" style={{ marginRight: 8 }} />
-            {parsingProgress}
-          </Typography.Text>
-        </div>
-      )}
-
+      {/* 文件列表 */}
       {files.length > 0 && (
         <div
           style={{
-            border: '1px solid #d9d9d9',
-            borderRadius: 8,
+            border: '1px solid #d6d3cd',
+            borderRadius: 6,
             padding: 8,
             maxHeight: 300,
             overflowY: 'auto',
@@ -148,7 +95,7 @@ export function BatchFileSelector({
         >
           {files.map((file) => {
             const hasError = file.status === 'failed';
-            const isCurrentParsing = isParsing && file.status === 'pending' && files.indexOf(file) === currentIndex - 1;
+            const isCurrentDetecting = isDetecting && file.status === 'pending' && files.indexOf(file) === currentIndex - 1;
             return (
               <div
                 key={file.filePath}
@@ -157,52 +104,27 @@ export function BatchFileSelector({
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '6px 8px',
-                  borderBottom: '1px solid #f0f0f0',
-                  background: isCurrentParsing ? '#e6f7ff' : hasError ? '#fff2f0' : undefined,
+                  borderBottom: '1px solid #e7e5e4',
+                  background: isCurrentDetecting ? '#e8eef5' : hasError ? '#fef2f2' : undefined,
                   transition: 'background 0.2s',
                 }}
               >
                 <Space size={8}>
-                  {isParsing && isCurrentParsing && <Spin size="small" />}
-                  <Typography.Text
-                    ellipsis={{ tooltip: file.fileName }}
-                    style={{ maxWidth: 260 }}
-                  >
-                    {file.fileName}
-                  </Typography.Text>
+                  {isCurrentDetecting && <Spin size="small" />}
+                  <Typography.Text ellipsis={{ tooltip: file.fileName }} style={{ maxWidth: 260 }}>{file.fileName}</Typography.Text>
                   {file.bank && file.bank !== '未知' && (
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                      {file.bank} · {file.docType || 'unknown'}
-                    </Typography.Text>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>{file.bank} · {file.docType || 'unknown'}</Typography.Text>
                   )}
-                  {getStatusTag(file)}
+                  {getStatusTag(file, isCurrentDetecting)}
                   {hasError && file.error && (
-                    <Typography.Text type="danger" style={{ fontSize: 12 }}>
-                      {file.error}
-                    </Typography.Text>
+                    <Typography.Text type="danger" style={{ fontSize: 12 }}>{file.error}</Typography.Text>
                   )}
                 </Space>
                 <Space size={4}>
                   {detectDone && (
-                    <Button
-                      type="link"
-                      size="small"
-                      icon={<EditOutlined />}
-                      onClick={() => onModifyConfig(file.filePath)}
-                      disabled={isParsing}
-                      title="修改配置"
-                    >
-                      修改
-                    </Button>
+                    <Button type="link" size="small" icon={<EditOutlined />} onClick={() => onModifyConfig(file.filePath)} title="修改配置">修改</Button>
                   )}
-                  <Button
-                    type="text"
-                    size="small"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={() => onRemoveFile(file.filePath)}
-                    disabled={isDetecting || isParsing}
-                  />
+                  <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={() => onRemoveFile(file.filePath)} disabled={isDetecting} />
                 </Space>
               </div>
             );
