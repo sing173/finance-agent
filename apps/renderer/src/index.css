@@ -41,3 +41,16 @@ body {
 .ant-layout-header .ant-btn-text:hover {
   background: rgba(0, 0, 0, 0.04) !important;
 }
+
+/* ── 凭证预览分组行 ── */
+.voucher-group-row > td {
+  background: #ffffff !important;
+  padding: 8px 12px !important;
+  font-weight: 600;
+  border-bottom: 2px solid #d6d3cd !important;
+}
+
+/* ── 表头背景色（强制覆盖，防止被其他样式覆盖） ── */
+.ant-table-thead > tr > th {
+  background: #f7f6f3 !important;
+}

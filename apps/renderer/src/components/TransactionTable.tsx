@@ -1,4 +1,4 @@
-import { Table, Tag, Space, Typography, Button } from 'antd';
+import { Table, Tag, Space, Typography, Button, Pagination } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Transaction } from '@shared/types';
 import { useMemo, useState } from 'react';
@@ -13,16 +13,24 @@ interface TransactionTableProps {
 }
 
 export function TransactionTable({ transactions, loading, onEdit, onDelete }: TransactionTableProps) {
-  const [currentPageSize, setCurrentPageSize] = useState(10);
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(10);
 
-  const dataSource = useMemo(() =>
-    transactions.map((t, i) => ({ ...t, _key: t.reference_number || `tx-${i}` })),
-    [transactions]
-  );
+  const paginatedData = useMemo(() => {
+    const start = (page - 1) * size;
+    return transactions.slice(start, start + size).map((t, i) => ({
+      ...t,
+      _key: t.reference_number || `tx-${start + i}`,
+    }));
+  }, [transactions, page, size]);
 
-  const needScroll = currentPageSize >= 20 && dataSource.length > 10;
-
-  const columns: ColumnsType<Transaction> = [
+  const columns: ColumnsType<any> = [
+    {
+      title: '#',
+      key: 'seq',
+      width: 50,
+      render: (_: any, __: any, index: number) => (page - 1) * size + index + 1,
+    },
     {
       title: '日期',
       dataIndex: 'date',
@@ -78,52 +86,46 @@ export function TransactionTable({ transactions, loading, onEdit, onDelete }: Tr
       key: 'account_number',
       width: 200,
     },
-    // {
-    //   title: '本方户名',
-    //   dataIndex: 'account_name',
-    //   key: 'account_name',
-    //   ellipsis: true,
-    //   width: 200,
-    // },
-    // {
-    //   title: '流水号',
-    //   dataIndex: 'reference_number',
-    //   key: 'reference_number',
-    //   width: 150,
-    // },
     {
       title: '操作',
       key: 'action',
-      render: (_: any, _record: Transaction, index: number) => (
+      width: 120,
+      render: (_: any, record: any) => (
         <Space>
           {onEdit && (
-            <Button type="link" size="small" onClick={() => onEdit(transactions[index])}>编辑</Button>
+            <Button type="link" size="small" onClick={() => onEdit(record)}>编辑</Button>
           )}
           {onDelete && (
-            <Button type="link" size="small" danger onClick={() => onDelete(transactions[index])}>删除</Button>
+            <Button type="link" size="small" danger onClick={() => onDelete(record)}>删除</Button>
           )}
         </Space>
       ),
-      width: 120,
     },
   ];
 
   return (
-    <Table
-      columns={columns}
-      dataSource={dataSource}
-      rowKey="_key"
-      loading={loading}
-      pagination={{
-        defaultPageSize: 10,
-        showSizeChanger: true,
-        pageSizeOptions: ['10', '20', '50', '100'],
-        showTotal: (total: number) => `共 ${total} 条`,
-        onShowSizeChange: (_, size) => setCurrentPageSize(size),
-      }}
-      scroll={needScroll ? { y: 470 } : undefined}
-      bordered
-      size="middle"
-    />
+    <div>
+      <Table
+        columns={columns}
+        dataSource={paginatedData}
+        rowKey="_key"
+        loading={loading}
+        pagination={false}
+        scroll={{ y: 470 }}
+        bordered
+        size="middle"
+      />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+        <Pagination
+          current={page}
+          pageSize={size}
+          total={transactions.length}
+          showSizeChanger
+          pageSizeOptions={[10, 20, 50, 100]}
+          showTotal={(total) => `共 ${total} 条`}
+          onChange={(p, s) => { setPage(p); if (s !== size) { setSize(s); setPage(1); } }}
+        />
+      </div>
+    </div>
   );
 }
