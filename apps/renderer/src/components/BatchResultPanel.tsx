@@ -51,7 +51,7 @@ export function BatchResultPanel({
           padding: '12px 16px',
           background: '#ffffff',
           border: '1px solid #d6d3cd',
-          borderRadius: 2,
+          borderRadius: 6,
         }}
       >
         <Space size={16}>

@@ -54,3 +54,23 @@ body {
 .ant-table-thead > tr > th {
   background: #f7f6f3 !important;
 }
+
+/* ── Select 下拉框滚动隔离（防止滚动穿透到页面） ── */
+.ant-select-dropdown .rc-virtual-list-holder {
+  overscroll-behavior: contain !important;
+}
+
+/* ── Checkbox 勾选框圆角收紧 ── */
+.ant-checkbox-inner {
+  border-radius: 3px !important;
+}
+
+/* ── 凭证预览表格 checkbox 垂直居中 ── */
+.voucher-preview-table .ant-table-cell {
+  vertical-align: middle !important;
+}
+.voucher-preview-table .ant-checkbox-wrapper {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 100% !important;
+}

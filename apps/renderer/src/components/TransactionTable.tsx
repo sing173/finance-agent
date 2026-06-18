@@ -1,4 +1,4 @@
-import { Table, Tag, Space, Typography, Button, Pagination } from 'antd';
+import { Table, Tag, Space, Typography, Button } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Transaction } from '@shared/types';
 import { useMemo, useState } from 'react';
@@ -13,37 +13,39 @@ interface TransactionTableProps {
 }
 
 export function TransactionTable({ transactions, loading, onEdit, onDelete }: TransactionTableProps) {
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  const paginatedData = useMemo(() => {
-    const start = (page - 1) * size;
-    return transactions.slice(start, start + size).map((t, i) => ({
+  const dataSource = useMemo(() =>
+    transactions.map((t, i) => ({
       ...t,
-      _key: t.reference_number || `tx-${start + i}`,
-    }));
-  }, [transactions, page, size]);
+      _key: `tx-${i}`,
+    })),
+    [transactions]
+  );
+
+  const needScroll = pageSize > 10 && dataSource.length > 10;
 
   const columns: ColumnsType<any> = [
     {
       title: '#',
       key: 'seq',
-      width: 50,
-      render: (_: any, __: any, index: number) => (page - 1) * size + index + 1,
+      width: '4%',
+      render: (_: any, __: any, index: number) => (currentPage - 1) * pageSize + index + 1,
     },
     {
       title: '日期',
       dataIndex: 'date',
       key: 'date',
       sorter: (a, b) => a.date.localeCompare(b.date),
-      width: 120,
+      width: '10%',
     },
     {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
       ellipsis: true,
-      width: 300,
+      width: '25%',
     },
     {
       title: '金额',
@@ -55,7 +57,7 @@ export function TransactionTable({ transactions, loading, onEdit, onDelete }: Tr
         </Text>
       ),
       sorter: (a, b) => Math.abs(a.amount) - Math.abs(b.amount),
-      width: 120,
+      width: '10%',
     },
     {
       title: '方向',
@@ -71,25 +73,25 @@ export function TransactionTable({ transactions, loading, onEdit, onDelete }: Tr
         { text: '支出', value: 'expense' },
       ],
       onFilter: (value: boolean | React.Key, record: Transaction) => record.direction === value,
-      width: 100,
+      width: '6%',
     },
     {
       title: '对方户名',
       dataIndex: 'counterparty',
       key: 'counterparty',
       ellipsis: true,
-      width: 200,
+      width: '18%',
     },
     {
       title: '本方帐号',
       dataIndex: 'account_number',
       key: 'account_number',
-      width: 200,
+      width: '18%',
     },
     {
       title: '操作',
       key: 'action',
-      width: 120,
+      width: '9%',
       render: (_: any, record: any) => (
         <Space>
           {onEdit && (
@@ -104,28 +106,24 @@ export function TransactionTable({ transactions, loading, onEdit, onDelete }: Tr
   ];
 
   return (
-    <div>
-      <Table
-        columns={columns}
-        dataSource={paginatedData}
-        rowKey="_key"
-        loading={loading}
-        pagination={false}
-        scroll={{ y: 470 }}
-        bordered
-        size="middle"
-      />
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-        <Pagination
-          current={page}
-          pageSize={size}
-          total={transactions.length}
-          showSizeChanger
-          pageSizeOptions={[10, 20, 50, 100]}
-          showTotal={(total) => `共 ${total} 条`}
-          onChange={(p, s) => { setPage(p); if (s !== size) { setSize(s); setPage(1); } }}
-        />
-      </div>
-    </div>
+    <Table
+      columns={columns}
+      dataSource={dataSource}
+      rowKey="_key"
+      loading={loading}
+      pagination={{
+        defaultPageSize: 10,
+        showSizeChanger: true,
+        pageSizeOptions: ['10', '20', '50', '100'],
+        showTotal: (total) => `共 ${total} 条`,
+        onChange: (page, size) => {
+          setCurrentPage(page);
+          setPageSize(size);
+        },
+      }}
+      scroll={needScroll ? { y: 470 } : undefined}
+      bordered
+      size="middle"
+    />
   );
 }

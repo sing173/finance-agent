@@ -87,7 +87,7 @@ export function BatchFileSelector({
         <div
           style={{
             border: '1px solid #d6d3cd',
-            borderRadius: 2,
+            borderRadius: 6,
             padding: 8,
             maxHeight: 300,
             overflowY: 'auto',

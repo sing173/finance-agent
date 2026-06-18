@@ -9,6 +9,7 @@ import {
   RightOutlined,
 } from '@ant-design/icons';
 import { SubjectPickerModal } from './SubjectPickerModal';
+import { SplitEntryModal } from './SplitEntryModal';
 import type { SubjectItem, VoucherEntry, VoucherData } from '@shared/types';
 import { isUnmatchedNonBank, flattenToRows, moveEntries, splitEntry, type TableRow } from '../hooks/voucher_utils';
 
@@ -34,6 +35,8 @@ const MATCH_TAGS: Record<string, { color: string; label: string }> = {
 const BATCH_SUBJECTS = [
   { code: '5060203', name: '管理费用_物业管理费' },
   { code: '5060202', name: '管理费用_办公费' },
+  { code: '1022120', name: '其他应收款_手续费' },
+  { code: '5060214', name: '管理费用_公积金' },
 ];
 
 const TOTAL_COLUMNS = 9;
@@ -53,6 +56,8 @@ export function VoucherPreviewPanel({
   const [editedVouchers, setEditedVouchers] = useState<VoucherData[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<Set<number>>(new Set());
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [splitModalOpen, setSplitModalOpen] = useState(false);
+  const [splitTarget, setSplitTarget] = useState<{ voucherNo: number; entrySeq: number; amount: number; isDebit: boolean; summary: string } | null>(null);
 
   useEffect(() => {
     setEditedVouchers(JSON.parse(JSON.stringify(propVouchers)));
@@ -343,6 +348,25 @@ export function VoucherPreviewPanel({
   const selectedCount = selectedKeys.size;
   const isSingleSelect = selectedCount === 1;
 
+  const handleSplitConfirm = useCallback(
+    (parts: { amount: number; summary: string }[]) => {
+      if (!splitTarget) return;
+      const newEntries = parts.map((p) => ({
+        debit_amount: splitTarget.isDebit ? p.amount : null,
+        credit_amount: splitTarget.isDebit ? null : p.amount,
+        summary: p.summary,
+      }));
+      setEditedVouchers((prev) =>
+        splitEntry(prev, splitTarget.voucherNo, splitTarget.entrySeq, newEntries) as VoucherData[],
+      );
+      setSelectedKeys(new Set());
+      setSplitModalOpen(false);
+      setSplitTarget(null);
+      message.success('分录已拆分');
+    },
+    [splitTarget],
+  );
+
   return (
     <Spin spinning={loading} tip="正在生成凭证...">
       {unmatchedCount > 0 && (
@@ -377,7 +401,7 @@ export function VoucherPreviewPanel({
             <Button icon={<ThunderboltOutlined />}>批量填充</Button>
           </Dropdown>
         )}
-        <Button type="default" icon={<SaveOutlined />} onClick={onSaveDraft} disabled={saveDisabled}>
+        <Button type="default" icon={<SaveOutlined />} onClick={onSaveDraft} disabled={saveDisabled || splitModalOpen}>
           保存草稿
         </Button>
         <Popconfirm
@@ -391,7 +415,7 @@ export function VoucherPreviewPanel({
           okText="确认导出"
           cancelText="取消"
         >
-          <Button style={{ background: '#dc2626', color: '#fff', borderColor: '#dc2626' }} icon={<ExportOutlined />}>
+          <Button style={{ background: '#dc2626', color: '#fff', borderColor: '#dc2626' }} icon={<ExportOutlined />} disabled={splitModalOpen}>
             确认导出
           </Button>
         </Popconfirm>
@@ -401,6 +425,7 @@ export function VoucherPreviewPanel({
       </Space>
 
       <Table
+        className="voucher-preview-table"
         dataSource={visibleRows}
         columns={columns}
         rowKey="key"
@@ -418,7 +443,7 @@ export function VoucherPreviewPanel({
             bottom: 0,
             background: '#ffffff',
             border: '1px solid #d6d3cd',
-            borderRadius: 2,
+            borderRadius: 6,
             padding: '10px 16px',
             marginTop: 12,
             display: 'flex',
@@ -435,6 +460,10 @@ export function VoucherPreviewPanel({
               placeholder="移动到..."
               style={{ width: 140 }}
               listHeight={480}
+              dropdownStyle={{
+                overscrollBehavior: 'contain',
+                boxShadow: '0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05)',
+              }}
               filterOption={(input, option) =>
                 String(option?.value).includes(input)
               }
@@ -453,14 +482,16 @@ export function VoucherPreviewPanel({
               const entry = voucher?.entries.find((e) => e.entry_seq === sel.entry_seq);
               if (!entry || !voucher) return;
 
-              const half = Math.round((entry.debit_amount || entry.credit_amount || 0) / 2);
-              const newEntries = [
-                { debit_amount: entry.debit_amount != null ? half : null, credit_amount: entry.credit_amount != null ? half : null },
-                { debit_amount: entry.debit_amount != null ? (entry.debit_amount! - half) : null, credit_amount: entry.credit_amount != null ? (entry.credit_amount! - half) : null },
-              ];
-              setEditedVouchers((prev) => splitEntry(prev, sel.voucher_no, sel.entry_seq, newEntries) as VoucherData[]);
-              setSelectedKeys(new Set());
-              message.success('分录已拆分');
+              const isDebit = entry.debit_amount != null && entry.debit_amount > 0;
+              const amount = isDebit ? entry.debit_amount! : entry.credit_amount!;
+              setSplitTarget({
+                voucherNo: sel.voucher_no,
+                entrySeq: sel.entry_seq,
+                amount,
+                isDebit,
+                summary: entry.summary || '',
+              });
+              setSplitModalOpen(true);
             }}>
               拆分
             </Button>
@@ -479,6 +510,20 @@ export function VoucherPreviewPanel({
         onSelect={handleSubjectSelect}
         subjects={subjects}
       />
+
+      {splitTarget && (
+        <SplitEntryModal
+          open={splitModalOpen}
+          originalAmount={splitTarget.amount}
+          originalSummary={splitTarget.summary}
+          isDebit={splitTarget.isDebit}
+          onCancel={() => {
+            setSplitModalOpen(false);
+            setSplitTarget(null);
+          }}
+          onConfirm={handleSplitConfirm}
+        />
+      )}
     </Spin>
   );
 }

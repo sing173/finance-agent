@@ -41,10 +41,10 @@ const ledgerTheme = {
     colorSuccessBorder: '#a7f3d0',
     colorInfoBg: '#e8eef5',
     colorInfoBorder: '#bfdbfe',
-    // 边框
-    borderRadius: 2,
-    borderRadiusLG: 2,
-    borderRadiusSM: 0,
+    // 边框（现代圆角）
+    borderRadius: 6,
+    borderRadiusLG: 8,
+    borderRadiusSM: 4,
     colorBorder: '#d6d3cd',
     colorBorderSecondary: '#e7e5e4',
     // 背景
@@ -83,28 +83,28 @@ const ledgerTheme = {
     Card: {
       headerBg: '#ffffff',
       actionsBg: '#faf9f7',
-      borderRadiusLG: 2,
-      borderRadius: 2,
+      borderRadiusLG: 8,
+      borderRadius: 6,
       headerFontSize: 14,
       headerHeight: 40,
     },
     Button: {
-      borderRadius: 2,
+      borderRadius: 6,
       primaryShadow: 'none',
       defaultShadow: 'none',
       dangerShadow: 'none',
     },
     Modal: {
-      borderRadiusLG: 2,
-      borderRadius: 2,
+      borderRadiusLG: 8,
+      borderRadius: 6,
     },
     Tag: {
-      borderRadiusSM: 0,
-      borderRadius: 0,
+      borderRadiusSM: 4,
+      borderRadius: 4,
     },
     Alert: {
-      borderRadiusLG: 2,
-      borderRadius: 2,
+      borderRadiusLG: 6,
+      borderRadius: 6,
     },
     Layout: {
       headerBg: '#faf9f7',
@@ -114,43 +114,43 @@ const ledgerTheme = {
       siderBg: '#ffffff',
     },
     Menu: {
-      borderRadius: 0,
+      borderRadius: 6,
     },
     Dropdown: {
-      borderRadiusLG: 2,
+      borderRadiusLG: 8,
     },
     Tooltip: {
-      borderRadius: 2,
+      borderRadius: 6,
     },
     Popover: {
-      borderRadiusLG: 2,
+      borderRadiusLG: 8,
     },
     Select: {
-      borderRadius: 2,
+      borderRadius: 6,
     },
     Input: {
-      borderRadius: 2,
+      borderRadius: 6,
     },
     InputNumber: {
-      borderRadius: 2,
+      borderRadius: 6,
     },
     DatePicker: {
-      borderRadius: 2,
+      borderRadius: 6,
     },
     Form: {
       itemMarginBottom: 16,
     },
     List: {
-      borderRadiusLG: 2,
+      borderRadiusLG: 8,
     },
     Collapse: {
-      borderRadiusLG: 2,
+      borderRadiusLG: 8,
     },
     Descriptions: {
-      borderRadius: 2,
+      borderRadius: 6,
     },
     Empty: {
-      borderRadius: 2,
+      borderRadius: 6,
     },
   },
 };
