@@ -8,7 +8,7 @@
 
 多进程架构：**Renderer**（React + TS + Vite）→ **Electron**（Node + TS）→ **Python**（stdio JSON-RPC）。
 
-**当前状态**：v0.3.0 — 凭证系统（三层科目匹配 + SQLite 草稿 + TF-IDF 历史学习）已上线。
+**当前状态**：v0.3.1 — 凭证系统（三层科目匹配 + SQLite 草稿 + TF-IDF 历史学习 + 分录移动/拆分）已上线。
 
 **范围**：领域上下文详见 `CONTEXT.md`。
 
