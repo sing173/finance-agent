@@ -56,8 +56,8 @@ export function VoucherDraftList({ drafts, onLoad, onDelete, loading }: VoucherD
                   title={
                     <Space>
                       {item.name}
-                      {item.status === 'exported' && <Tag color="green">已导出</Tag>}
-                      {item.status === 'draft' && <Tag color="blue">草稿</Tag>}
+                      {item.status === 'exported' && <Tag color="success">已导出</Tag>}
+                      {item.status === 'draft' && <Tag color="primary">草稿</Tag>}
                     </Space>
                   }
                   description={

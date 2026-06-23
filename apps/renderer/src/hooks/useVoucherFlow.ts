@@ -112,9 +112,10 @@ export function useVoucherFlow() {
         }
       }
 
+      const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
       const outputPath = await window.electronAPI?.saveFileDialog?.({
         title: '保存凭证 Excel',
-        defaultPath: `voucher_${period || Date.now()}.xlsx`,
+        defaultPath: `金蝶精斗云_${timestamp}.xlsx`,
       });
       if (!outputPath) return;
 

@@ -1,11 +1,14 @@
 import { Button, Space, Typography, Tag, Card } from 'antd';
-import { PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined } from '@ant-design/icons';
+import { TransactionTable } from './TransactionTable';
+import type { Transaction } from '@shared/types';
 
 const { Text } = Typography;
 
 interface ResultCardProps {
   /** 'detect' | 'parsing' | 'success' | 'failed' */
   phase: 'detect' | 'parsing' | 'success' | 'failed';
+  fileName?: string;
   bank: string;
   docType: string;
   transactionCount: number;
@@ -13,10 +16,12 @@ interface ResultCardProps {
   error?: string;
   detectUnknown?: boolean;
   isManual?: boolean;
+  transactions?: Transaction[];
   onRedetect: () => void;
   onModifyConfig: () => void;
   onStartParse: () => void;
   onPreviewVoucher?: () => void;
+  onEditTransaction?: (txn: Transaction) => void;
 }
 
 const bankLabel = (bank: string) =>
@@ -24,6 +29,7 @@ const bankLabel = (bank: string) =>
 
 export function ResultCard({
   phase,
+  fileName,
   bank,
   docType,
   transactionCount,
@@ -31,16 +37,17 @@ export function ResultCard({
   error,
   detectUnknown,
   isManual = false,
+  transactions = [],
   onRedetect,
   onModifyConfig,
   onStartParse,
   onPreviewVoucher,
+  onEditTransaction,
 }: ResultCardProps) {
   const isSuccess = phase === 'success';
   const isFailed = phase === 'failed';
   const isParsing = phase === 'parsing';
   const beforeParse = phase === 'detect' || phase === 'parsing';
-  const afterParse = phase === 'success' || phase === 'failed';
 
   const tagText = isParsing
     ? '解析中...'
@@ -65,29 +72,31 @@ export function ResultCard({
     ? 'purple'
     : 'blue';
 
-  const borderColor = isParsing
-    ? '#1677ff'
-    : detectUnknown
-    ? '#faad14'
-    : isSuccess
-    ? '#52c41a'
-    : isFailed
-    ? '#ff4d4f'
-    : undefined;
-
   return (
-    <Card style={{ borderColor }}>
-      {/* 第一行：Tag + 银行/类型/日期/笔数 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+    <Card style={{ border: '1px solid #d6d3cd' }}>
+      {/* 顶部信息行：Tag + 银行/类型/日期/笔数 + 凭证生成按钮（靠右） */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          marginBottom: 16,
+          flexWrap: 'wrap',
+        }}
+      >
         <Tag color={tagColor}>{tagText}</Tag>
 
-        <Text>
-          {bankLabel(bank)}
-        </Text>
+        {fileName && (
+          <>
+            <Text strong ellipsis={{ tooltip: fileName }} style={{ maxWidth: 260 }}>{fileName}</Text>
+            <Text type="secondary">|</Text>
+          </>
+        )}
+
+        <Text>{bankLabel(bank)}</Text>
         <Text type="secondary">|</Text>
         <Text>{docType || 'unknown'}</Text>
 
-        {/* 解析成功后显示额外信息 */}
         {isSuccess && (
           <>
             {statementDate && (
@@ -102,47 +111,53 @@ export function ResultCard({
             </Text>
           </>
         )}
+
+        {/* 凭证生成按钮 */}
+        {isSuccess && onPreviewVoucher && (
+          <Button
+            style={{
+              background: '#dc2626',
+              color: '#fff',
+              borderColor: '#dc2626',
+            }}
+            onClick={onPreviewVoucher}
+          >
+            凭证生成
+          </Button>
+        )}
       </div>
 
-      {/* 第二行：错误信息 */}
+      {/* 错误信息 */}
       {isFailed && error && (
         <div style={{ marginBottom: 16 }}>
           <Text type="danger">{error}</Text>
         </div>
       )}
 
-      {/* 第三行：按钮 */}
-      <Space>
-        {/* 重新检测 — 解析前/识别失败后可见 */}
-        {beforeParse && (
-          <Button onClick={onRedetect} disabled={isParsing}>重新检测</Button>
-        )}
-
-        {/* 修改配置 — 仅解析前可见 */}
-        {beforeParse && (
-          <Button onClick={onModifyConfig} disabled={isParsing}>修改配置</Button>
-        )}
-
-        {/* 开始解析 / 重新解析 */}
-        <Button
-          type="primary"
-          icon={afterParse ? <ReloadOutlined /> : <PlayCircleOutlined />}
-          onClick={onStartParse}
+      {/* 交易表格 — 直接融合在 Card 内部 */}
+      {isSuccess && transactions.length > 0 && onEditTransaction && (
+        <TransactionTable
+          transactions={transactions}
           loading={isParsing}
-        >
-          {afterParse ? '重新解析' : '开始解析'}
-        </Button>
+          onEdit={onEditTransaction}
+        />
+      )}
 
-        {/* 凭证生成 → 凭证预览 — 仅解析成功后可见 */}
-        {isSuccess && onPreviewVoucher && (
+      {/* 底部操作按钮 — 仅解析前可见 */}
+      {beforeParse && (
+        <Space style={{ marginTop: 16 }}>
+          <Button onClick={onRedetect} disabled={isParsing}>重新检测</Button>
+          <Button onClick={onModifyConfig} disabled={isParsing}>修改配置</Button>
           <Button
-            style={{ background: '#52c41a', color: '#fff', borderColor: '#52c41a' }}
-            onClick={onPreviewVoucher}
+            style={{ background: '#dc2626', color: '#fff', borderColor: '#dc2626' }}
+            icon={<PlayCircleOutlined />}
+            onClick={onStartParse}
+            loading={isParsing}
           >
-            凭证生成
+            开始解析
           </Button>
-        )}
-      </Space>
+        </Space>
+      )}
     </Card>
   );
 }

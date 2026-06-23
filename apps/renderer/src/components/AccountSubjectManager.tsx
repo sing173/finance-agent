@@ -301,7 +301,7 @@ export function AccountSubjectManager({
         </Space>
       }
       extra={
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+        <Button style={{ background: '#dc2626', color: '#fff', borderColor: '#dc2626' }} icon={<PlusOutlined />} onClick={handleAdd}>
           新增
         </Button>
       }

@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "finance-agent-backend"
 description = "Python backend for finance-agent"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Python C <dev@example.com>"]
 
 [tool.poetry.dependencies]
