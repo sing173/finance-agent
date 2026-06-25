@@ -2,6 +2,7 @@
   "name": "finance-agent-electron",
   "version": "0.3.1",
   "description": "财务智能助手 - 银行对账桌面应用",
+  "author": "zungen",
   "main": "dist/main.js",
   "scripts": {
     "dev": "npm run build && electron .",
@@ -21,7 +22,7 @@
     "typescript": "^5.6.0"
   },
   "build": {
-    "appId": "com.finance-assistant.app",
+    "appId": "com.zungen.financeassistant",
     "productName": "FinanceAssistant",
     "directories": {
       "output": "../../release"
@@ -51,7 +52,6 @@
           ]
         }
       ],
-      "signDlls": false,
       "signAndEditExecutable": false
     },
     "nsis": {
@@ -59,46 +59,22 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
+    },
+    "ohos": {
+      "icon": "./icon.png",
+      "target": [
+        "hap"
+      ],
+      "hvigorwPath": "D:/Development/DevEco Studio/tools/hvigor/bin",
+      "ohpmPath": "D:/Development/DevEco Studio/tools/ohpm/bin",
+      "sdkPath": "D:/Development/DevEco Studio/sdk",
+      "ohosHapPath": "D:/HarmonyDevelopment/electron-harmony-sdk/v34.8.3-20260612.1-release/libelectron/ohos_hap",
+      "certPath": "D:/WorkSpace/zungen/finance-agent/apps/electron/cert/financeassistant_ohos.cer",
+      "profile": "D:/WorkSpace/zungen/finance-agent/apps/electron/cert/financeassistant_profileRelease.p7b",
+      "keyAlias": "financeassistant",
+      "keyPassword": "zungen@123",
+      "storeFile": "D:/WorkSpace/zungen/finance-agent/apps/electron/cert/financeassistant.p12",
+      "storePassword": "zungen@123"
     }
-  },
-  "ohos": {
-    "icon": "./heart.png",
-    "target": [
-      "hap"
-    ],
-    "hvigorwPath": "D:/Development/DevEco Studio/tools/hvigor/bin",
-    "ohpmPath": "D:/Development/DevEco Studio/tools/ohpm/bin",
-    "sdkPath": "D:/Development/DevEco Studio/sdk",
-    "ohosHapPath": "D:/HarmonyDevelopment/electron-harmony-sdk/v34.8.3-20260612.1-release/libelectron/ohos_hap",
-    "certPath": "./cert/financeassistant.cer",
-    "profile": "./cert/financeassistant.p7b",
-    "keyAlias": "financeassistant",
-    "keyPassword": "zungen@123",
-    "storeFile": "./cert/financeassistant.p12",
-    "storePassword": "123456",
-    "requestPermissions": [
-      {
-        "name": "ohos.permission.xxx",
-        "reason": "xxx",
-        "usedScene": {
-          "abilities": [
-            "FormAbility"
-          ],
-          "when": "always"
-        }
-      }
-    ],
-    "skills": [
-      {
-        "actions": [
-          "example.want.action.viewData"
-        ],
-        "uris": [
-          {
-            "scheme": "www.example.com"
-          }
-        ]
-      }
-    ]
   }
 }
