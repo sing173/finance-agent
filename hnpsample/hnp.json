@@ -1,0 +1,13 @@
+{
+   "type":"hnp-config",
+   "name":"ffmpeg",
+   "version":"1.1",
+   "install":{
+       "links":[
+           {
+               "source":"bin/ffmpeg",
+               "target":"ffmpeg"
+           }
+       ]
+   }
+}

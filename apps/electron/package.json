@@ -10,9 +10,11 @@
     "build": "tsc",
     "package": "electron-builder --win",
     "package:python": "cd ../python && python -m pyinstaller bridge.spec --onefile --clean",
-    "package:all": "npm run package:python && npm run package"
+    "package:all": "npm run package:python && npm run package",
+    "dist:ohos": "electron-builder-ohos --ohos"
   },
   "devDependencies": {
+    "@electron-ohos/electron-builder": "^26.8.5",
     "7zip-bin": "^5.2.0",
     "electron": "32.3.3",
     "electron-builder": "^24.13.3",
@@ -58,5 +60,45 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     }
+  },
+  "ohos": {
+    "icon": "./heart.png",
+    "target": [
+      "hap"
+    ],
+    "hvigorwPath": "D:/Development/DevEco Studio/tools/hvigor/bin",
+    "ohpmPath": "D:/Development/DevEco Studio/tools/ohpm/bin",
+    "sdkPath": "D:/Development/DevEco Studio/sdk",
+    "ohosHapPath": "D:/HarmonyDevelopment/electron-harmony-sdk/v34.8.3-20260612.1-release/libelectron/ohos_hap",
+    "certPath": "./cert/financeassistant.cer",
+    "profile": "./cert/financeassistant.p7b",
+    "keyAlias": "financeassistant",
+    "keyPassword": "zungen@123",
+    "storeFile": "./cert/financeassistant.p12",
+    "storePassword": "123456",
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.xxx",
+        "reason": "xxx",
+        "usedScene": {
+          "abilities": [
+            "FormAbility"
+          ],
+          "when": "always"
+        }
+      }
+    ],
+    "skills": [
+      {
+        "actions": [
+          "example.want.action.viewData"
+        ],
+        "uris": [
+          {
+            "scheme": "www.example.com"
+          }
+        ]
+      }
+    ]
   }
 }
