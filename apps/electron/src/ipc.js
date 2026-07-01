@@ -1,30 +1,21 @@
-import { pythonProcess } from './pythonProcessManager';
-import { ipcMain, app, dialog, BrowserWindow } from 'electron';
+const { pythonProcess } = require('./pythonProcessManager');
+const { ipcMain, app, dialog, BrowserWindow } = require('electron');
 
 // ═══════════════════════════════════════════════════════════════════
 // Declarative IPC handler registry
 // Single source of truth for RPC methods — drives both ipcMain registration
-// and preload.ts type declarations.
+// and preload.js exposure.
 // ═══════════════════════════════════════════════════════════════════
-
-interface HandlerDef {
-  /** IPC channel name (also used as JSON-RPC method in bridge.py) */
-  channel: string;
-  /** JSON-RPC method name in bridge.py (null = pure Electron-side handler) */
-  method: string | null;
-  /** Exposed in preload.ts → renderer? */
-  expose: boolean;
-}
 
 // All registered handlers. Pure Python-call handlers use `method`, Electron-only
 // handlers use method=null and provide their own implementation inline.
-const HANDLERS: HandlerDef[] = [
+const HANDLERS = [
   // Pure Python delegation
   { channel: 'parse_pdf',               method: 'parse_pdf',           expose: true  },
   { channel: 'generate_excel',          method: 'generate_excel',      expose: true  },
   { channel: 'import_subjects',         method: 'import_subjects',     expose: true  },
   { channel: 'get_subjects_info',       method: 'get_subjects_info',   expose: true  },
-  { channel: 'detect_banks',            method: 'detect_banks',        expose: true  },
+  { channel: 'detect_banks',            method: 'detect_banks',        expose: true },
   { channel: 'detect_supported_banks',  method: 'detect_supported_banks', expose: true },
 
   // Issue #29: FR-1 账号-科目管理
@@ -54,18 +45,18 @@ const HANDLERS: HandlerDef[] = [
 ];
 
 
-export function setupIpcHandlers() {
+function setupIpcHandlers() {
   for (const h of HANDLERS) {
     if (h.method) {
       // Pure Python delegation
-      ipcMain.handle(h.channel, async (_event: any, params: any) => {
-        return pythonProcess.call(h.method!, params);
+      ipcMain.handle(h.channel, async (_event, params) => {
+        return pythonProcess.call(h.method, params);
       });
     } else {
       // Electron-side handler — registered per-channel below
       switch (h.channel) {
         case 'select_file': {
-          ipcMain.handle('select_file', async (event: any, params: any) => {
+          ipcMain.handle('select_file', async (event, params) => {
             const win = BrowserWindow.fromWebContents(event.sender);
             if (!win) return null;
             const allowMulti = params?.allowMulti || false;
@@ -76,7 +67,7 @@ export function setupIpcHandlers() {
               { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
               { name: 'All Files', extensions: ['*'] },
             ];
-            const dialogOpts: any = { filters };
+            const dialogOpts = { filters };
             if (allowMulti) dialogOpts.properties = ['openFile', 'multiSelections'];
             else dialogOpts.properties = ['openFile'];
             const { filePaths } = await dialog.showOpenDialog(win, dialogOpts);
@@ -85,7 +76,7 @@ export function setupIpcHandlers() {
           break;
         }
         case 'save_file_dialog': {
-          ipcMain.handle('save_file_dialog', async (event: any, params: any) => {
+          ipcMain.handle('save_file_dialog', async (event, params) => {
             const win = BrowserWindow.fromWebContents(event.sender);
             if (!win) return null;
             const { filePath } = await dialog.showSaveDialog(win, {
@@ -114,4 +105,4 @@ export function setupIpcHandlers() {
   app.on('before-quit', () => {});
 }
 
-
+module.exports = { setupIpcHandlers };

@@ -5,7 +5,7 @@ const path = require('path');
 const srcDir = path.join(__dirname, 'src');
 
 // 鸿蒙项目 app 目录
-const ohosAppDir = path.join(__dirname, '..', '..', 'finance-assistant-ohos', 'web_engine', 'src', 'main', 'resources', 'resfile', 'resources', 'app');
+const ohosAppDir = path.join(__dirname, '..', '..', '..', 'finance-assistant-ohos', 'web_engine', 'src', 'main', 'resources', 'resfile', 'resources', 'app');
 
 // 需要复制的 JS 文件
 const filesToCopy = ['main.js', 'ipc.js', 'preload.js', 'pythonProcessManager.js'];

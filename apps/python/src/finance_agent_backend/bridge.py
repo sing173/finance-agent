@@ -42,10 +42,27 @@ _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-if getattr(sys, 'frozen', False):
-    _log = _setup_logging(Path(os.environ.get('APPDATA', Path.home().as_posix())) / 'FinanceAssistant' / 'logs')
-else:
-    _log = _setup_logging(Path(_project_root) / '..' / '..' / '..' / 'logs')
+def _get_log_dir() -> Path:
+    """获取日志目录，HNP 模式下写入 /tmp（HNP 安装目录只读）"""
+    # 优先使用环境变量
+    env_dir = os.environ.get('LOG_DIR')
+    if env_dir:
+        return Path(env_dir)
+
+    # HNP 模式（HarmonyOS）：写到 /tmp
+    if 'ohos' in sys.platform or 'openharmony' in sys.platform:
+        return Path('/tmp/finance-agent-backend/logs')
+
+    # PyInstaller 打包模式
+    if getattr(sys, 'frozen', False):
+        base = os.environ.get('APPDATA', Path.home().as_posix())
+        return Path(base) / 'FinanceAssistant' / 'logs'
+
+    # 开发模式
+    return Path(_project_root).parent.parent.parent / 'logs'
+
+
+_log = _setup_logging(_get_log_dir())
 
 # 方法注册表
 METHODS = {}  # type: dict

@@ -1,17 +1,18 @@
-import { spawn, ChildProcess } from 'child_process';
-import { EventEmitter } from 'events';
-import * as path from 'path';
-import * as fs from 'fs';
+const { spawn } = require('child_process');
+const EventEmitter = require('events');
+const path = require('path');
+const fs = require('fs');
+const { dialog } = require('electron');
 
-function getResourcesPath(): string | undefined {
+function getResourcesPath() {
   try {
-    return (process as any).resourcesPath;
+    return process.resourcesPath;
   } catch {
     return undefined;
   }
 }
 
-function isElectronPackaged(): boolean {
+function isElectronPackaged() {
   try {
     const { app } = require('electron');
     return app.isPackaged === true;
@@ -20,9 +21,29 @@ function isElectronPackaged(): boolean {
   }
 }
 
-function getPythonSpawnConfig(): { cmd: string; args: string[]; cwd: string } {
+function getPythonSpawnConfig() {
+  // HarmonyOS HNP 模式：通过 HNP 执行 Python 后端
+  // HNP 安装路径格式：/data/app/{hnp-name}.org/{hnp-name}_{version}/
+  if (
+    process.platform === 'ohos' ||
+    process.platform === 'openharmony' ||
+    process.env.OHOS_HNP_MODE === '1'
+  ) {
+    const HNP_NAME    = 'finance-agent-backend';
+    const HNP_VERSION = '1.0';
+    const hnpHome     = `/data/app/${HNP_NAME}.org/${HNP_NAME}_${HNP_VERSION}`;
+    const pythonPath   = `${hnpHome}/bin/python3`;
+    const sitePackages = `${hnpHome}/lib/python3.13/site-packages`;
+
+    console.log('[PathUtils] HarmonyOS HNP mode, using:', pythonPath);
+    return {
+      cmd: pythonPath,
+      args: ['-m', 'finance_agent_backend.bridge'],
+      cwd: sitePackages,
+    };
+  }
+
   if (process.env.PYTHON_CMD) {
-    // validate explicit path when provided
     if (!fs.existsSync(process.env.PYTHON_CMD)) {
       const msg = `PYTHON_CMD is set but executable not found: ${process.env.PYTHON_CMD}`;
       console.error(`[PathUtils] ${msg}`);
@@ -59,39 +80,66 @@ function getPythonSpawnConfig(): { cmd: string; args: string[]; cwd: string } {
   return { cmd: venvPython, args: [scriptPath], cwd: path.dirname(scriptPath) };
 }
 
-export class PythonProcessManager extends EventEmitter {
-  private process: ChildProcess | null = null;
-  private pendingRequests = new Map<number, {
-    resolve: (value: any) => void;
-    reject: (error: any) => void;
-  }>();
-  private requestId = 0;
-  private stdoutBuffer = '';
+class PythonProcessManager extends EventEmitter {
+  constructor() {
+    super();
+    this.process = null;
+    this.pendingRequests = new Map();
+    this.requestId = 0;
+    this.stdoutBuffer = '';
+  }
 
-  async start(): Promise<void> {
+  async start() {
     if (this.process) return;
 
     const pythonConfig = getPythonSpawnConfig();
     console.log(`[Python] Starting: ${pythonConfig.cmd} ${pythonConfig.args.join(' ')}`);
 
+    // HarmonyOS HNP 模式需要设置 PYTHONHOME/PYTHONPATH 让 Python 找到标准库
+    const isHarmonyOS = process.platform === 'ohos' || process.platform === 'openharmony' || process.env.OHOS_HNP_MODE === '1';
+    const env = { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' };
+    if (isHarmonyOS) {
+      const HNP_NAME    = 'finance-agent-backend';
+      const HNP_VERSION = '1.0';
+      const hnpHome     = `/data/app/${HNP_NAME}.org/${HNP_NAME}_${HNP_VERSION}`;
+      env.PYTHONHOME = hnpHome;
+      env.PYTHONPATH = [
+        `${hnpHome}/lib/python3.13`,
+        `${hnpHome}/lib/python3.13/lib-dynload`,
+        `${hnpHome}/lib/python3.13/site-packages`,
+      ].join(':');
+      // 日志写到 /tmp（HNP 安装目录只读）
+      env.LOG_DIR = '/tmp/finance-agent-backend';
+      console.log('[Python] HNP mode, PYTHONHOME:', env.PYTHONHOME);
+    }
+
     this.process = spawn(pythonConfig.cmd, pythonConfig.args, {
       cwd: pythonConfig.cwd,
-      env: { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' },
+      env: env,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
-    this.process.stdout?.on('data', (chunk: Buffer) => {
+    // stdout：处理 JSON-RPC 响应
+    this.process.stdout.on('data', (chunk) => {
       this.handleStdout(chunk.toString('utf-8'));
     });
 
-    this.process.stderr?.on('data', (chunk: Buffer) => {
-      console.error('[Python]', chunk.toString('utf-8').trim());
+    // stderr：收集错误输出，exit 时弹框显示
+    let stderrBuf = '';
+    this.process.stderr?.on('data', (chunk) => {
+      const text = chunk.toString('utf-8');
+      stderrBuf += text;
+      console.error('[Python] stderr:', text.trim());
     });
 
     // 用局部变量捕获当前进程，避免 exit 时 this.process 已被置空
     const proc = this.process;
-    proc.on('exit', (code: number | null, signal: string | null) => {
-      console.log(`[Python] Process exited: code=${code}, signal=${signal}`);
+    proc.on('exit', (code, signal) => {
+      const msg = `Process exited: code=${code}, signal=${signal}`;
+      console.log('[Python] ' + msg);
+      if (stderrBuf) {
+        dialog.showErrorBox('Python Process Exited', msg + '\n\nstderr:\n' + stderrBuf.slice(0, 2000));
+      }
       // 只在进程还存在时清理（防止重复）
       if (this.process === proc) {
         this.process = null;
@@ -99,8 +147,9 @@ export class PythonProcessManager extends EventEmitter {
       this.emit('status', 'offline');
     });
 
-    this.process.on('error', (err: Error) => {
-      console.error('[Python] Process error:', err.message);
+    this.process.on('error', (err) => {
+      console.error('[Python] Spawn error:', err.message);
+      dialog.showErrorBox('Python Spawn Error', err.message);
       this.process = null;
       this.emit('status', 'error', err.message);
     });
@@ -108,19 +157,19 @@ export class PythonProcessManager extends EventEmitter {
     this.emit('status', 'online');
   }
 
-  async call(method: string, params: object = {}): Promise<any> {
+  async call(method, params = {}) {
     if (!this.process) {
       throw new Error('Python process not started');
     }
 
     const id = ++this.requestId;
-    const request = { jsonrpc: '2.0' as const, id, method, params };
+    const request = { jsonrpc: '2.0', id, method, params };
 
-    const promise = new Promise<any>((resolve, reject) => {
+    const promise = new Promise((resolve, reject) => {
       this.pendingRequests.set(id, { resolve, reject });
     });
 
-    this.process.stdin!.write(JSON.stringify(request) + '\n', 'utf-8');
+    this.process.stdin.write(JSON.stringify(request) + '\n', 'utf-8');
 
     return Promise.race([
       promise,
@@ -130,7 +179,7 @@ export class PythonProcessManager extends EventEmitter {
     ]);
   }
 
-  private handleStdout(chunk: string): void {
+  handleStdout(chunk) {
     this.stdoutBuffer += chunk;
     const lines = this.stdoutBuffer.split('\n');
     this.stdoutBuffer = lines.pop() || '';
@@ -147,7 +196,7 @@ export class PythonProcessManager extends EventEmitter {
     }
   }
 
-  private handleResponse(response: any): void {
+  handleResponse(response) {
     const { id, result, error } = response;
     const pending = this.pendingRequests.get(id);
     if (pending) {
@@ -160,7 +209,7 @@ export class PythonProcessManager extends EventEmitter {
     }
   }
 
-  stop(): void {
+  stop() {
     if (this.process && !this.process.killed) {
       const proc = this.process;
       this.process = null; // 立即置空，防止重复调用
@@ -173,9 +222,11 @@ export class PythonProcessManager extends EventEmitter {
     }
   }
 
-  isAlive(): boolean {
+  isAlive() {
     return this.process !== null && !this.process.killed;
   }
 }
 
-export const pythonProcess = new PythonProcessManager();
+const pythonProcess = new PythonProcessManager();
+
+module.exports = { PythonProcessManager, pythonProcess };

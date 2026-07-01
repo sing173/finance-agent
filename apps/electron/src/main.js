@@ -1,9 +1,9 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
-import * as path from 'path';
-import { pythonProcess } from './pythonProcessManager';
-import { setupIpcHandlers } from './ipc';
+const { app, BrowserWindow, ipcMain } = require('electron');
+const path = require('path');
+const { pythonProcess } = require('./pythonProcessManager');
+const { setupIpcHandlers } = require('./ipc');
 
-let mainWindow: BrowserWindow | null = null;
+let mainWindow = null;
 
 function createWindow() {
   const preloadPath = path.resolve(__dirname, 'preload.js');
@@ -19,13 +19,12 @@ function createWindow() {
   });
 
   // 开发模式：Electron 启动时 process.defaultApp 为 true
-  const isDev = (process as any).defaultApp;
+  const isDev = process.defaultApp;
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    // 打包模式：resources/renderer/index.html (extraResources 已拷贝 dist/ 内容)
-    const rendererPath = path.join((process as any).resourcesPath || __dirname, 'renderer', 'index.html');
+    const rendererPath = 'renderer/index.html';
     mainWindow.loadFile(rendererPath);
   }
 }
@@ -37,7 +36,7 @@ app.whenReady().then(() => {
   createWindow();        // 创建窗口
 
   // 转发 Python 状态事件到渲染进程（窗口已创建后才注册，避免丢失事件）
-  pythonProcess.on('status', (status: string) => {
+  pythonProcess.on('status', (status) => {
     // 防御：窗口可能已销毁
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('python-status', status);
