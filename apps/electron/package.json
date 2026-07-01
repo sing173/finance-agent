@@ -3,12 +3,13 @@
   "version": "0.3.1",
   "description": "财务智能助手 - 银行对账桌面应用",
   "author": "zungen",
-  "main": "dist/main.js",
+  "main": "src/main.js",
   "scripts": {
-    "dev": "npm run build && electron .",
+    "dev": "electron .",
     "dev:renderer": "cd ../renderer && npm run dev",
-    "dev:electron": "npm run build && electron .",
-    "build": "tsc",
+    "dev:electron": "electron .",
+    "build": "node copy-to-ohos.js",
+    "build:ohos": "node copy-to-ohos.js",
     "package": "electron-builder --win",
     "package:python": "cd ../python && python -m pyinstaller bridge.spec --onefile --clean",
     "package:all": "npm run package:python && npm run package",
@@ -18,8 +19,7 @@
     "@electron-ohos/electron-builder": "^26.8.5",
     "7zip-bin": "^5.2.0",
     "electron": "32.3.3",
-    "electron-builder": "^24.13.3",
-    "typescript": "^5.6.0"
+    "electron-builder": "^24.13.3"
   },
   "build": {
     "appId": "com.zungen.financeassistant",
@@ -29,7 +29,7 @@
     },
     "asar": false,
     "files": [
-      "dist/**/*.js",
+      "src/**/*.js",
       "node_modules/**/*",
       "package.json"
     ],
