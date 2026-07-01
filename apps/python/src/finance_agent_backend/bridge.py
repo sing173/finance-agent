@@ -16,15 +16,50 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 
-def _setup_logging(log_dir: Path) -> logging.Logger:
-    """配置日志：写入文件，10MB × 3 个文件轮转。"""
-    log_dir.mkdir(parents=True, exist_ok=True)
+def _is_hnp_mode() -> bool:
+    """检测是否在 HNP 模式下运行（HarmonyOS）"""
+    # 方法1：检查 sys.platform（OHOS Python 可能返回 'linux'）
+    platform = sys.platform.lower()
+    if 'ohos' in platform or 'openharmony' in platform or 'linux' in platform:
+        # 方法2：检查是否在 HNP 安装路径下（/data/app/）
+        try:
+            file_path = os.path.abspath(__file__)
+            if '/data/app/' in file_path:
+                return True
+        except Exception:
+            pass
+    # 方法3：检查环境变量
+    if os.environ.get('OHOS_HNP_MODE') == '1':
+        return True
+    return False
 
+
+def _setup_logging(log_dir: Path) -> logging.Logger:
+    """配置日志：HNP 模式输出到 stderr，其他模式写文件。"""
     logger = logging.getLogger("bridge")
     logger.setLevel(logging.INFO)
+    logger.handlers.clear()
+
+    # HNP 模式（HarmonyOS）：直接输出到 stderr，不写文件
+    if _is_hnp_mode():
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(message)s",
+        ))
+        logger.addHandler(handler)
+        return logger
+
+    # 非 HNP 模式：写文件日志
+    import os as _os
+    log_dir_str = str(log_dir)
+    try:
+        _os.makedirs(log_dir_str, exist_ok=True)
+    except OSError:
+        log_dir_str = '/tmp'
+    log_file = _os.path.join(log_dir_str, 'bridge.log')
 
     handler = RotatingFileHandler(
-        log_dir / 'bridge.log',
+        log_file,
         maxBytes=10 * 1024 * 1024,
         backupCount=3,
         encoding='utf-8',
@@ -32,7 +67,6 @@ def _setup_logging(log_dir: Path) -> logging.Logger:
     handler.setFormatter(logging.Formatter(
         "%(asctime)s [%(levelname)s] %(message)s",
     ))
-    logger.handlers.clear()
     logger.addHandler(handler)
 
     return logger
@@ -44,6 +78,7 @@ if _project_root not in sys.path:
 
 def _get_log_dir() -> Path:
     """获取日志目录，HNP 模式下写入 /tmp（HNP 安装目录只读）"""
+    import tempfile
     # 优先使用环境变量
     env_dir = os.environ.get('LOG_DIR')
     if env_dir:
@@ -51,12 +86,15 @@ def _get_log_dir() -> Path:
 
     # HNP 模式（HarmonyOS）：写到 /tmp
     if 'ohos' in sys.platform or 'openharmony' in sys.platform:
-        return Path('/tmp/finance-agent-backend/logs')
+        # /tmp 肯定存在，直接写文件到 /tmp
+        return Path('/tmp')
 
     # PyInstaller 打包模式
     if getattr(sys, 'frozen', False):
         base = os.environ.get('APPDATA', Path.home().as_posix())
-        return Path(base) / 'FinanceAssistant' / 'logs'
+        p = Path(base) / 'FinanceAssistant' / 'logs'
+        p.mkdir(parents=True, exist_ok=True)
+        return p
 
     # 开发模式
     return Path(_project_root).parent.parent.parent / 'logs'

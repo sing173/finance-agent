@@ -108,6 +108,8 @@ class PythonProcessManager extends EventEmitter {
         `${hnpHome}/lib/python3.13/lib-dynload`,
         `${hnpHome}/lib/python3.13/site-packages`,
       ].join(':');
+      // 告诉 Python 进程当前在 HNP 模式下运行
+      env.OHOS_HNP_MODE = '1';
       // 日志写到 /tmp（HNP 安装目录只读）
       env.LOG_DIR = '/tmp/finance-agent-backend';
       console.log('[Python] HNP mode, PYTHONHOME:', env.PYTHONHOME);
