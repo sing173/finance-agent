@@ -108,6 +108,8 @@ class PythonProcessManager extends EventEmitter {
         `${hnpHome}/lib/python3.13/lib-dynload`,
         `${hnpHome}/lib/python3.13/site-packages`,
       ].join(':');
+      // LD_LIBRARY_PATH：让 Python 的 _sqlite3 模块能找到 libsqlite3.so.0
+      env.LD_LIBRARY_PATH = `${hnpHome}/lib:${process.env.LD_LIBRARY_PATH || ''}`;
       // 告诉 Python 进程当前在 HNP 模式下运行
       env.OHOS_HNP_MODE = '1';
       // 日志写到 /tmp（HNP 安装目录只读）
