@@ -112,9 +112,15 @@ class PythonProcessManager extends EventEmitter {
       env.LD_LIBRARY_PATH = `${hnpHome}/lib:${process.env.LD_LIBRARY_PATH || ''}`;
       // 告诉 Python 进程当前在 HNP 模式下运行
       env.OHOS_HNP_MODE = '1';
-      // 日志写到 /tmp（HNP 安装目录只读）
-      env.LOG_DIR = '/tmp/finance-agent-backend';
-      console.log('[Python] HNP mode, PYTHONHOME:', env.PYTHONHOME);
+      // 应用沙箱物理路径（HarmonyOS）
+      // Electron 应用的 bundle 是 com.zungen.financeassistant
+      // 对应物理路径：/data/app/el2/100/base/com.zungen.financeassistant/
+      env.APP_SANDBOX_DIR = '/data/app/el2/100/base/com.zungen.financeassistant';
+      // TMPDIR：让 openpyxl 等库能创建临时文件
+      env.TMPDIR = `${env.APP_SANDBOX_DIR}/temp`;
+      // LOG_DIR：Python 侧优先读此环境变量
+      env.LOG_DIR = `${env.APP_SANDBOX_DIR}/files/logs`;
+      console.log('[Python] HNP mode, PYTHONHOME:', env.PYTHONHOME, 'SANDBOX:', env.APP_SANDBOX_DIR);
     }
 
     this.process = spawn(pythonConfig.cmd, pythonConfig.args, {

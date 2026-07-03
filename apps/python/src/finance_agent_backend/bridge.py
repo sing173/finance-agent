@@ -55,7 +55,11 @@ def _setup_logging(log_dir: Path) -> logging.Logger:
     try:
         _os.makedirs(log_dir_str, exist_ok=True)
     except OSError:
-        log_dir_str = '/tmp'
+        # HarmonyOS: 使用一般暂存区目录
+        if _is_hnp_mode():
+            log_dir_str = '/data/local/tmp'
+        else:
+            log_dir_str = '/tmp'
     log_file = _os.path.join(log_dir_str, 'bridge.log')
 
     handler = RotatingFileHandler(
@@ -77,16 +81,38 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 def _get_log_dir() -> Path:
-    """获取日志目录，HNP 模式下写入 /tmp（HNP 安装目录只读）"""
+    """获取日志目录，若目录不可写则输出到 stdout"""
     import tempfile
-    # 优先使用环境变量
+    # 优先使用 APP_SANDBOX_DIR（HarmonyOS 应用沙箱物理路径）
+    sandbox = os.environ.get('APP_SANDBOX_DIR')
+    if sandbox:
+        p = Path(sandbox) / 'files' / 'logs'
+        try:
+            p.mkdir(parents=True, exist_ok=True)
+            return p
+        except OSError:
+            pass  # fallback
+
+    # 兼容：使用 LOG_DIR 环境变量
     env_dir = os.environ.get('LOG_DIR')
     if env_dir:
-        return Path(env_dir)
+        try:
+            p = Path(env_dir)
+            p.mkdir(parents=True, exist_ok=True)
+            return p
+        except OSError:
+            pass
 
-    # HNP 模式（HarmonyOS）：写到 /tmp
+    # HNP 模式（HarmonyOS）：尝试写到 HNP 安装目录下的 logs/
     if 'ohos' in sys.platform or 'openharmony' in sys.platform:
-        # /tmp 肯定存在，直接写文件到 /tmp
+        try:
+            from finance_agent_backend.paths import get_log_dir
+            p = Path(get_log_dir())
+            p.mkdir(parents=True, exist_ok=True)
+            return p
+        except Exception:
+            pass
+        # 最后 fallback：stdout（不写文件）
         return Path('/tmp')
 
     # PyInstaller 打包模式
@@ -137,11 +163,12 @@ def handle_parse_pdf(params: dict) -> dict:
 @register_method("generate_excel")
 def handle_generate_excel(params: dict) -> dict:
     transactions_data = params.get("transactions")
-    output_path = params.get("output_path", "bank_statement.xlsx")
     if not transactions_data:
         return {"success": False, "error": "缺少 transactions 参数"}
     try:
         from finance_agent_backend.services import ParseService
+        from finance_agent_backend.paths import get_export_dir
+        output_path = params.get("output_path") or os.path.join(get_export_dir(), "bank_statement.xlsx")
         excel_path = ParseService().generate_excel(transactions_data, output_path)
         return {"success": True, "excel_path": excel_path}
     except Exception as e:
@@ -348,9 +375,11 @@ def handle_voucher_delete_draft(params: dict) -> dict:
 def handle_voucher_export(params: dict) -> dict:
     try:
         from finance_agent_backend.services import VoucherService
+        from finance_agent_backend.paths import get_export_dir
+        output_path = params.get("output_path") or os.path.join(get_export_dir(), "voucher.xlsx")
         return VoucherService(db_path=params.get("db_path")).export(
             draft_id=params.get("draft_id"),
-            output_path=params.get("output_path", "voucher.xlsx"),
+            output_path=output_path,
             period=params.get("period", ""),
             source_files=params.get("source_files", []),
         )
