@@ -33,7 +33,7 @@ function getPythonSpawnConfig() {
     const HNP_VERSION = '1.0';
     const hnpHome     = `/data/app/${HNP_NAME}.org/${HNP_NAME}_${HNP_VERSION}`;
     const pythonPath   = `${hnpHome}/bin/python3`;
-    const sitePackages = `${hnpHome}/lib/python3.13/site-packages`;
+    const sitePackages = `${hnpHome}/lib/python3.12/site-packages`;
 
     console.log('[PathUtils] HarmonyOS HNP mode, using:', pythonPath);
     return {
@@ -104,9 +104,9 @@ class PythonProcessManager extends EventEmitter {
       const hnpHome     = `/data/app/${HNP_NAME}.org/${HNP_NAME}_${HNP_VERSION}`;
       env.PYTHONHOME = hnpHome;
       env.PYTHONPATH = [
-        `${hnpHome}/lib/python3.13`,
-        `${hnpHome}/lib/python3.13/lib-dynload`,
-        `${hnpHome}/lib/python3.13/site-packages`,
+        `${hnpHome}/lib/python3.12`,
+        `${hnpHome}/lib/python3.12/lib-dynload`,
+        `${hnpHome}/lib/python3.12/site-packages`,
       ].join(':');
       // LD_LIBRARY_PATH：让 Python 的 _sqlite3 模块能找到 libsqlite3.so.0
       env.LD_LIBRARY_PATH = `${hnpHome}/lib:${process.env.LD_LIBRARY_PATH || ''}`;
