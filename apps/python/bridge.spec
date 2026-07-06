@@ -41,6 +41,7 @@ a = Analysis(
         'nanobot',
         'pymupdf',
         'openpyxl',
+        'et_xmlfile',
         'rapidocr_onnxruntime',
         'rapidocr_onnxruntime.main',
         'rapidocr_onnxruntime.ch_ppocr_det',
