@@ -50,17 +50,7 @@ def _setup_logging(log_dir: Path) -> logging.Logger:
         return logger
 
     # 非 HNP 模式：写文件日志
-    import os as _os
-    log_dir_str = str(log_dir)
-    try:
-        _os.makedirs(log_dir_str, exist_ok=True)
-    except OSError:
-        # HarmonyOS: 使用一般暂存区目录
-        if _is_hnp_mode():
-            log_dir_str = '/data/local/tmp'
-        else:
-            log_dir_str = '/tmp'
-    log_file = _os.path.join(log_dir_str, 'bridge.log')
+    log_file = log_dir / 'bridge.log'
 
     handler = RotatingFileHandler(
         log_file,
@@ -81,52 +71,50 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 def _get_log_dir() -> Path:
-    """获取日志目录，若目录不可写则输出到 stdout"""
-    import tempfile
+    """获取日志目录。
+
+    HNP 模式下直接返回 <sandbox>/files/logs，不创建目录。
+    目录不存在时由后续日志写入抛错，方便定位问题。
+    """
     # 优先使用 APP_SANDBOX_DIR（HarmonyOS 应用沙箱物理路径）
     sandbox = os.environ.get('APP_SANDBOX_DIR')
     if sandbox:
-        p = Path(sandbox) / 'files' / 'logs'
-        try:
-            p.mkdir(parents=True, exist_ok=True)
-            return p
-        except OSError:
-            pass  # fallback
+        return Path(sandbox) / 'files' / 'logs'
 
     # 兼容：使用 LOG_DIR 环境变量
     env_dir = os.environ.get('LOG_DIR')
     if env_dir:
-        try:
-            p = Path(env_dir)
-            p.mkdir(parents=True, exist_ok=True)
-            return p
-        except OSError:
-            pass
+        return Path(env_dir)
 
-    # HNP 模式（HarmonyOS）：尝试写到 HNP 安装目录下的 logs/
+    # HNP 模式（HarmonyOS）：通过 paths.py 获取
     if 'ohos' in sys.platform or 'openharmony' in sys.platform:
         try:
             from finance_agent_backend.paths import get_log_dir
-            p = Path(get_log_dir())
-            p.mkdir(parents=True, exist_ok=True)
-            return p
+            return Path(get_log_dir())
         except Exception:
             pass
-        # 最后 fallback：stdout（不写文件）
-        return Path('/tmp')
 
     # PyInstaller 打包模式
     if getattr(sys, 'frozen', False):
         base = os.environ.get('APPDATA', Path.home().as_posix())
-        p = Path(base) / 'FinanceAssistant' / 'logs'
-        p.mkdir(parents=True, exist_ok=True)
-        return p
+        return Path(base) / 'FinanceAssistant' / 'logs'
 
     # 开发模式
     return Path(_project_root).parent.parent.parent / 'logs'
 
 
 _log = _setup_logging(_get_log_dir())
+_log.info("=== bridge.py startup ===")
+_log.info("sys.platform: %s", sys.platform)
+_log.info("OHOS_HNP_MODE: %s", os.environ.get("OHOS_HNP_MODE", "(not set)"))
+_log.info("APP_SANDBOX_DIR: %s", os.environ.get("APP_SANDBOX_DIR", "(not set)"))
+_log.info("LOG_DIR: %s", os.environ.get("LOG_DIR", "(not set)"))
+_log.info("TMPDIR: %s", os.environ.get("TMPDIR", "(not set)"))
+try:
+    from finance_agent_backend.paths import get_db_path
+    _log.info("db_path (resolved): %s", get_db_path())
+except Exception as e:
+    _log.error("db_path resolution failed: %s", e)
 
 # 方法注册表
 METHODS = {}  # type: dict
@@ -422,6 +410,12 @@ def handle_request(request: dict) -> dict:
             result = METHODS[method](params)
             return {"jsonrpc": "2.0", "id": req_id, "result": result}
         except Exception as e:
+            import sys as _s
+            import traceback as _tb
+            _err = f"[bridge] Method '{method}' failed:\n{_tb.format_exc()}"
+            _s.stderr.write(_err + "\n")
+            _s.stderr.flush()
+            _log.error("Method '%s' failed: %s", method, e)
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,

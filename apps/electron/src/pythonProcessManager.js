@@ -112,15 +112,35 @@ class PythonProcessManager extends EventEmitter {
       env.LD_LIBRARY_PATH = `${hnpHome}/lib:${process.env.LD_LIBRARY_PATH || ''}`;
       // 告诉 Python 进程当前在 HNP 模式下运行
       env.OHOS_HNP_MODE = '1';
-      // 应用沙箱物理路径（HarmonyOS）
-      // Electron 应用的 bundle 是 com.zungen.financeassistant
-      // 对应物理路径：/data/app/el2/100/base/com.zungen.financeassistant/
-      env.APP_SANDBOX_DIR = '/data/app/el2/100/base/com.zungen.financeassistant';
+      // 应用沙箱目录（HarmonyOS）
+      // Electron 应用的 bundleName 是 com.zungen.financeassistant
+      // 必须使用沙箱虚拟路径（/data/storage/...），不能用物理路径（/data/app/...）
+      // 物理路径：/data/app/el2/100/base/com.zungen.financeassistant/
+      // 虚拟路径：/data/storage/el2/base/com.zungen.financeassistant/  ← Python 进程用这个
+      env.APP_SANDBOX_DIR = '/data/storage/el2/base/com.zungen.financeassistant';
       // TMPDIR：让 openpyxl 等库能创建临时文件
       env.TMPDIR = `${env.APP_SANDBOX_DIR}/temp`;
       // LOG_DIR：Python 侧优先读此环境变量
       env.LOG_DIR = `${env.APP_SANDBOX_DIR}/files/logs`;
       console.log('[Python] HNP mode, PYTHONHOME:', env.PYTHONHOME, 'SANDBOX:', env.APP_SANDBOX_DIR);
+
+      // 确保应用沙箱目录存在（HarmonyOS 可能不会自动创建 files/ 等目录）
+      // 必须在 spawn Python 之前创建，否则 sqlite3.connect() 会因父目录不存在而失败
+      // 注意：必须使用虚拟路径（/data/storage/...），不能用物理路径（/data/app/...）
+      const sandboxVirtual = env.APP_SANDBOX_DIR;  // /data/storage/el2/base/com.zungen.financeassistant
+      const dirsToCreate = [
+        `${sandboxVirtual}/files`,
+        `${sandboxVirtual}/temp`,
+        `${sandboxVirtual}/files/logs`,
+      ];
+      for (const dir of dirsToCreate) {
+        try {
+          fs.mkdirSync(dir, { recursive: true });
+          console.log('[Python] Sandbox dir ready:', dir);
+        } catch (e) {
+          console.warn('[Python] Cannot create sandbox dir:', dir, e.message);
+        }
+      }
     }
 
     this.process = spawn(pythonConfig.cmd, pythonConfig.args, {

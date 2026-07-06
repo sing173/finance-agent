@@ -23,22 +23,16 @@ def _is_hnp_mode() -> bool:
 
 
 def _get_sandbox_dir() -> str | None:
-    """获取 HarmonyOS 应用沙箱物理路径。
+    """获取 HarmonyOS 应用沙箱路径（虚拟路径）。
 
     读取环境变量 APP_SANDBOX_DIR（由 Electron 侧传入），
-    格式：/data/app/el2/100/base/<bundleName>/
+    格式：/data/storage/el2/base/<bundleName>/
 
-    若沙箱目录不可写，返回 None（调用方需自行处理）。
-    绝不 fallback 到 HNP 安装目录（HNP 安装目录只读）。
+    不做可写性测试，直接返回值。若目录不可写，在实际 I/O 时抛出明确错误。
     """
-    sandbox = os.environ.get('APP_SANDBOX_DIR') or None
-    if sandbox:
-        try:
-            test_path = os.path.join(sandbox, 'temp')
-            os.makedirs(test_path, exist_ok=True)
-            return sandbox
-        except OSError:
-            pass
+    val = os.environ.get('APP_SANDBOX_DIR')
+    if val:
+        return val.rstrip('/')
     return None
 
 
@@ -77,17 +71,17 @@ def get_config_path(filename: str = '') -> str:
 
 
 def get_db_path() -> str:
-    """获取 SQLite 数据库路径。
+    """获取 SQLite 数据库路径（只读查询用）。
 
-    - 开发环境: <project_root>/data.db
-    - PyInstaller 打包: %APPDATA%/FinanceAssistant/data.db
-    - HNP 模式: <sandbox>/files/finance_agent.db（HarmonyOS 应用沙箱）
+    HNP 模式: /data/storage/el2/base/<bundleName>/files/finance_agent.db
+    开发环境: <project_root>/data.db
+    打包环境: %APPDATA%/FinanceAssistant/data.db
+
+    注意：正常流程应通过 db.get_db() 获取连接，此方法仅用于需要 db 路径的场景。
     """
     sandbox = _get_sandbox_dir()
     if sandbox:
-        dir_path = os.path.join(sandbox, 'files')
-        os.makedirs(dir_path, exist_ok=True)
-        return os.path.join(dir_path, 'finance_agent.db')
+        return os.path.join(sandbox, 'files', 'finance_agent.db')
 
     if getattr(sys, 'frozen', False):
         base = os.environ.get('APPDATA', os.path.expanduser('~'))
@@ -102,16 +96,11 @@ def get_log_dir() -> str:
     - 开发环境: <project_root>/logs/
     - PyInstaller 打包: %APPDATA%/FinanceAssistant/logs/
     - HNP 模式: <sandbox>/files/logs/（HarmonyOS 应用沙箱）
-      若沙箱不可写，返回 /tmp（日志写入 /tmp）。
+      files/ 目录由系统创建，logs/ 子目录若不存在由写入时抛错，不 fallback。
     """
     sandbox = _get_sandbox_dir()
     if sandbox:
-        dir_path = os.path.join(sandbox, 'files', 'logs')
-        try:
-            os.makedirs(dir_path, exist_ok=True)
-            return dir_path
-        except OSError:
-            pass  # fallback to /tmp
+        return os.path.join(sandbox, 'files', 'logs')
 
     if getattr(sys, 'frozen', False):
         base = os.environ.get('APPDATA', os.path.expanduser('~'))
@@ -127,16 +116,12 @@ def get_export_dir() -> str:
     - PyInstaller 打包: %APPDATA%/FinanceAssistant/exports/
     - HNP 模式: /storage/media/100/local/files/Docs/Documents/
       （HarmonyOS 公共文档目录，用户可通过文件管理器访问）
+      目录若不存在由后续 I/O 抛错，不主动创建，不 fallback。
     """
     sandbox = _get_sandbox_dir()
     if sandbox:
         # HarmonyOS：写到公共文档目录（用户可访问）
-        dir_path = '/storage/media/100/local/files/Docs/Documents'
-        try:
-            os.makedirs(dir_path, exist_ok=True)
-            return dir_path
-        except OSError:
-            pass  # fallback to /tmp
+        return '/storage/media/100/local/files/Docs/Documents'
 
     if getattr(sys, 'frozen', False):
         base = os.environ.get('APPDATA', os.path.expanduser('~'))
