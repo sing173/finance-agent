@@ -158,6 +158,23 @@ SCHEMA_STATEMENTS: list[str] = [
         subjectName     TEXT NOT NULL
     )""",
 
+    # ── 会计科目 ──
+    """CREATE TABLE IF NOT EXISTS subjects (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        code            TEXT    NOT NULL UNIQUE,
+        name            TEXT    NOT NULL,
+        full_name       TEXT    NOT NULL DEFAULT '',
+        category        TEXT    NOT NULL DEFAULT '',
+        direction       TEXT    NOT NULL DEFAULT '借'
+                        CHECK (direction IN ('借', '贷')),
+        aux_category    TEXT    NOT NULL DEFAULT '',
+        is_cash         INTEGER NOT NULL DEFAULT 0,
+        enabled         INTEGER NOT NULL DEFAULT 1,
+        updated_at      TEXT    NOT NULL
+    )""",
+    """CREATE INDEX IF NOT EXISTS idx_subjects_code
+        ON subjects(code)""",
+
     # ── Schema 版本管理 ──
     """CREATE TABLE IF NOT EXISTS schema_version (
         version   INTEGER PRIMARY KEY,
@@ -165,7 +182,7 @@ SCHEMA_STATEMENTS: list[str] = [
     )""",
 ]
 
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 6
 
 
 def _migrate_v2(conn: sqlite3.Connection) -> None:
@@ -273,6 +290,45 @@ def _migrate_v5(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_v6(conn: sqlite3.Connection) -> None:
+    """v6 迁移：subjects 表建表后，从 subjects.json 回填数据。"""
+    import json
+    import os
+    from finance_agent_backend.paths import get_config_path
+
+    json_path = get_config_path('subjects.json')
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            now = datetime.now(timezone.utc).isoformat()
+            for code, info in data.items():
+                conn.execute(
+                    """INSERT OR IGNORE INTO subjects
+                       (code, name, full_name, category, direction,
+                        aux_category, is_cash, enabled, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        code,
+                        info.get('name', ''),
+                        info.get('full_name', info.get('name', '')),
+                        info.get('category', ''),
+                        info.get('direction', '借'),
+                        info.get('aux_category', ''),
+                        1 if info.get('is_cash') else 0,
+                        1 if info.get('enabled', True) else 0,
+                        now,
+                    ),
+                )
+        except Exception:
+            pass  # JSON 读取失败不阻塞迁移
+
+    conn.execute(
+        "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (?, ?)",
+        (6, datetime.now(timezone.utc).isoformat()),
+    )
+
+
 def init_db(conn: sqlite3.Connection) -> None:
     """幂等建表 + schema 迁移。可安全多次调用。"""
     for stmt in SCHEMA_STATEMENTS:
@@ -305,5 +361,9 @@ def init_db(conn: sqlite3.Connection) -> None:
     if current < 5:
         # v5: account_mapping 表 + JSON 导入
         _migrate_v5(conn)
+
+    if current < 6:
+        # v6: subjects 表 + JSON 回填
+        _migrate_v6(conn)
 
     conn.commit()

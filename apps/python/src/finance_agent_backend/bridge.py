@@ -136,6 +136,15 @@ def handle_get_subjects_info(params: dict) -> dict:
         return {"success": False, "count": 0, "loaded": False, "error": str(e), "subjects": []}
 
 
+@register_method("add_subject")
+def handle_add_subject(params: dict) -> dict:
+    try:
+        from finance_agent_backend.services import SubjectService
+        return SubjectService().add_subject(params)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 # ---------------------------------------------------------------------------
 # 账号映射
 # ---------------------------------------------------------------------------

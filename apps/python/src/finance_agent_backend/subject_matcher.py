@@ -43,21 +43,47 @@ _subjects_cache: dict | None = None
 
 
 def get_subjects() -> dict:
-    """获取 subjects.json 内容（模块级缓存，首次加载后复用）。"""
+    """获取科目字典（DB 优先，回退 subjects.json，模块级缓存复用）。"""
     global _subjects_cache
-    if _subjects_cache is None:
+    if _subjects_cache is not None:
+        return _subjects_cache
+
+    result: dict = {}
+    # 优先从 DB subjects 表读取（v6+ 权威数据源）
+    try:
+        from finance_agent_backend.db import get_db
+        conn = get_db()
+        rows = conn.execute("SELECT code, name, full_name, category, direction, aux_category, is_cash, enabled FROM subjects").fetchall()
+        if rows:
+            for row in rows:
+                result[row['code']] = {
+                    'name':         row['name'],
+                    'full_name':    row['full_name'],
+                    'category':     row['category'],
+                    'direction':    row['direction'],
+                    'aux_category': row['aux_category'],
+                    'is_cash':      bool(row['is_cash']),
+                    'enabled':      bool(row['enabled']),
+                }
+    except Exception:
+        pass  # subjects 表不存在（< v6）或 DB 不可用，回退 JSON
+
+    # DB 无数据则回退 subjects.json
+    if not result:
         try:
             from finance_agent_backend.paths import get_config_path
             path = get_config_path('subjects.json')
             with open(path, 'r', encoding='utf-8') as f:
-                _subjects_cache = json.load(f)
+                result = json.load(f)
         except Exception:
-            _subjects_cache = {}
+            result = {}
+
+    _subjects_cache = result
     return _subjects_cache
 
 
 def invalidate_subjects() -> None:
-    """使 subjects 缓存失效（import_subjects 后调用）。"""
+    """使 subjects 缓存失效（写入 DB / 导入后调用）。"""
     global _subjects_cache
     _subjects_cache = None
     invalidate_rule_matcher()
