@@ -73,3 +73,4 @@ Write-Host "  OK" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "Done! Rebuild & install in DevEco." -ForegroundColor Green
+exit 0
