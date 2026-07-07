@@ -38,6 +38,7 @@ export interface ParseFileResult {
   openingBalance?: number;
   closingBalance?: number;
   confidence: number;
+  error?: string;
   errors: string[];
   warnings: string[];
 }
