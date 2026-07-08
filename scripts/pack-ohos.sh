@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# build-ohos.sh -- 全量更新 OHOS 工程并打包 HAP
+# pack-ohos.sh -- 仅打包 HAP（前置：OHOS 工程已通过 update-backend/update-frontend 更新）
 # 用法:
 #   cd finance-agent
-#   ./build-ohos.sh            # 默认 debug
-#   ./build-ohos.sh release    # release 模式
+#   ./pack-ohos.sh            # 默认 debug
+#   ./pack-ohos.sh release    # release 模式
 #
 # 构建工具自动探测：优先 devecocli（Win/Mac），否则 hvigorw（Linux 标准 CLI）。
-# 打包成功后 HAP 复制到 RELEASE_DIR（默认 workspace/release）。
+# 打包成功后 HAP 复制到 RELEASE_DIR。
 
 set -euo pipefail
 
@@ -20,14 +20,38 @@ case "$BUILD_MODE" in
   *) echo "FAIL: 构建模式必须是 debug 或 release，收到: $BUILD_MODE" >&2; exit 1 ;;
 esac
 
-# ---- Step 1: 全量更新 OHOS 工程 ----
-echo "===== Step 1/2: 更新 OHOS 工程 ====="
-"$SCRIPT_DIR/update-ohos.sh"
+# ---- 构建 HAP ----
+echo "===== 构建 HAP ($BUILD_MODE) ====="
 
-# ---- Step 2: 构建 HAP ----
-echo ""
-echo "===== Step 2/2: 构建 HAP ($BUILD_MODE) ====="
-"$SCRIPT_DIR/pack-ohos.sh" "$BUILD_MODE"
+BUILD_TOOL=""
+if command -v devecocli >/dev/null 2>&1; then
+  BUILD_TOOL="devecocli"
+elif HVIGORW_BIN="$(detect_hvigorw)"; [[ -n "$HVIGORW_BIN" ]]; then
+  BUILD_TOOL="hvigorw"
+fi
+
+case "$BUILD_TOOL" in
+  devecocli)
+    echo "  使用 devecocli build"
+    (cd "$PROJECT_OHOS" && devecocli build --build-mode "$BUILD_MODE")
+    ;;
+  hvigorw)
+    echo "  使用 hvigorw assembleHap ($HVIGORW_BIN)"
+    # 安装 ohpm 依赖（仅 hvigorw 路径需要）
+    if OHPM_BIN="$(detect_ohpm)"; [[ -n "$OHPM_BIN" ]]; then
+      echo "    ohpm install ($OHPM_BIN)"
+      (cd "$PROJECT_OHOS" && "$OHPM_BIN" install)
+    else
+      echo "  WARN: 未找到 ohpm，跳过依赖安装（可能导致构建失败）" >&2
+    fi
+    (cd "$PROJECT_OHOS" && "$HVIGORW_BIN" assembleHap --mode module -p product=default -p buildMode="$BUILD_MODE")
+    ;;
+  *)
+    echo "  FAIL: 未找到构建工具（devecocli 或 hvigorw）。" >&2
+    echo "        Windows/Mac 请安装 @deveco/deveco-cli；Linux 请安装 OHOS CommandLineTools。" >&2
+    exit 1
+    ;;
+esac
 
 # ---- 定位并复制 HAP 到产物目录 ----
 HAP_DIR="$PROJECT_OHOS/electron/build/default/outputs/default"

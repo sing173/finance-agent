@@ -15,15 +15,18 @@
 # ---- 主项目根 = 本文件所在目录的上一级（本文件位于 finance-agent/scripts/）----
 export PROJECT_FINANCE_AGENT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# ---- 工作区 = 主项目的上一级 ----
+# ---- 工作区 = 主项目的上一级（可用 WORKSPACE_ROOT 覆盖）----
+# 本地默认：兄弟工程与主项目同级。CI 中把 WORKSPACE_ROOT 指向仓库目录内的 _ws/，
+# 使兄弟工程落在 $CI_PROJECT_DIR 内，从而可作为 cache/artifact 在 job 之间传递。
 _WORKSPACE="$(dirname "$PROJECT_FINANCE_AGENT")"
+export WORKSPACE_ROOT="${WORKSPACE_ROOT:-$_WORKSPACE}"
 
 # ---- 兄弟项目路径（可用环境变量覆盖）----
-export PROJECT_OHOS="${PROJECT_OHOS:-$_WORKSPACE/finance-assistant-ohos}"
-export PROJECT_HNP="${PROJECT_HNP:-$_WORKSPACE/finance_agent_hnp}"
+export PROJECT_OHOS="${PROJECT_OHOS:-$WORKSPACE_ROOT/finance-assistant-ohos}"
+export PROJECT_HNP="${PROJECT_HNP:-$WORKSPACE_ROOT/finance_agent_hnp}"
 
 # ---- 产物目录（本地默认 workspace/release；CI 中覆盖为仓库内 release/）----
-export RELEASE_DIR="${RELEASE_DIR:-$_WORKSPACE/release}"
+export RELEASE_DIR="${RELEASE_DIR:-$WORKSPACE_ROOT/release}"
 
 # ---- 派生路径 ----
 export PYTHON_SRC="$PROJECT_FINANCE_AGENT/apps/python/src"
