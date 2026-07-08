@@ -20,27 +20,12 @@ stages:
 
 variables:
   # 产物复制目录（相对仓库根）
-  RELEASE_DIR:
-    value: "release"
-    description: "产物复制到的目录（相对仓库根）"
-  # HAP 构建模式：Run pipeline 页面下拉选择，也可手填 release/debug
-  BUILD_MODE:
-    value: "release"
-    options:
-      - "release"
-      - "debug"
-    description: "HAP 构建模式：release 或 debug（exe 不区分）"
-  # 构建产物类型：Run pipeline 页面下拉选择
-  BUILD_TYPE:
-    value: "hap"
-    options:
-      - "hap"
-      - "exe"
-      - "all"
-    description: "构建哪种产物：hap / exe / all"
-  NPM_REGISTRY:
-    value: "https://registry.npmmirror.com/"
-    description: "npm 镜像源"
+  RELEASE_DIR: "release"
+  # HAP 构建模式：release（默认）| debug；Run pipeline 页面可在 Variables 框手动覆盖
+  BUILD_MODE: "release"
+  # 构建产物类型：hap（默认）| exe | all；Run pipeline 页面可在 Variables 框手动覆盖
+  BUILD_TYPE: "hap"
+  NPM_REGISTRY: "https://registry.npmmirror.com/"
 
 build_hap:
   # TODO: 替换为预装 OHOS 工具链的镜像，例如 192.168.1.172:5001/ohos-build:latest
