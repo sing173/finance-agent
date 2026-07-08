@@ -37,8 +37,8 @@ export WEB_ENGINE_RES="$PROJECT_OHOS/web_engine/src/main/resources/resfile/resou
 export RENDERER_RES="$WEB_ENGINE_RES/renderer"
 
 # ---- 仓库地址（克隆用，可用环境变量覆盖）----
-export GIT_HNP_URL="${GIT_HNP_URL:-http://192.168.1.172/duxz/finance_agent_hnp.git}"
-export GIT_OHOS_URL="${GIT_OHOS_URL:-http://192.168.1.172/duxz/finance-assistant-ohos.git}"
+export GIT_HNP_URL="${GIT_HNP_URL:-http://192.168.1.172/finance-agent/finance_agent_hnp.git}"
+export GIT_OHOS_URL="${GIT_OHOS_URL:-http://192.168.1.172/finance-agent/finance-assistant-ohos.git}"
 
 # =====================================================================
 # 辅助函数

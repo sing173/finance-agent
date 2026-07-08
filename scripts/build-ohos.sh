@@ -13,7 +13,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-BUILD_MODE="${1:-debug}"   # debug | release
+# 优先取命令行参数，其次取环境变量 BUILD_MODE，最后兜底 debug
+BUILD_MODE="${1:-${BUILD_MODE:-debug}}"   # debug | release
 case "$BUILD_MODE" in
   debug|release) ;;
   *) echo "FAIL: 构建模式必须是 debug 或 release，收到: $BUILD_MODE" >&2; exit 1 ;;
