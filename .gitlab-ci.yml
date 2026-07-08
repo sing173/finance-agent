@@ -11,10 +11,11 @@
 #   BUILD_TYPE: hap（默认）| exe | all   —— 构建哪种产物
 #   BUILD_MODE: release（默认）| debug    —— hap 的构建模式（exe 不区分）
 #
-# 前置要求（构建镜像 / runner 需具备）：
-#   - git、node(>=22)（rsync 可选；python3 仅 exe 打包需要）
-#   - hnpcli / hvigorw + ohpm（OHOS 工具链，hap 需要）
-#   - exe 在 Linux 上构建需 wine；或改用 Windows runner
+# 前置要求：
+#   - hap 链 4 个 job 使用预构建镜像 192.168.1.172:5001/ohos-build:latest
+#     （已内置 node22 + git + JDK17 + hnpcli/hvigorw/ohpm，见 docker/ohos-build/Dockerfile）
+#   - build_exe 仍用 192.168.1.172:5001/node:22-bullseye（exe 打包暂未启用；
+#     启用前需在该镜像外加 python3 + wine，或单独做 exe 构建镜像）
 
 stages:
   - prepare
@@ -52,7 +53,7 @@ cache:
 
 # 1) 准备：克隆兄弟工程 + 安装依赖（最慢、最稳的一步，单独抽离便于重试）
 prepare_hap:
-  image: 192.168.1.172:5001/node:22-bullseye
+  image: 192.168.1.172:5001/ohos-build:latest
   stage: prepare
   rules:
     - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_TYPE =~ /^(hap|all)$/
@@ -68,7 +69,7 @@ prepare_hap:
 
 # 2) 后端：打包 HNP 并同步到 OHOS 工程
 build_backend:
-  image: 192.168.1.172:5001/node:22-bullseye
+  image: 192.168.1.172:5001/ohos-build:latest
   stage: backend
   needs: [prepare_hap]
   rules:
@@ -84,7 +85,7 @@ build_backend:
 
 # 3) 前端：构建 renderer 并同步到 OHOS 工程
 build_frontend:
-  image: 192.168.1.172:5001/node:22-bullseye
+  image: 192.168.1.172:5001/ohos-build:latest
   stage: frontend
   needs: [build_backend]
   rules:
@@ -99,7 +100,7 @@ build_frontend:
 
 # 4) 打包：hvigorw 构建 HAP 并产出 release/（含 GitLab Release）
 build_pack:
-  image: 192.168.1.172:5001/node:22-bullseye
+  image: 192.168.1.172:5001/ohos-build:latest
   stage: pack
   needs: [build_frontend]
   rules:

@@ -106,3 +106,6 @@ apps/renderer/package-lock.json
 # pnpm-lock.yaml
 # poetry.lock
 data.db*
+
+# Docker build staging（OHOS 工具链体积大，禁止提交进仓库）
+docker/ohos-build/command-line-tools/
