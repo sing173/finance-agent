@@ -1,8 +1,7 @@
 # build-ohos.ps1 -- Update OHOS project and build HAP via deveco-cli
 # Usage:
-#   cd D:\WorkSpace\zungen\finance-agent
-#   .\build-ohos.ps1                 # debug build (default)
-#   .\build-ohos.ps1 -BuildMode release   # release build
+#   .\scripts\win\build-ohos.ps1                 # debug build (default)
+#   .\scripts\win\build-ohos.ps1 -BuildMode release   # release build
 
 param(
     [string]$BuildMode = "debug"   # debug | release
@@ -21,8 +20,7 @@ if ($BuildMode -ne "debug" -and $BuildMode -ne "release") {
 
 # ---- Step1: update ohos project ----
 Write-Host "===== Step 1/2: Updating OHOS project =====" -ForegroundColor Magenta
-Set-Location $PROJECT_FINANCE_AGENT
-& .\update-ohos.ps1
+& "$PSScriptRoot\update-ohos.ps1"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "FAIL: update-ohos.ps1 failed" -ForegroundColor Red
     exit 1

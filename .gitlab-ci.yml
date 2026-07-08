@@ -1,0 +1,105 @@
+# finance-agent 打包流水线
+# 说明：
+#   - 仅“手动 Run pipeline”时执行（不随 push 自动跑）
+#   - 自动克隆缺失的兄弟工程（finance_agent_hnp / finance-assistant-ohos）
+#   - 产物复制到仓库内 release/ 并作为 artifact 收集，再创建 GitLab Release
+#   - 同一 commit（同一版本）下允许多种产物共存：hap-release / hap-debug / exe
+#     实现方式：tag = "<commit短hash>-<产物标识>"，不同产物用不同 tag，互不覆盖
+#
+# 流水线参数（Run pipeline 页面可改）：
+#   BUILD_TYPE: hap（默认）| exe | all   —— 构建哪种产物
+#   BUILD_MODE: release（默认）| debug    —— hap 的构建模式（exe 不区分）
+#
+# 前置要求（构建镜像 / runner 需具备）：
+#   - git、node(>=20)（rsync 可选；python3 仅 exe 打包需要）
+#   - hnpcli / hvigorw + ohpm（OHOS 工具链，hap 需要）
+#   - exe 在 Linux 上构建需 wine（electron-builder 打 win 包）；或改用 Windows runner
+
+stages:
+  - build
+
+variables:
+  RELEASE_DIR: "release"
+  BUILD_MODE: "release"
+  BUILD_TYPE: "hap"
+  NPM_REGISTRY: "https://registry.npmmirror.com/"
+
+build_hap:
+  # TODO: 替换为预装 OHOS 工具链的镜像，例如 192.168.1.172:5001/ohos-build:latest
+  image: 192.168.1.172:5001/node:20-bullseye
+  stage: build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_TYPE =~ /^(hap|all)$/
+  before_script:
+    - npm config set registry "$NPM_REGISTRY"
+    - npm install
+    # 工具链自检（缺失仅告警，不阻断，便于提前发现问题）
+    - command -v hnpcli  >/dev/null 2>&1 && echo "hnpcli: OK"   || echo "WARN: hnpcli 不在 PATH"
+    - command -v hvigorw >/dev/null 2>&1 && echo "hvigorw: OK"  || echo "WARN: hvigorw 不在 PATH"
+    - command -v devecocli >/dev/null 2>&1 && echo "devecocli: OK" || echo "WARN: devecocli 不在 PATH"
+    - command -v ohpm >/dev/null 2>&1 && echo "ohpm: OK"      || echo "WARN: ohpm 不在 PATH"
+  script:
+    - chmod +x ./scripts/*.sh
+    - ./scripts/build-ohos.sh "$BUILD_MODE"
+    # 同一 commit 下，不同产物用各自 tag，互不覆盖；仅“同一产物重跑”才删除旧 release 后重建
+    - |
+      TAG="${CI_COMMIT_SHORT_SHA}-${BUILD_MODE}"
+      curl -s --request DELETE \
+        --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases/$TAG" >/dev/null || true
+  artifacts:
+    paths:
+      - release/
+    expire_in: 30 days
+  # 以 "<commit短hash>-<模式>" 为 tag；同 commit 的 release 与 debug 互不影响
+  release:
+    tag_name: "${CI_COMMIT_SHORT_SHA}-${BUILD_MODE}"
+    name: "HAP ${CI_COMMIT_SHORT_SHA} (${BUILD_MODE})"
+    description: "自动构建的 HarmonyOS HAP（${BUILD_MODE} 模式）| commit ${CI_COMMIT_SHORT_SHA}"
+    assets:
+      paths:
+        - release/finance-assistant-ohos-${BUILD_MODE}.hap
+  tags:
+    - docker
+
+build_exe:
+  # TODO: exe 在 Linux 上打 win 包需 wine；建议改用预装 wine 的镜像或 Windows runner
+  image: 192.168.1.172:5001/node:20-bullseye
+  stage: build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_TYPE =~ /^(exe|all)$/
+  before_script:
+    - npm config set registry "$NPM_REGISTRY"
+    - npm install
+    # exe 打包需要 python3（PyInstaller 打 Python 后端）
+    - command -v python3 >/dev/null 2>&1 && echo "python3: OK" || echo "WARN: python3 不在 PATH（exe 打包需要）"
+  script:
+    - chmod +x ./scripts/package.sh
+    - ./scripts/package.sh win
+    # 将 exe 重命名为确定性名称，便于 Release 挂载（electron-builder 原名带版本号）
+    - |
+      EXE=$(ls release/*.exe 2>/dev/null | head -1)
+      if [ -n "$EXE" ]; then
+        cp -f "$EXE" "release/finance-agent-setup.exe"
+        echo "EXE 产物: $EXE -> release/finance-agent-setup.exe"
+      else
+        echo "WARN: 未找到 exe 产物（package.sh 可能未产出 release/*.exe）" >&2
+      fi
+      # 同 commit 下 exe 用独立 tag，与 hap 互不覆盖；重跑才删除旧 release
+      TAG="${CI_COMMIT_SHORT_SHA}-exe"
+      curl -s --request DELETE \
+        --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases/$TAG" >/dev/null || true
+  artifacts:
+    paths:
+      - release/
+    expire_in: 30 days
+  release:
+    tag_name: "${CI_COMMIT_SHORT_SHA}-exe"
+    name: "EXE ${CI_COMMIT_SHORT_SHA}"
+    description: "自动构建的 Windows 安装包 | commit ${CI_COMMIT_SHORT_SHA}"
+    assets:
+      paths:
+        - release/finance-agent-setup.exe
+  tags:
+    - docker
