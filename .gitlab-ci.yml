@@ -18,7 +18,9 @@
 
 stages:
   - prepare
-  - build
+  - backend
+  - frontend
+  - pack
 
 variables:
   # 产物复制目录（相对仓库根）
@@ -59,7 +61,7 @@ prepare_hap:
 # 2) 后端：打包 HNP 并同步到 OHOS 工程
 build_backend:
   image: 192.168.1.172:5001/node:22-bullseye
-  stage: build
+  stage: backend
   needs: [prepare_hap]
   rules:
     - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_TYPE =~ /^(hap|all)$/
@@ -75,7 +77,7 @@ build_backend:
 # 3) 前端：构建 renderer 并同步到 OHOS 工程
 build_frontend:
   image: 192.168.1.172:5001/node:22-bullseye
-  stage: build
+  stage: frontend
   needs: [build_backend]
   rules:
     - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_TYPE =~ /^(hap|all)$/
@@ -90,7 +92,7 @@ build_frontend:
 # 4) 打包：hvigorw 构建 HAP 并产出 release/（含 GitLab Release）
 build_pack:
   image: 192.168.1.172:5001/node:22-bullseye
-  stage: build
+  stage: pack
   needs: [build_frontend]
   rules:
     - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_TYPE =~ /^(hap|all)$/
@@ -123,10 +125,10 @@ build_pack:
   tags:
     - docker
 
-# ============ EXE 构建（单 job） ============
+# ============ EXE 构建（单 job，独立 stage 起始） ============
 build_exe:
   image: 192.168.1.172:5001/node:22-bullseye
-  stage: build
+  stage: backend
   rules:
     - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_TYPE =~ /^(exe|all)$/
   before_script:
