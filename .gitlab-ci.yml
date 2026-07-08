@@ -60,8 +60,9 @@ build_hap:
     name: "HAP ${CI_COMMIT_SHORT_SHA} (${BUILD_MODE})"
     description: "自动构建的 HarmonyOS HAP（${BUILD_MODE} 模式）| commit ${CI_COMMIT_SHORT_SHA}"
     assets:
-      paths:
-        - release/finance-assistant-ohos-${BUILD_MODE}.hap
+      links:
+        - name: "finance-assistant-ohos-${BUILD_MODE}.hap"
+          url: "${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/${CI_JOB_ID}/artifacts/release/finance-assistant-ohos-${BUILD_MODE}.hap"
   tags:
     - docker
 
@@ -102,7 +103,8 @@ build_exe:
     name: "EXE ${CI_COMMIT_SHORT_SHA}"
     description: "自动构建的 Windows 安装包 | commit ${CI_COMMIT_SHORT_SHA}"
     assets:
-      paths:
-        - release/finance-agent-setup.exe
+      links:
+        - name: "finance-agent-setup.exe"
+          url: "${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/${CI_JOB_ID}/artifacts/release/finance-agent-setup.exe"
   tags:
     - docker
