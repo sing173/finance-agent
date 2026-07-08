@@ -82,6 +82,7 @@ class Subject:
     category: str = ''           # 类别，如 '流动资产'
     direction: str = '借'         # 余额方向：借 / 贷
     aux_category: str = ''       # 辅助核算类别，如 '客户'、'供应商'
+    aux_category_name: str = ''  # ????????
     is_cash: bool = False        # 是否现金科目
     enabled: bool = True         # 是否启用
     full_name: str = ''          # 完整层级名称，如 '银行存款_工商银行（4363）'，由 SubjectLoader 填充

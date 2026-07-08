@@ -87,6 +87,28 @@ def tmp_db_path(tmp_path):
     return str(tmp_path / "test.db")
 
 
+@pytest.fixture
+def seeded_subjects_db(tmp_path):
+    """隔离的、已回填 subjects.json 默认科目的 DB，并指向模块单例。
+
+    供依赖默认科目表（如 50602xx 管理费用 → aux_category_name='公共部门'）的
+    匹配测试使用，避免触碰真实 data.db 单例。
+    """
+    from finance_agent_backend import db as _db
+    import finance_agent_backend.subject_matcher as _sm
+
+    path = str(tmp_path / "seeded.db")
+    conn = sqlite3.connect(path)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.row_factory = sqlite3.Row
+    _db.init_db(conn)  # subjects 表为空 → 回填 subjects.json（含 aux_category_name）
+    _db._conn = conn
+    _db._db_path = path
+    _sm._subjects_cache = None
+    _sm._default_rule_matcher = None
+    return path
+
+
 # ═══════════════════════════════════════════════════════════════════
 # 共享 helpers
 # ═══════════════════════════════════════════════════════════════════
