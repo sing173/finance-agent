@@ -28,10 +28,18 @@ variables:
   # 工作区根：CI 中指向仓库内 _ws/，使兄弟工程可被 cache 传递（本地留空即用默认同级布局）
   WORKSPACE_ROOT: "$CI_PROJECT_DIR/_ws"
   # HAP 构建模式：release（默认）| debug；Run pipeline 页面可在 Variables 框手动覆盖
-  BUILD_MODE: "release"
+  BUILD_MODE:
+    value: "release"
+    description: "HAP 构建模式：release（默认）| debug"
   # 构建产物类型：hap（默认）| exe | all；Run pipeline 页面可在 Variables 框手动覆盖
-  BUILD_TYPE: "hap"
+  BUILD_TYPE:
+    value: "hap"
+    description: "构建产物类型：hap（默认）| exe | all"
   NPM_REGISTRY: "https://registry.npmmirror.com/"
+  # Electron 二进制镜像（npm install 时 postinstall 默认从 GitHub 拉运行时二进制，内网会被墙/超时，改用 npmmirror）
+  ELECTRON_MIRROR: "https://registry.npmmirror.com/-/binary/electron/"
+  # electron-builder 二进制镜像（打 exe 时下载 app-builder 等工具，同样从 GitHub 拉）
+  ELECTRON_BUILDER_BINARIES_MIRROR: "https://registry.npmmirror.com/-/binary/electron-builder-binaries/"
 
 # 跨 job 共享工作区（兄弟工程 _ws/ + 依赖 node_modules/），以流水线为粒度缓存
 cache:
