@@ -88,7 +88,9 @@ fi
   echo ""
   echo "===== HAP 内容诊断 ====="
   for h in "${HAPS[@]}"; do
-    echo "--- $(basename "$h") ($(du -m "$h" | cut -f1) MB) ---"
+    echo "--- $(basename "$h") ---"
+    # 关键区分：逻辑大小(stat/du -b，=真实文件字节数，决定下载体积) vs 磁盘占用(du -m，=文件系统分配块，可能被 runner 存储后端虚高)
+    echo "  逻辑大小(stat): $(stat -c %s "$h" 2>/dev/null | awk '{printf "%.1f MB", $1/1048576}')  |  表观大小(du -b): $(du -b "$h" 2>/dev/null | awk '{printf "%.1f MB", $1/1048576}')  |  磁盘占用(du -m): $(du -m "$h" | cut -f1) MB"
     # 优先 unzip 看大小；没有就现场装；再没有用 jar tf（JDK 自带）看条目
     if ! command -v unzip >/dev/null 2>&1; then
       (command -v apt-get >/dev/null 2>&1 && apt-get install -y --no-install-recommends unzip >/dev/null 2>&1) || true
