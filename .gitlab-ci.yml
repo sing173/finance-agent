@@ -162,8 +162,5 @@ build_exe:
     paths:
       - release/
     expire_in: 30 days
-
-        - name: "finance-agent-setup.exe"
-          url: "${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/${CI_JOB_ID}/artifacts/release/finance-agent-setup.exe"
   tags:
     - docker
