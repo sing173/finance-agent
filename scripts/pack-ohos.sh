@@ -84,5 +84,27 @@ else
   fi
 fi
 
+  # ---- 诊断：列出 HAP 内条目，追溯产物体积（尤其 signed 异常偏大）----
+  echo ""
+  echo "===== HAP 内容诊断 ====="
+  for h in "${HAPS[@]}"; do
+    echo "--- $(basename "$h") ($(du -m "$h" | cut -f1) MB) ---"
+    # 优先 unzip 看大小；没有就现场装；再没有用 jar tf（JDK 自带）看条目
+    if ! command -v unzip >/dev/null 2>&1; then
+      (command -v apt-get >/dev/null 2>&1 && apt-get install -y --no-install-recommends unzip >/dev/null 2>&1) || true
+    fi
+    if command -v unzip >/dev/null 2>&1; then
+      unzip -l "$h" 2>/dev/null | sort -k1 -rn | head -14
+    elif command -v jar >/dev/null 2>&1; then
+      jar tf "$h" 2>/dev/null | grep -E 'hnp/|libs/|resources/resfile/(icudtl|resources\.pak)' | head -20
+    fi
+    # 关键：hnp / libelectron 出现次数（>1 即重复打包）
+    if command -v jar >/dev/null 2>&1; then
+      jar tf "$h" 2>/dev/null > /tmp/hap_entries.txt
+      echo "  hnp 出现次数: $(grep -c 'finance-agent-backend.hnp' /tmp/hap_entries.txt)"
+      echo "  libelectron.so 出现次数: $(grep -c 'libelectron.so' /tmp/hap_entries.txt)"
+    fi
+  done
+
 echo ""
 echo "===== 构建完成！====="

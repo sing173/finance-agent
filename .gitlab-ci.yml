@@ -24,8 +24,8 @@ stages:
   - pack
 
 variables:
-  # 产物复制目录（相对仓库根）
-  RELEASE_DIR: "release"
+  # 产物复制目录（相对仓库根）  # 创建 GitLab Release 需配 CI/CD Variable: GITLAB_RELEASE_TOKEN
+  #   （项目/个人 Access Token，scope 含 api；建议 Masked。不写在此文件以免泄露）
   # 工作区根：CI 中指向仓库内 _ws/，使兄弟工程可被 cache 传递（本地留空即用默认同级布局）
   WORKSPACE_ROOT: "$CI_PROJECT_DIR/_ws"
   # HAP 构建模式：release（默认）| debug；Run pipeline 页面可在 Variables 框手动覆盖
@@ -112,25 +112,21 @@ build_pack:
     - 'command -v ohpm >/dev/null 2>&1 && echo "ohpm: OK" || echo "WARN: ohpm 不在 PATH"'
   script:
     - ./scripts/pack-ohos.sh "$BUILD_MODE"
-    # 同一 commit 下，不同产物用各自 tag，互不覆盖；仅“同一产物重跑”才删除旧 release 后重建
     - |
       TAG="${CI_COMMIT_SHORT_SHA}-${BUILD_MODE}"
-      curl -s --request DELETE \
-        --header "JOB-TOKEN: $CI_JOB_TOKEN" \
-        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases/$TAG" >/dev/null || true
+      REL_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases"
+      # 确保 tag 存在（部分老版本 Releases API 要求 tag 已存在，否则报 tag not found）
+      curl -s --request POST --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}"         --data "tag_name=${TAG}" --data "ref=${CI_COMMIT_SHA}"         "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags" >/dev/null || true
+      # 同产物重跑：删除旧 Release 后重建（标签保留，实现覆盖）
+      curl -s --request DELETE --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}"         "${REL_URL}/${TAG}" >/dev/null || true
+      # 创建 GitLab Release，链接指向本 job 的 artifacts（有效期同 artifacts.expire_in）
+      PAYLOAD=$(node -e 'console.log(JSON.stringify({name:process.env.RNAME,tag_name:process.env.RTAG,description:process.env.RDESC,assets:{links:[{name:process.env.RLNAME,url:process.env.RURL}]}}))'         RNAME="HAP ${CI_COMMIT_SHORT_SHA} (${BUILD_MODE})"         RTAG="$TAG"         RDESC="自动构建的 HarmonyOS HAP（${BUILD_MODE} 模式）| commit ${CI_COMMIT_SHORT_SHA}"         RLNAME="finance-assistant-ohos-${BUILD_MODE}.hap"         RURL="${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/${CI_JOB_ID}/artifacts/release/finance-assistant-ohos-${BUILD_MODE}.hap")
+      curl -s --request POST --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}" --header "Content-Type: application/json" --data "$PAYLOAD" "${REL_URL}"
+      echo "Release 已创建 (tag: ${TAG})"
   artifacts:
     paths:
       - release/
     expire_in: 30 days
-  # 以 "<commit短hash>-<模式>" 为 tag；同 commit 的 release 与 debug 互不影响
-  release:
-    tag_name: "${CI_COMMIT_SHORT_SHA}-${BUILD_MODE}"
-    name: "HAP ${CI_COMMIT_SHORT_SHA} (${BUILD_MODE})"
-    description: "自动构建的 HarmonyOS HAP（${BUILD_MODE} 模式）| commit ${CI_COMMIT_SHORT_SHA}"
-    assets:
-      links:
-        - name: "finance-assistant-ohos-${BUILD_MODE}.hap"
-          url: "${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/${CI_JOB_ID}/artifacts/release/finance-assistant-ohos-${BUILD_MODE}.hap"
   tags:
     - docker
 
@@ -156,19 +152,17 @@ build_exe:
         echo "WARN: 未找到 exe 产物（package.sh 可能未产出 release/*.exe）" >&2
       fi
       TAG="${CI_COMMIT_SHORT_SHA}-exe"
-      curl -s --request DELETE \
-        --header "JOB-TOKEN: $CI_JOB_TOKEN" \
-        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases/$TAG" >/dev/null || true
+      REL_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases"
+      curl -s --request POST --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}"         --data "tag_name=${TAG}" --data "ref=${CI_COMMIT_SHA}"         "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags" >/dev/null || true
+      curl -s --request DELETE --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}"         "${REL_URL}/${TAG}" >/dev/null || true
+      PAYLOAD=$(node -e 'console.log(JSON.stringify({name:process.env.RNAME,tag_name:process.env.RTAG,description:process.env.RDESC,assets:{links:[{name:process.env.RLNAME,url:process.env.RURL}]}}))'         RNAME="EXE ${CI_COMMIT_SHORT_SHA}"         RTAG="$TAG"         RDESC="自动构建的 Windows 安装包 | commit ${CI_COMMIT_SHORT_SHA}"         RLNAME="finance-agent-setup.exe"         RURL="${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/${CI_JOB_ID}/artifacts/release/finance-agent-setup.exe")
+      curl -s --request POST --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}" --header "Content-Type: application/json" --data "$PAYLOAD" "${REL_URL}"
+      echo "Release 已创建 (tag: ${TAG})"
   artifacts:
     paths:
       - release/
     expire_in: 30 days
-  release:
-    tag_name: "${CI_COMMIT_SHORT_SHA}-exe"
-    name: "EXE ${CI_COMMIT_SHORT_SHA}"
-    description: "自动构建的 Windows 安装包 | commit ${CI_COMMIT_SHORT_SHA}"
-    assets:
-      links:
+
         - name: "finance-agent-setup.exe"
           url: "${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/${CI_JOB_ID}/artifacts/release/finance-agent-setup.exe"
   tags:
