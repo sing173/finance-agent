@@ -68,7 +68,6 @@ detect_hnpcli() {
 # 注意：不同版本工具包布局不同——有的在 bin/，有的在 hvigor/bin/，有的在 tools/hvigor/bin/。
 detect_hvigorw() {
   if [[ -n "${HVIGORW:-}" ]]; then echo "$HVIGORW"; return; fi
-  command -v hvigorw 2>/dev/null || true
   local candidates=(
     "${COMMAND_LINE_TOOLS:-}/bin/hvigorw"
     "${COMMAND_LINE_TOOLS:-}/hvigor/bin/hvigorw"
@@ -82,13 +81,12 @@ detect_hvigorw() {
     [[ -x "$c" ]] && { echo "$c"; return; }
   done
   [[ -x "$PROJECT_OHOS/hvigorw" ]] && { echo "$PROJECT_OHOS/hvigorw"; return; }
-  echo ""
+  command -v hvigorw 2>/dev/null || echo ""
 }
 
 # 探测 ohpm 可执行文件（构建前需先 ohpm install 安装鸿蒙依赖）
 detect_ohpm() {
   if [[ -n "${OHPM:-}" ]]; then echo "$OHPM"; return; fi
-  command -v ohpm 2>/dev/null || true
   local candidates=(
     "${COMMAND_LINE_TOOLS:-}/bin/ohpm"
     "${COMMAND_LINE_TOOLS:-}/ohpm/bin/ohpm"
@@ -100,7 +98,7 @@ detect_ohpm() {
   for c in "${candidates[@]}"; do
     [[ -x "$c" ]] && { echo "$c"; return; }
   done
-  echo ""
+  command -v ohpm 2>/dev/null || echo ""
 }
 
 # 目录同步：优先 rsync（保留排除规则），缺失时回退 cp -r（跨平台兼容）。
