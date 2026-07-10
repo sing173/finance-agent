@@ -104,6 +104,38 @@ fi
       echo "  hnp 出现次数: $(grep -c 'finance-agent-backend.hnp' /tmp/hap_entries.txt)"
       echo "  libelectron.so 出现次数: $(grep -c 'libelectron.so' /tmp/hap_entries.txt)"
     fi
+    # ZIP 结构分析（node，镜像必带）：定位"磁盘大小 vs 条目内容合计"的差额到底在哪——
+    # 若 centralDir 前存在大块间隙，即代码签名块/签名块异常膨胀；若尾部有大块，即被追加数据。
+    if command -v node >/dev/null 2>&1; then
+      HAP="$h" node -e '
+        const fs=require("fs");
+        const buf=fs.readFileSync(process.env.HAP);
+        const size=buf.length; const mb=x=>(x/1048576).toFixed(1);
+        let eocd=-1;
+        for(let i=size-22;i>=0 && i>=size-22-65536;i--){ if(buf.readUInt32LE(i)===0x06054b50){eocd=i;break;} }
+        if(eocd<0){ console.log("  [zip] 未找到 EOCD（可能是 ZIP64）"); process.exit(0); }
+        const cdOff=buf.readUInt32LE(eocd+16);
+        const nEnt=buf.readUInt16LE(eocd+10), commentLen=buf.readUInt16LE(eocd+20);
+        const trailing=size-(eocd+22+commentLen);
+        let off=cdOff, sumComp=0, maxEnd=0, ents=[];
+        for(let k=0;k<nEnt;k++){
+          if(buf.readUInt32LE(off)!==0x02014b50) break;
+          const comp=buf.readUInt32LE(off+20), uncomp=buf.readUInt32LE(off+24);
+          const nameLen=buf.readUInt16LE(off+28), extraLen=buf.readUInt16LE(off+30), commLen=buf.readUInt16LE(off+32);
+          const lho=buf.readUInt32LE(off+42), name=buf.toString("utf8",off+46,off+46+nameLen);
+          sumComp+=comp; const end=lho+30+nameLen+comp; if(end>maxEnd) maxEnd=end;
+          ents.push({name,comp,uncomp}); off+=46+nameLen+extraLen+commLen;
+        }
+        const gap=cdOff-maxEnd;
+        console.log("  [zip] 磁盘="+mb(size)+"MB  条目数="+nEnt+"  压缩后合计="+mb(sumComp)+"MB");
+        console.log("  [zip] centralDir偏移="+mb(cdOff)+"MB  末条目数据尾(约)="+mb(maxEnd)+"MB");
+        console.log("  [zip] >>> 条目区与centralDir之间的块 = "+mb(gap)+"MB  (>1MB 即签名/代码签名块异常膨胀)");
+        console.log("  [zip] EOCD 之后尾部字节 = "+mb(trailing)+"MB  (>1MB 即被追加数据)");
+        ents.sort((a,b)=>b.comp-a.comp);
+        console.log("  [zip] 压缩后最大的条目:");
+        ents.slice(0,6).forEach(e=>console.log("    "+mb(e.comp)+"MB (未压缩 "+mb(e.uncomp)+"MB)  "+e.name));
+      ' 2>/dev/null || echo "  [zip] node 分析失败"
+    fi
   done
 
 echo ""

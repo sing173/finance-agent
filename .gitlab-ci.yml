@@ -28,6 +28,9 @@ variables:
   #   （项目/个人 Access Token，scope 含 api；建议 Masked。不写在此文件以免泄露）
   # 工作区根：CI 中指向仓库内 _ws/，使兄弟工程可被 cache 传递（本地留空即用默认同级布局）
   WORKSPACE_ROOT: "$CI_PROJECT_DIR/_ws"
+  # 产物目录：CI 中直接落到仓库根 release/，与 build_pack/build_exe 的 artifacts 路径一致
+  # （默认 RELEASE_DIR=$WORKSPACE_ROOT/release 会落到 _ws/release，GitLab 收集不到，导致 No files to upload）
+  RELEASE_DIR: "$CI_PROJECT_DIR/release"
   # HAP 构建模式：release（默认）| debug；Run pipeline 页面可在 Variables 框手动覆盖
   BUILD_MODE:
     value: "release"
@@ -114,15 +117,24 @@ build_pack:
     - ./scripts/pack-ohos.sh "$BUILD_MODE"
     - |
       TAG="${CI_COMMIT_SHORT_SHA}-${BUILD_MODE}"
-      REL_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases"
-      # 确保 tag 存在（部分老版本 Releases API 要求 tag 已存在，否则报 tag not found）
-      curl -s --request POST --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}"         --data "tag_name=${TAG}" --data "ref=${CI_COMMIT_SHA}"         "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags" >/dev/null || true
-      # 同产物重跑：删除旧 Release 后重建（标签保留，实现覆盖）
-      curl -s --request DELETE --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}"         "${REL_URL}/${TAG}" >/dev/null || true
-      # 创建 GitLab Release，链接指向本 job 的 artifacts（有效期同 artifacts.expire_in）
-      PAYLOAD=$(node -e 'console.log(JSON.stringify({name:process.env.RNAME,tag_name:process.env.RTAG,description:process.env.RDESC,assets:{links:[{name:process.env.RLNAME,url:process.env.RURL}]}}))'         RNAME="HAP ${CI_COMMIT_SHORT_SHA} (${BUILD_MODE})"         RTAG="$TAG"         RDESC="自动构建的 HarmonyOS HAP（${BUILD_MODE} 模式）| commit ${CI_COMMIT_SHORT_SHA}"         RLNAME="finance-assistant-ohos-${BUILD_MODE}.hap"         RURL="${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/${CI_JOB_ID}/artifacts/release/finance-assistant-ohos-${BUILD_MODE}.hap")
-      curl -s --request POST --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}" --header "Content-Type: application/json" --data "$PAYLOAD" "${REL_URL}"
-      echo "Release 已创建 (tag: ${TAG})"
+      if [ -z "${GITLAB_RELEASE_TOKEN:-}" ]; then
+        echo "WARN: 未配置 CI/CD Variable GITLAB_RELEASE_TOKEN，跳过创建 GitLab Release（HAP 产物仍在 artifacts 的 release/ 中可下载）" >&2
+      else
+        REL_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases"
+        # 确保 tag 存在（部分老版本 Releases API 要求 tag 已存在，否则报 tag not found）
+        curl -s --request POST --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}" --data "tag_name=${TAG}" --data "ref=${CI_COMMIT_SHA}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags" >/dev/null || true
+        # 同产物重跑：删除旧 Release 后重建（标签保留，实现覆盖）
+        curl -s --request DELETE --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}" "${REL_URL}/${TAG}" >/dev/null || true
+        # 创建 GitLab Release，链接指向本 job 的 artifacts（有效期同 artifacts.expire_in）
+        PAYLOAD=$(node -e 'console.log(JSON.stringify({name:process.env.RNAME,tag_name:process.env.RTAG,description:process.env.RDESC,assets:{links:[{name:process.env.RLNAME,url:process.env.RURL}]}}))' RNAME="HAP ${CI_COMMIT_SHORT_SHA} (${BUILD_MODE})" RTAG="$TAG" RDESC="自动构建的 HarmonyOS HAP（${BUILD_MODE} 模式）| commit ${CI_COMMIT_SHORT_SHA}" RLNAME="finance-assistant-ohos-${BUILD_MODE}.hap" RURL="${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/${CI_JOB_ID}/artifacts/release/finance-assistant-ohos-${BUILD_MODE}.hap")
+        HTTP_CODE=$(curl -s -o /tmp/rel_resp.txt -w "%{http_code}" --request POST --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}" --header "Content-Type: application/json" --data "$PAYLOAD" "${REL_URL}")
+        if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "200" ]; then
+          echo "Release 已创建 (tag: ${TAG})"
+        else
+          echo "WARN: 创建 Release 失败 (HTTP ${HTTP_CODE}):" >&2
+          cat /tmp/rel_resp.txt >&2
+        fi
+      fi
   artifacts:
     paths:
       - release/
@@ -152,12 +164,21 @@ build_exe:
         echo "WARN: 未找到 exe 产物（package.sh 可能未产出 release/*.exe）" >&2
       fi
       TAG="${CI_COMMIT_SHORT_SHA}-exe"
-      REL_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases"
-      curl -s --request POST --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}"         --data "tag_name=${TAG}" --data "ref=${CI_COMMIT_SHA}"         "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags" >/dev/null || true
-      curl -s --request DELETE --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}"         "${REL_URL}/${TAG}" >/dev/null || true
-      PAYLOAD=$(node -e 'console.log(JSON.stringify({name:process.env.RNAME,tag_name:process.env.RTAG,description:process.env.RDESC,assets:{links:[{name:process.env.RLNAME,url:process.env.RURL}]}}))'         RNAME="EXE ${CI_COMMIT_SHORT_SHA}"         RTAG="$TAG"         RDESC="自动构建的 Windows 安装包 | commit ${CI_COMMIT_SHORT_SHA}"         RLNAME="finance-agent-setup.exe"         RURL="${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/${CI_JOB_ID}/artifacts/release/finance-agent-setup.exe")
-      curl -s --request POST --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}" --header "Content-Type: application/json" --data "$PAYLOAD" "${REL_URL}"
-      echo "Release 已创建 (tag: ${TAG})"
+      if [ -z "${GITLAB_RELEASE_TOKEN:-}" ]; then
+        echo "WARN: 未配置 CI/CD Variable GITLAB_RELEASE_TOKEN，跳过创建 GitLab Release（EXE 产物仍在 artifacts 的 release/ 中可下载）" >&2
+      else
+        REL_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases"
+        curl -s --request POST --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}" --data "tag_name=${TAG}" --data "ref=${CI_COMMIT_SHA}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags" >/dev/null || true
+        curl -s --request DELETE --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}" "${REL_URL}/${TAG}" >/dev/null || true
+        PAYLOAD=$(node -e 'console.log(JSON.stringify({name:process.env.RNAME,tag_name:process.env.RTAG,description:process.env.RDESC,assets:{links:[{name:process.env.RLNAME,url:process.env.RURL}]}}))' RNAME="EXE ${CI_COMMIT_SHORT_SHA}" RTAG="$TAG" RDESC="自动构建的 Windows 安装包 | commit ${CI_COMMIT_SHORT_SHA}" RLNAME="finance-agent-setup.exe" RURL="${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/${CI_JOB_ID}/artifacts/release/finance-agent-setup.exe")
+        HTTP_CODE=$(curl -s -o /tmp/rel_resp.txt -w "%{http_code}" --request POST --header "PRIVATE-TOKEN: ${GITLAB_RELEASE_TOKEN}" --header "Content-Type: application/json" --data "$PAYLOAD" "${REL_URL}")
+        if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "200" ]; then
+          echo "Release 已创建 (tag: ${TAG})"
+        else
+          echo "WARN: 创建 Release 失败 (HTTP ${HTTP_CODE}):" >&2
+          cat /tmp/rel_resp.txt >&2
+        fi
+      fi
   artifacts:
     paths:
       - release/
