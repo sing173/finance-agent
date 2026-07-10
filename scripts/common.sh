@@ -142,5 +142,7 @@ clone_if_missing() {
   fi
   echo "  [clone] $name -> $dir"
   echo "           $url"
-  git clone "$clone_url" "$dir"
+  # --depth 1 浅克隆：CI 只构建不需要 git 历史，可大幅缩小 _ws（约省数百 MB / 数千文件），
+  # 加快克隆速度，也减小跨 job 传递的 cache 体积（cache 落盘/恢复是各 job 的主要耗时之一）
+  git clone --depth 1 "$clone_url" "$dir"
 }
