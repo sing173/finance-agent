@@ -47,6 +47,28 @@ export GIT_OHOS_URL="${GIT_OHOS_URL:-http://192.168.1.172/finance-agent/finance-
 # 辅助函数
 # =====================================================================
 
+# 判断当前是否在 Windows（Git Bash / MINGW / MSYS / Cygwin）下运行。
+# 用于决定构建工具的文件后缀：Windows 上命令行为 .bat，Linux 上为 shell 脚本。
+is_windows() {
+  case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*|Windows_NT) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# 在 OHOS 工程目录内执行构建工具（hvigorw / ohpm）。
+# Windows 上构建工具是 .bat，必须通过 cmd //c 调用；Linux 上直接执行 shell 脚本。
+run_in_ohos() {
+  local bin="$1"; shift
+  if [[ "$bin" == *.bat ]]; then
+    local win_bin
+    win_bin="$(cygpath -w "$bin" 2>/dev/null || echo "$bin")"
+    (cd "$PROJECT_OHOS" && cmd //c "$win_bin" "$@")
+  else
+    (cd "$PROJECT_OHOS" && "$bin" "$@")
+  fi
+}
+
 # 探测 hnpcli 可执行文件（优先级：环境变量 > 常见路径 > PATH）
 detect_hnpcli() {
   if [[ -n "${HNPCLI:-}" ]]; then echo "$HNPCLI"; return; fi
@@ -64,41 +86,37 @@ detect_hnpcli() {
   command -v hnpcli 2>/dev/null || true
 }
 
-# 探测 hvigorw 可执行文件（Linux 上标准的 OHOS 构建入口）
-# 注意：不同版本工具包布局不同——有的在 bin/，有的在 hvigor/bin/，有的在 tools/hvigor/bin/。
+# 探测 hvigorw 可执行文件（command-line-tools 的构建入口，Windows / Linux 通用）。
+# Windows 上为 hvigorw.bat，Linux 上为 shell 脚本 hvigorw；统一由本函数探测返回实际路径。
 detect_hvigorw() {
   if [[ -n "${HVIGORW:-}" ]]; then echo "$HVIGORW"; return; fi
-  local candidates=(
-    "${COMMAND_LINE_TOOLS:-}/bin/hvigorw"
-    "${COMMAND_LINE_TOOLS:-}/hvigor/bin/hvigorw"
-    "${COMMAND_LINE_TOOLS:-}/tools/hvigor/bin/hvigorw"
-    "$HOME/DevEco/command-line-tools/bin/hvigorw"
-    "/opt/harmonyos/command-line-tools/bin/hvigorw"
-    "/opt/deveco/command-line-tools/bin/hvigorw"
-  )
-  local c
-  for c in "${candidates[@]}"; do
-    [[ -x "$c" ]] && { echo "$c"; return; }
+  local ext=""
+  is_windows && ext=".bat"
+  local prefix
+  for prefix in "${COMMAND_LINE_TOOLS:-}" "$HOME/DevEco/command-line-tools" "/opt/harmonyos/command-line-tools" "/opt/deveco/command-line-tools"; do
+    [[ -z "$prefix" ]] && continue
+    [[ -x "$prefix/bin/hvigorw$ext" ]] && { echo "$prefix/bin/hvigorw$ext"; return; }
+    [[ -x "$prefix/hvigor/bin/hvigorw$ext" ]] && { echo "$prefix/hvigor/bin/hvigorw$ext"; return; }
+    [[ -x "$prefix/tools/hvigor/bin/hvigorw$ext" ]] && { echo "$prefix/tools/hvigor/bin/hvigorw$ext"; return; }
   done
-  [[ -x "$PROJECT_OHOS/hvigorw" ]] && { echo "$PROJECT_OHOS/hvigorw"; return; }
-  command -v hvigorw 2>/dev/null || echo ""
+  # 工程自带（OHOS 工程根目录的 hvigorw / hvigorw.bat）
+  [[ -x "$PROJECT_OHOS/hvigorw$ext" ]] && { echo "$PROJECT_OHOS/hvigorw$ext"; return; }
+  # PATH 兜底（Windows 上需带 .bat 才能被 command -v 命中）
+  command -v "hvigorw$ext" 2>/dev/null || echo ""
 }
 
-# 探测 ohpm 可执行文件（构建前需先 ohpm install 安装鸿蒙依赖）
+# 探测 ohpm 可执行文件（构建前需先 ohpm install 安装鸿蒙依赖）。Windows 上为 ohpm.bat。
 detect_ohpm() {
   if [[ -n "${OHPM:-}" ]]; then echo "$OHPM"; return; fi
-  local candidates=(
-    "${COMMAND_LINE_TOOLS:-}/bin/ohpm"
-    "${COMMAND_LINE_TOOLS:-}/ohpm/bin/ohpm"
-    "$HOME/DevEco/command-line-tools/bin/ohpm"
-    "/opt/harmonyos/command-line-tools/bin/ohpm"
-    "/opt/deveco/command-line-tools/bin/ohpm"
-  )
-  local c
-  for c in "${candidates[@]}"; do
-    [[ -x "$c" ]] && { echo "$c"; return; }
+  local ext=""
+  is_windows && ext=".bat"
+  local prefix
+  for prefix in "${COMMAND_LINE_TOOLS:-}" "$HOME/DevEco/command-line-tools" "/opt/harmonyos/command-line-tools" "/opt/deveco/command-line-tools"; do
+    [[ -z "$prefix" ]] && continue
+    [[ -x "$prefix/bin/ohpm$ext" ]] && { echo "$prefix/bin/ohpm$ext"; return; }
+    [[ -x "$prefix/ohpm/bin/ohpm$ext" ]] && { echo "$prefix/ohpm/bin/ohpm$ext"; return; }
   done
-  command -v ohpm 2>/dev/null || echo ""
+  command -v "ohpm$ext" 2>/dev/null || echo ""
 }
 
 # 目录同步：优先 rsync（保留排除规则），缺失时回退 cp -r（跨平台兼容）。

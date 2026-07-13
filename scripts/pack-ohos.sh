@@ -5,7 +5,7 @@
 #   ./pack-ohos.sh            # 默认 release
 #   ./pack-ohos.sh debug      # debug 模式
 #
-# 构建工具自动探测：优先 devecocli（Win/Mac），否则 hvigorw（Linux 标准 CLI）。
+# 构建工具统一使用 command-line-tools 的 hvigorw（Windows / Linux 一致），
 # 打包成功后已签名的 APP 复制到 RELEASE_DIR。
 # 签名：hvigorw 依据工程 build-profile.json5 的 signingConfigs（release 配置引用 cert/ 下的
 #       发布证书/Profile）自动签名，无需手动调用 hap-sign-tool。
@@ -22,40 +22,27 @@ case "$BUILD_MODE" in
   *) echo "FAIL: 构建模式必须是 debug 或 release，收到: $BUILD_MODE" >&2; exit 1 ;;
 esac
 
-# ---- 构建 APP ----
-echo "===== 构建 APP ($BUILD_MODE) ====="
+# ---- 构建 APP（统一使用 hvigorw / command-line-tools）----
+HVIGORW_BIN="$(detect_hvigorw)"
+if [[ -z "$HVIGORW_BIN" ]]; then
+  echo "  FAIL: 未找到 hvigorw（command-line-tools）。" >&2
+  echo "        请安装 OHOS Command Line Tools 并配置 COMMAND_LINE_TOOLS 环境变量，" >&2
+  echo "        或在 PATH 中提供 hvigorw / hvigorw.bat。" >&2
+  exit 1
+fi
+echo "  使用 hvigorw ($HVIGORW_BIN)"
 
-BUILD_TOOL=""
-if command -v devecocli >/dev/null 2>&1; then
-  BUILD_TOOL="devecocli"
-elif HVIGORW_BIN="$(detect_hvigorw)"; [[ -n "$HVIGORW_BIN" ]]; then
-  BUILD_TOOL="hvigorw"
+# 安装 ohpm 依赖（hvigorw 构建前需要）
+if OHPM_BIN="$(detect_ohpm)"; [[ -n "$OHPM_BIN" ]]; then
+  echo "    ohpm install ($OHPM_BIN)"
+  run_in_ohos "$OHPM_BIN" install
+else
+  echo "  WARN: 未找到 ohpm，跳过依赖安装（可能导致构建失败）" >&2
 fi
 
-case "$BUILD_TOOL" in
-  devecocli)
-    echo "  使用 devecocli build"
-    (cd "$PROJECT_OHOS" && devecocli build --build-mode "$BUILD_MODE")
-    ;;
-  hvigorw)
-    echo "  使用 hvigorw assembleApp ($HVIGORW_BIN)"
-    # 安装 ohpm 依赖（仅 hvigorw 路径需要）
-    if OHPM_BIN="$(detect_ohpm)"; [[ -n "$OHPM_BIN" ]]; then
-      echo "    ohpm install ($OHPM_BIN)"
-      (cd "$PROJECT_OHOS" && "$OHPM_BIN" install)
-    else
-      echo "  WARN: 未找到 ohpm，跳过依赖安装（可能导致构建失败）" >&2
-    fi
-    # assembleApp 用 --mode project；buildMode=release 时 hvigorw 自动用 build-profile.json5 的
-    # release signingConfig（发布证书 financeassistant_ohos.cer + Profile financeassistantProfileRelease.p7b）签名
-    (cd "$PROJECT_OHOS" && "$HVIGORW_BIN" assembleApp --mode project -p product=default -p buildMode="$BUILD_MODE")
-    ;;
-  *)
-    echo "  FAIL: 未找到构建工具（devecocli 或 hvigorw）。" >&2
-    echo "        Windows/Mac 请安装 @deveco/deveco-cli；Linux 请安装 OHOS CommandLineTools。" >&2
-    exit 1
-    ;;
-esac
+# assembleApp 用 --mode project；buildMode=release 时 hvigorw 自动用 build-profile.json5 的
+# release signingConfig（发布证书 financeassistant_ohos.cer + Profile financeassistantProfileRelease.p7b）签名
+run_in_ohos "$HVIGORW_BIN" assembleApp --mode project -p product=default -p "buildMode=$BUILD_MODE"
 
 # ---- 定位并复制 APP 到产物目录 ----
 # assembleApp 产物位于工程级 build/outputs/{productName}/（区别于 assembleHap 的模块级输出）
