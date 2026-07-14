@@ -40,6 +40,8 @@ export function useBatchOrchestrator(
   const { onComplete } = opts;
 
   const [files, setFiles] = useState<BatchFileResult[]>([]);
+  const filesRef = useRef(files);
+  filesRef.current = files;
   const [isParsing, setIsParsing] = useState(false);
   const [phase, setPhase] = useState<BatchPhase>('idle');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -105,8 +107,9 @@ export function useBatchOrchestrator(
       prev.map((f) => ({ ...f, status: 'pending' as const, bank: '', docType: '流水', error: undefined, isManual: false, transactionCount: 0, transactions: undefined })),
     );
     try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (let i = 0; i < filesRef.current.length; i++) {
+        const file = filesRef.current[i];
+        if (!file) continue;
         setCurrentIndex(i + 1);
 
         const detectResp = await window.electronAPI?.detectBanks?.([file.filePath]);
@@ -147,8 +150,9 @@ export function useBatchOrchestrator(
     const latestFiles: BatchFileResult[] = files.map((f) => ({ ...f, status: 'pending' as const, error: undefined, transactionCount: 0, transactions: undefined }));
 
     try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (let i = 0; i < filesRef.current.length; i++) {
+        const file = filesRef.current[i];
+        if (!file) continue;
         setCurrentIndex(i + 1);
 
         let updated: BatchFileResult;

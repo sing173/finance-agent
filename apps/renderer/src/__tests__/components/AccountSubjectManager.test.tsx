@@ -68,14 +68,13 @@ afterEach(() => {
 // --- tests ---
 
 describe('AccountSubjectManager', () => {
-  it('renders card with title and accounts table', async () => {
+  it('renders accounts table with add button', async () => {
     render(<AccountSubjectManager />);
-    await waitFor(() => {
-      expect(screen.getByText('账号-科目管理')).toBeInTheDocument();
-    });
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith('account_registry.list', {});
     });
+    // Toolbar add button (title lives in the wrapping Modal in App.tsx)
+    expect(screen.getByText('新增')).toBeInTheDocument();
     // Table renders bank names, bank codes, tags
     expect(screen.getAllByText('工商银行').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('ICBC')).toBeInTheDocument();

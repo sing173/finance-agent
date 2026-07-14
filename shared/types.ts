@@ -94,6 +94,10 @@ export interface SubjectItem {
   name: string;
   category: string;
   direction: string;
+  /** 辅助核算类别（如 '04'、'供应商'） */
+  aux_category: string;
+  /** 辅助核算名称（如 aux_category='04' 时的 '公共部门'） */
+  aux_category_name: string;
   /** 是否现金类科目 */
   is_cash: boolean;
   /** 是否启用 */

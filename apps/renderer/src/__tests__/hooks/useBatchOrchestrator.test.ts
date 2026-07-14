@@ -186,6 +186,66 @@ describe('useBatchOrchestrator', () => {
         error: 'parse error',
       });
     });
+
+    it('processes remaining files after one is removed between parseOnly calls (filesRef guard)', async () => {
+      // 模拟用户中途删掉一个文件后再次点解析：filesRef 保证每次调用
+      // parseOnly 都读到当前的 files 数组，不会访问已删除槽位崩溃。
+      const parseFile = vi.fn()
+        .mockResolvedValueOnce({
+          success: true,
+          bank: '工商银行',
+          docType: '流水',
+          statementDate: '2026-01-15',
+          transactions: [{ date: '2026-01-01', description: 'a', amount: 100 }],
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          bank: '工商银行',
+          docType: '流水',
+          statementDate: '2026-01-16',
+          transactions: [{ date: '2026-01-02', description: 'b', amount: 200 }],
+        });
+      mockElectronAPI({ parseFile });
+
+      const { result } = renderHook(() => useBatchOrchestrator());
+
+      act(() => {
+        result.current.addFiles(['/a.pdf', '/b.pdf']);
+        result.current.updateFile('/a.pdf', { bank: '工商银行', docType: '流水' });
+        result.current.updateFile('/b.pdf', { bank: '工商银行', docType: '流水' });
+      });
+
+      // 第一次 parseOnly：处理两个文件
+      await act(async () => {
+        await result.current.parseOnly();
+      });
+      expect(parseFile).toHaveBeenCalledTimes(2);
+      expect(result.current.files).toHaveLength(2);
+      expect(result.current.files.every((f) => f.status === 'success')).toBe(true);
+
+      // 中途移除 /a.pdf，再次 parseOnly：只处理剩余的 /b.pdf
+      parseFile.mockResolvedValueOnce({
+        success: true,
+        bank: '工商银行',
+        docType: '流水',
+        statementDate: '2026-01-17',
+        transactions: [{ date: '2026-01-03', description: 'c', amount: 300 }],
+      });
+
+      act(() => {
+        result.current.removeFile('/a.pdf');
+      });
+
+      await act(async () => {
+        await result.current.parseOnly();
+      });
+
+      // filesRef 读到的已经是只剩 1 个文件的数组，parseFile 仅被调用 1 次
+      expect(parseFile).toHaveBeenCalledTimes(3);
+      expect(result.current.files).toHaveLength(1);
+      expect(result.current.files[0].filePath).toBe('/b.pdf');
+      expect(result.current.files[0].status).toBe('success');
+    });
   });
 
   describe('updateFile', () => {

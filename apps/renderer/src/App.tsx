@@ -8,6 +8,7 @@ import { SingleFileResultPanel } from './components/SingleFileResultPanel';
 import { BatchFileSelector } from './components/BatchFileSelector';
 import { BatchResultPanel } from './components/BatchResultPanel';
 import { AccountSubjectManager } from './components/AccountSubjectManager';
+import { SubjectManagerModal } from './components/SubjectManagerModal';
 import { VoucherPreviewPanel } from './components/VoucherPreviewPanel';
 import { useBatchOrchestrator } from './hooks/useBatchOrchestrator';
 import { useVoucherFlow } from './hooks/useVoucherFlow';
@@ -196,8 +197,8 @@ function App() {
   const voucherFlow = useVoucherFlow();
 
   // ====== 科目管理 ======
-  const [importSubjectsLoading, setImportSubjectsLoading] = useState(false);
   const [subjectsCount, setSubjectsCount] = useState<number | null>(null);
+  const [subjectManagerVisible, setSubjectManagerVisible] = useState(false);
   const [backendStatus, setBackendStatus] = useState<string>('检查中...');
 
   // ====== 账号-科目管理 ======
@@ -293,26 +294,14 @@ function App() {
     });
   }, [batch.updateFile, overrideModal]);
 
-  // ====== 导入科目表 ======
-  const handleImportSubjects = useCallback(async () => {
-    const filePath = await window.electronAPI.selectFile('xlsx');
-    if (!filePath) return;
-
-    setImportSubjectsLoading(true);
-    try {
-      const result = await window.electronAPI.importSubjects({ xlsx_path: filePath });
-      if (result.success) {
-        setSubjectsCount(result.count);
-        message.success(`科目表导入成功，共 ${result.count} 条科目`);
-      } else {
-        message.error(`导入失败：${result.error}`);
-      }
-    } catch (error: unknown) {
-      message.error(`导入出错：${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setImportSubjectsLoading(false);
+  // ====== 科目管理弹窗关闭后刷新科目数 ======
+  useEffect(() => {
+    if (!subjectManagerVisible) {
+      window.electronAPI?.getSubjectsInfo?.().then((result: any) => {
+        if (result?.success) setSubjectsCount(result.count);
+      });
     }
-  }, []);
+  }, [subjectManagerVisible]);
 
   // ====== 批量：开始解析 ======
   const handleBatchStartParse = useCallback(() => {
@@ -444,11 +433,11 @@ function App() {
                 <Text strong>{backendStatus}</Text>
               </div>
               <Space style={{ marginBottom: 16 }}>
-                <Button loading={importSubjectsLoading} onClick={handleImportSubjects}>
-                  导入科目表
+                <Button icon={<SettingOutlined />} onClick={() => setSubjectManagerVisible(true)}>
+                  科目管理
                 </Button>
                 <Button icon={<SettingOutlined />} onClick={() => setAccountManagerVisible(true)}>
-                  账号管理
+                  账户管理
                 </Button>
               </Space>
               <div>
@@ -550,9 +539,9 @@ function App() {
         />
       )}
 
-      {/* 账号-科目管理模态框 */}
+      {/* 账户管理模态框 */}
       <Modal
-        title="账号-科目管理"
+        title="账户管理"
         open={accountManagerVisible}
         onCancel={() => setAccountManagerVisible(false)}
         footer={null}
@@ -568,6 +557,12 @@ function App() {
           }}
         />
       </Modal>
+
+      {/* 科目管理弹窗 */}
+      <SubjectManagerModal
+        visible={subjectManagerVisible}
+        onClose={() => setSubjectManagerVisible(false)}
+      />
     </Layout>
   );
 

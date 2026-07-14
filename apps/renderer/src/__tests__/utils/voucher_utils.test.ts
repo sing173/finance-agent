@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { flattenToRows, moveEntries, splitEntry } from '../../hooks/voucher_utils';
+import { flattenToRows, moveEntries, splitEntry, round2, recalcBankEntry } from '../../hooks/voucher_utils';
 import type { VoucherData } from '@shared/types';
 
 const makeEntry = (overrides: Partial<any> = {}) => ({
@@ -65,6 +65,24 @@ describe('flattenToRows', () => {
 
     expect(group1.totalDebit).toBe(1000);
     expect(group1.totalCredit).toBe(1000);
+  });
+
+  it('rounds group totals to avoid floating-point drift', () => {
+    // 0.1 + 0.2 + 0.3 = 0.6000000000000001 in JS without rounding
+    const vouchers: VoucherData[] = [
+      {
+        voucher_no: 99, date: '2026-03-01', direction: 'expense',
+        bank_subject_code: '', counterpart_subject_code: '',
+        entries: [
+          makeEntry({ voucher_no: 99, entry_seq: 1, debit_amount: 0.1, credit_amount: null }),
+          makeEntry({ voucher_no: 99, entry_seq: 2, debit_amount: 0.2, credit_amount: null }),
+          makeEntry({ voucher_no: 99, entry_seq: 3, debit_amount: 0.3, credit_amount: null }),
+        ],
+      },
+    ];
+    const rows = flattenToRows(vouchers);
+    const group = rows[0] as any;
+    expect(group.totalDebit).toBe(0.6);
   });
 
   it('returns empty array for empty input', () => {
@@ -253,5 +271,57 @@ describe('splitEntry', () => {
     // Both new entries should inherit date, summary, counterparty from original
     expect(v1.entries[0].date).toBe('2026-03-01');
     expect(v1.entries[1].counterparty).toBe('test');
+  });
+});
+
+describe('round2', () => {
+  it('rounds to 2 decimal places', () => {
+    expect(round2(1.234)).toBe(1.23);
+    expect(round2(1.235)).toBe(1.24);
+    expect(round2(1.2)).toBe(1.2);
+  });
+
+  it('prevents floating-point drift from accumulating', () => {
+    // 0.1 + 0.2 + 0.3 在 JS 中实际是 0.6000000000000001
+    const total = round2(0.1 + 0.2 + 0.3);
+    expect(total).toBe(0.6);
+  });
+});
+
+describe('recalcBankEntry', () => {
+  it('fills bank entry from opposite-side totals', () => {
+    const voucher: VoucherData = {
+      voucher_no: 1, date: '2026-03-01', direction: 'expense',
+      bank_subject_code: '1000201', counterpart_subject_code: '5060203',
+      entries: [
+        makeEntry({ entry_seq: 1, debit_amount: 1000, direction: 'expense' }),
+        makeEntry({ entry_seq: 2, credit_amount: null, direction: 'bank' }),
+      ],
+    };
+
+    const result = recalcBankEntry(voucher);
+    const bank = result.entries.find((e) => e.direction === 'bank')!;
+    // bank debit = sum of non-bank credits, bank credit = sum of non-bank debits
+    expect(bank.debit_amount).toBeNull();  // non-bank credit total = 0
+    expect(bank.credit_amount).toBe(1000); // non-bank debit total = 1000
+  });
+
+  it('rounds bank totals to 2 decimal places', () => {
+    const voucher: VoucherData = {
+      voucher_no: 1, date: '2026-03-01', direction: 'expense',
+      bank_subject_code: '1000201', counterpart_subject_code: '5060203',
+      entries: [
+        makeEntry({ entry_seq: 1, debit_amount: 0.1, direction: 'expense' }),
+        makeEntry({ entry_seq: 2, debit_amount: 0.2, direction: 'expense' }),
+        makeEntry({ entry_seq: 3, credit_amount: null, direction: 'bank' }),
+      ],
+    };
+
+    const result = recalcBankEntry(voucher);
+    const bank = result.entries.find((e) => e.direction === 'bank')!;
+    // non-bank credit total = 0 → round2(0) = 0 → 0 || null = null
+    expect(bank.debit_amount).toBeNull();
+    // non-bank debit total = 0.1+0.2 = 0.30000000000000004 → round2 → 0.3
+    expect(bank.credit_amount).toBe(0.3);
   });
 });

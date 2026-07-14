@@ -138,3 +138,66 @@ class SubjectService:
     def get_subject_codes(self) -> set:
         """获取现有科目代码集合（用于校验重复）。"""
         return set(get_subjects().keys())
+
+    def update_subject(self, params: dict) -> dict:
+        """更新单条科目（按 code 匹配，不允许修改 code 本身）。
+
+        仅更新 params 中显式提供的字段；未提供的字段保持原值。
+        显式传入 None / "" 会清空字符串字段。
+        """
+        code = params.get("code", "").strip()
+        if not code:
+            return {"success": False, "error": "code 必填"}
+
+        allowed = {
+            'name', 'full_name', 'category', 'direction',
+            'aux_category', 'aux_category_name', 'is_cash', 'enabled',
+        }
+        fields: dict[str, any] = {}
+        for key in allowed:
+            if key not in params:
+                continue
+            val = params[key]
+            if key in ('is_cash', 'enabled'):
+                fields[key] = 1 if val else 0
+            else:
+                # None → 清空；空串保留为空；其他转字符串
+                fields[key] = "" if val is None else str(val).strip()
+
+        if not fields:
+            return {"success": False, "error": "没有需要更新的字段"}
+
+        sets = [f"{k} = ?" for k in fields]
+        vals: list = list(fields.values()) + [code]
+
+        try:
+            from finance_agent_backend.db import get_db
+            conn = get_db()
+            cur = conn.execute(f"UPDATE subjects SET {', '.join(sets)} WHERE code = ?", vals)
+            if cur.rowcount == 0:
+                return {"success": False, "error": f"科目代码 '{code}' 不存在"}
+            conn.commit()
+        except Exception as e:
+            return {"success": False, "error": f"更新失败: {e}"}
+
+        invalidate_subjects()
+        return {"success": True, "code": code}
+
+    def delete_subject(self, params: dict) -> dict:
+        """删除单条科目（按 code）。"""
+        code = params.get("code", "").strip()
+        if not code:
+            return {"success": False, "error": "code 必填"}
+
+        try:
+            from finance_agent_backend.db import get_db
+            conn = get_db()
+            cur = conn.execute("DELETE FROM subjects WHERE code = ?", (code,))
+            if cur.rowcount == 0:
+                return {"success": False, "error": f"科目代码 '{code}' 不存在"}
+            conn.commit()
+        except Exception as e:
+            return {"success": False, "error": f"删除失败: {e}"}
+
+        invalidate_subjects()
+        return {"success": True, "code": code}

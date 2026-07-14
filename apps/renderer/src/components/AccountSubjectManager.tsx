@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Card,
   Table,
   Button,
   Space,
@@ -17,7 +16,6 @@ import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  SettingOutlined,
 } from '@ant-design/icons';
 import type { AccountEntry } from '@shared/types';
 import { SubjectPickerModal } from './SubjectPickerModal';
@@ -32,7 +30,7 @@ interface AccountSubjectManagerProps {
 
 
 /**
- * AccountSubjectManager — 账号-科目管理主组件
+ * AccountSubjectManager — 账户管理主组件
  *
  * 功能：
  * - 表格展示所有账号映射
@@ -293,19 +291,12 @@ export function AccountSubjectManager({
   ];
 
   return (
-    <Card
-      title={
-        <Space>
-          <SettingOutlined />
-          账号-科目管理
-        </Space>
-      }
-      extra={
+    <>
+      <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
         <Button style={{ background: '#dc2626', color: '#fff', borderColor: '#dc2626' }} icon={<PlusOutlined />} onClick={handleAdd}>
           新增
         </Button>
-      }
-    >
+      </div>
       <Spin spinning={loading}>
         <Table
           dataSource={accounts}
@@ -407,6 +398,6 @@ export function AccountSubjectManager({
         onSelect={handleSelectSubject}
         subjects={subjects}
       />
-    </Card>
+    </>
   );
 }
