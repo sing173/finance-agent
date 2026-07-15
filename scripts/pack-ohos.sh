@@ -7,6 +7,9 @@
 #   ./pack-ohos.sh debug [buildMode]# 调试 hap：assembleHap  -p product=default -> 仅保留 .hap
 #   buildMode: debug | release（可选；默认 prod/test=release，debug=debug）
 #
+# 默认会先执行 `hvigorw clean` 清理增量缓存，确保字符串/资源改动一定生效。
+# 如需保留增量构建速度（例如已确认改动生效后的快速重打包），可设环境变量 PACK_NO_CLEAN=1 跳过。
+#
 # 构建工具统一使用 command-line-tools 的 hvigorw（Windows / Linux 一致）。
 # 签名由 build-profile.json5 的 product 决定：prod -> release 签名，default -> debug 签名。
 # 产物复制到 RELEASE_DIR（默认 workspace/release），按 flavor 命名。
@@ -65,6 +68,15 @@ if OHPM_BIN="$(detect_ohpm)"; [[ -n "$OHPM_BIN" ]]; then
   run_in_ohos "$OHPM_BIN" install
 else
   echo "  WARN: 未找到 ohpm，跳过依赖安装（可能导致构建失败）" >&2
+fi
+
+# ---- 清理增量缓存（解决"改动资源但打包没更新"） ----
+# 默认执行 hvigorw clean，强制重编资源/配置；设 PACK_NO_CLEAN=1 可跳过以保留增量速度。
+if [[ -z "${PACK_NO_CLEAN:-}" ]]; then
+  echo "  hvigorw clean（清理增量构建缓存）"
+  run_in_ohos "$HVIGORW_BIN" clean
+else
+  echo "  skip clean（PACK_NO_CLEAN=1）"
 fi
 
 # ---- 构建 ----
