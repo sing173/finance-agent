@@ -89,11 +89,29 @@ shopt -s nullglob
 if [[ "$KEEP_APP" -eq 1 ]]; then
   APPS=("$APP_OUT"/*.app)
   if [[ ${#APPS[@]} -gt 0 ]]; then
+    # 项目级 assembleApp 同时产出 signed / unsigned 两个 app，必须取 signed：
+    # unsigned.app 外层都没签名，hdc install 会直接报 9568448；而 signed.app
+    # 若未设 packOptions.appWithSignedPkg=true，内层 HAP 仍可能未签名（9568320）。
     DEST=""
     for a in "${APPS[@]}"; do
-      [[ "$(basename "$a")" == *signed* ]] && DEST="$a"
+      b="$(basename "$a")"
+      if [[ "$b" == *signed*.app ]]; then
+        DEST="$a"; break
+      fi
     done
+    if [[ -z "$DEST" ]]; then
+      # 回退：排除 *-unsigned.app
+      for a in "${APPS[@]}"; do
+        b="$(basename "$a")"
+        if [[ "$b" != *unsigned* ]]; then
+          DEST="$a"; break
+        fi
+      done
+    fi
     [[ -z "$DEST" ]] && DEST="${APPS[0]}"
+    if [[ "$(basename "$DEST")" == *unsigned* ]]; then
+      echo "  WARN: 仅找到未签名 app（$(basename "$DEST")）。App Pack 外层无签名，hdc install 会报 9568448。" >&2
+    fi
     cp -f "$DEST" "$RELEASE_DIR/finance-assistant-ohos-$FLAVOR.app"
     SIZE=$(du -m "$DEST" | cut -f1)
     echo "  APP: $(basename "$DEST") (${SIZE} MB) -> $RELEASE_DIR/finance-assistant-ohos-$FLAVOR.app"
