@@ -300,9 +300,10 @@ class TestSubjectService:
         assert "5060203" in codes  # 管理费用_物业管理费
 
     def test_import_from_xlsx(self, tmp_path, monkeypatch):
-        """import_from_xlsx 写入 subjects.json 并失效缓存。"""
+        """import_from_xlsx 写入 DB 并失效缓存。"""
         from finance_agent_backend.models import Subject
         from finance_agent_backend.services import SubjectService
+        from finance_agent_backend import db as _db
         from finance_agent_backend import subject_matcher as _sm
 
         mock_subjects = {
@@ -316,18 +317,19 @@ class TestSubjectService:
             def load(self, path):
                 return mock_subjects
 
-        # 指向临时 subjects.json
-        fake_config_dir = str(tmp_path)
-        monkeypatch.setattr(
-            "finance_agent_backend.services.subject_service.get_config_path",
-            lambda filename: os.path.join(fake_config_dir, filename),
-        )
         monkeypatch.setattr(
             "finance_agent_backend.tools.subject_loader.SubjectLoader",
             FakeLoader,
         )
+        # 指向不存在的 subjects.json，避免 _migrate_v6 回填默认科目干扰行数断言
+        import finance_agent_backend.paths as _paths
+        monkeypatch.setattr(_paths, "get_config_path", lambda name="": str(tmp_path / "nonexistent.json"))
 
-        # 预设缓存，验证 import 后失效
+        db_path = str(tmp_path / "test.db")
+        _db._conn = _db.get_db(db_path=db_path)
+        _db.init_db(_db._conn)
+        _db._conn.row_factory = sqlite3.Row
+
         _sm._subjects_cache = {"old": True}
 
         svc = SubjectService()
@@ -335,15 +337,14 @@ class TestSubjectService:
         assert result["success"] is True
         assert result["count"] == 2
 
-        # 验证文件写入
-        subjects_path = os.path.join(fake_config_dir, "subjects.json")
-        assert os.path.exists(subjects_path)
-        with open(subjects_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        assert "10001" in data
-        assert data["5060203"]["aux_category"] == "04"
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT code, name, aux_category FROM subjects ORDER BY code").fetchall()
+        assert len(rows) == 2
+        assert rows[0]["code"] == "10001"
+        assert rows[1]["code"] == "5060203"
+        assert rows[1]["aux_category"] == "04"
 
-        # 验证缓存失效
         assert _sm._subjects_cache is None
 
 

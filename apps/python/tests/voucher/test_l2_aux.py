@@ -22,7 +22,7 @@ class FakeHistoryMatcher:
         )
 
 
-def test_l2_aux_category_filled_by_subject_matcher():
+def test_l2_aux_category_filled_by_subject_matcher(seeded_subjects_db):
     """SubjectMatcher L2 返回路径应补全 aux_category。"""
     rule_matcher = RuleMatcher()
     fake_l2 = FakeHistoryMatcher()

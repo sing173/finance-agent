@@ -116,7 +116,7 @@ def test_db_schema_v5_has_account_mapping():
         tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
         assert 'account_mapping' in tables, "缺少 account_mapping 表"
         ver = conn.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()
-        assert ver[0] == 5, f"schema_version 应为 5，实际 {ver[0]}"
+        assert ver[0] == 7, f"schema_version 应为 7，实际 {ver[0]}"
     finally:
         pass
 

@@ -136,6 +136,31 @@ def handle_get_subjects_info(params: dict) -> dict:
         return {"success": False, "count": 0, "loaded": False, "error": str(e), "subjects": []}
 
 
+@register_method("add_subject")
+def handle_add_subject(params: dict) -> dict:
+    try:
+        from finance_agent_backend.services import SubjectService
+        return SubjectService().add_subject(params)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@register_method("update_subject")
+def handle_update_subject(params: dict) -> dict:
+    try:
+        from finance_agent_backend.services import SubjectService
+        return SubjectService().update_subject(params)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@register_method("delete_subject")
+def handle_delete_subject(params: dict) -> dict:
+    try:
+        from finance_agent_backend.services import SubjectService
+        return SubjectService().delete_subject(params)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 # ---------------------------------------------------------------------------
 # 账号映射
 # ---------------------------------------------------------------------------
@@ -196,19 +221,10 @@ def handle_account_registry_update(params: dict) -> dict:
     if not entry_id:
         return {"success": False, "error": "缺少 id 参数"}
     try:
-        from finance_agent_backend.account_registry import AccountEntry
         from finance_agent_backend.services import AccountRegistryService
-
-        entry = AccountEntry(
-            id=entry_id,
-            matchType=params.get("matchType", "suffix"),
-            pattern=params.get("pattern", ""),
-            bank=params.get("bank", ""),
-            bankCode=params.get("bankCode", ""),
-            subjectCode=params.get("subjectCode", ""),
-            subjectName=params.get("subjectName", ""),
+        return AccountRegistryService(db_path=params.get("db_path")).partial_update(
+            entry_id, params
         )
-        return AccountRegistryService(db_path=params.get("db_path")).update(entry)
     except ValueError as e:
         return {"success": False, "error": str(e)}
     except Exception as e:

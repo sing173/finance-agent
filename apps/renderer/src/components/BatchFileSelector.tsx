@@ -71,7 +71,7 @@ export function BatchFileSelector({
       {/* 操作按钮区 */}
       <Space style={{ marginBottom: 12 }}>
         <Tooltip title={atLimit ? `最多 ${maxFiles} 个文件` : ''}>
-          <Button icon={<PlusOutlined />} onClick={handleAddFiles} disabled={atLimit}>添加文件</Button>
+          <Button icon={<PlusOutlined />} onClick={handleAddFiles} disabled={atLimit || isDetecting}>添加文件</Button>
         </Tooltip>
 
         {files.length > 0 && (

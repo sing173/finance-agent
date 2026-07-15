@@ -154,7 +154,7 @@ class TestDBHealthRPC:
         assert "export_log" in tables
         assert "account_mapping" in tables
         assert "schema_version" in tables
-        assert len(tables) == 7  # 6 张业务表 + sqlite_sequence (AUTOINCREMENT)
+        assert len(tables) == 8  # 7 张业务表 + sqlite_sequence (AUTOINCREMENT)
 
     def test_health_auto_init_db(self):
         """首次调用 get_db 时自动创建数据库，health 返回 ok。"""

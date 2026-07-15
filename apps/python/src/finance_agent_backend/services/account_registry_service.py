@@ -69,6 +69,36 @@ class AccountRegistryService:
         self._conn.commit()
         return {"success": True, "entry": self._serialize(saved)}
 
+    def partial_update(self, entry_id: str, changes: dict) -> dict:
+        """部分更新：仅覆盖 changes 中显式提供的字段。
+
+        - key 不在 changes 中 → 保留原值
+        - key 在 changes 中但值为 None / "" → 显式清空，写入空值
+        """
+        registry = self._get_registry(with_subject_codes=True)
+        existing = registry._repo.find_by_id(entry_id)
+        if not existing:
+            raise ValueError(f"条目 id={entry_id} 不存在")
+
+        def _pick(key: str, default: str) -> str:
+            if key not in changes:
+                return default
+            val = changes[key]
+            return "" if val is None else str(val).strip()
+
+        merged = AccountEntry(
+            id=entry_id,
+            matchType=_pick("matchType", existing.matchType),
+            pattern=_pick("pattern", existing.pattern),
+            bank=_pick("bank", existing.bank),
+            bankCode=_pick("bankCode", existing.bankCode),
+            subjectCode=_pick("subjectCode", existing.subjectCode),
+            subjectName=_pick("subjectName", existing.subjectName),
+        )
+        saved = registry._repo.save(merged)
+        self._conn.commit()
+        return {"success": True, "entry": self._serialize(saved)}
+
     def delete(self, entry_id: str) -> dict:
         registry = self._get_registry()
         registry.delete(entry_id)

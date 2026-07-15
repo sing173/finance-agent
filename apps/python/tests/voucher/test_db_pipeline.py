@@ -20,7 +20,7 @@ def _cleanup_db(db_path):
     atexit.register(_do)
 
 
-def test_aux_category_save_load_roundtrip():
+def test_aux_category_save_load_roundtrip(seeded_subjects_db):
     """匹配结果 → save_draft → load_draft，aux_category 应保留。"""
     from finance_agent_backend.bridge import handle_voucher_save_draft, handle_voucher_load_draft
 
