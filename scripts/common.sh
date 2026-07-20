@@ -30,7 +30,18 @@ export RELEASE_DIR="${RELEASE_DIR:-$WORKSPACE_ROOT/release}"
 
 # ---- 派生路径 ----
 export PYTHON_SRC="$PROJECT_FINANCE_AGENT/apps/python/src"
-export ELECTRON_SRC="$PROJECT_FINANCE_AGENT/apps/electron/src"
+# Electron 主进程编译产物（TS -> JS，由 update-backend.sh 调用 tsc 生成）
+export ELECTRON_DIST="$PROJECT_FINANCE_AGENT/apps/electron/dist/app"
+
+# TypeScript 编译器（优先本地 node_modules/.bin，避免依赖 PATH / npx 联网）
+if [[ -x "$PROJECT_FINANCE_AGENT/node_modules/.bin/tsc" ]]; then
+  TSPC="$PROJECT_FINANCE_AGENT/node_modules/.bin/tsc"
+elif command -v tsc >/dev/null 2>&1; then
+  TSPC="tsc"
+else
+  TSPC="npx tsc"
+fi
+export TSPC
 export RENDERER_DIST="$PROJECT_FINANCE_AGENT/apps/renderer/dist"
 
 export HNP_CONTENT="$PROJECT_HNP/hnp-content"

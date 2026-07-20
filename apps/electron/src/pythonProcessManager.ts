@@ -1,18 +1,18 @@
-const { spawn } = require('child_process');
-const EventEmitter = require('events');
-const path = require('path');
-const fs = require('fs');
-const { dialog } = require('electron');
+import { spawn, ChildProcess } from 'child_process';
+import { EventEmitter } from 'events';
+import * as path from 'path';
+import * as fs from 'fs';
+import { dialog } from 'electron';
 
-function getResourcesPath() {
+function getResourcesPath(): string | undefined {
   try {
-    return process.resourcesPath;
+    return (process as any).resourcesPath;
   } catch {
     return undefined;
   }
 }
 
-function isElectronPackaged() {
+function isElectronPackaged(): boolean {
   try {
     const { app } = require('electron');
     return app.isPackaged === true;
@@ -21,12 +21,12 @@ function isElectronPackaged() {
   }
 }
 
-function getPythonSpawnConfig() {
+function getPythonSpawnConfig(): { cmd: string; args: string[]; cwd: string } {
   // HarmonyOS HNP 模式：通过 HNP 执行 Python 后端
   // HNP 安装路径格式：/data/app/{hnp-name}.org/{hnp-name}_{version}/
   if (
-    process.platform === 'ohos' ||
-    process.platform === 'openharmony' ||
+    (process.platform as string) === 'ohos' ||
+    (process.platform as string) === 'openharmony' ||
     process.env.OHOS_HNP_MODE === '1'
   ) {
     const HNP_NAME    = 'finance-agent-backend';
@@ -44,6 +44,7 @@ function getPythonSpawnConfig() {
   }
 
   if (process.env.PYTHON_CMD) {
+    // validate explicit path when provided
     if (!fs.existsSync(process.env.PYTHON_CMD)) {
       const msg = `PYTHON_CMD is set but executable not found: ${process.env.PYTHON_CMD}`;
       console.error(`[PathUtils] ${msg}`);
@@ -80,24 +81,29 @@ function getPythonSpawnConfig() {
   return { cmd: venvPython, args: [scriptPath], cwd: path.dirname(scriptPath) };
 }
 
-class PythonProcessManager extends EventEmitter {
+export class PythonProcessManager extends EventEmitter {
+  private process: ChildProcess | null = null;
+  private pendingRequests = new Map<number, {
+    resolve: (value: any) => void;
+    reject: (error: any) => void;
+  }>();
+  private requestId = 0;
+  private stdoutBuffer = '';
+  private stopping = false; // 是否为主动停止（如点击菜单 Quit），用于退出时是否弹错误框
+
   constructor() {
     super();
-    this.process = null;
-    this.pendingRequests = new Map();
-    this.requestId = 0;
-    this.stdoutBuffer = '';
   }
 
-  async start() {
+  async start(): Promise<void> {
     if (this.process) return;
 
     const pythonConfig = getPythonSpawnConfig();
     console.log(`[Python] Starting: ${pythonConfig.cmd} ${pythonConfig.args.join(' ')}`);
 
     // HarmonyOS HNP 模式需要设置 PYTHONHOME/PYTHONPATH 让 Python 找到标准库
-    const isHarmonyOS = process.platform === 'ohos' || process.platform === 'openharmony' || process.env.OHOS_HNP_MODE === '1';
-    const env = { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' };
+    const isHarmonyOS = (process.platform as string) === 'ohos' || (process.platform as string) === 'openharmony' || process.env.OHOS_HNP_MODE === '1';
+    const env: NodeJS.ProcessEnv = { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' };
     if (isHarmonyOS) {
       const HNP_NAME    = 'finance-agent-backend';
       const HNP_VERSION = '1.0';
@@ -137,7 +143,7 @@ class PythonProcessManager extends EventEmitter {
         try {
           fs.mkdirSync(dir, { recursive: true });
           console.log('[Python] Sandbox dir ready:', dir);
-        } catch (e) {
+        } catch (e: any) {
           console.warn('[Python] Cannot create sandbox dir:', dir, e.message);
         }
       }
@@ -150,13 +156,13 @@ class PythonProcessManager extends EventEmitter {
     });
 
     // stdout：处理 JSON-RPC 响应
-    this.process.stdout.on('data', (chunk) => {
+    this.process.stdout?.on('data', (chunk: Buffer) => {
       this.handleStdout(chunk.toString('utf-8'));
     });
 
-    // stderr：收集错误输出，exit 时弹框显示
+    // stderr：收集错误输出，仅在开发期异常退出时弹框显示（生产环境不弹）
     let stderrBuf = '';
-    this.process.stderr?.on('data', (chunk) => {
+    this.process.stderr?.on('data', (chunk: Buffer) => {
       const text = chunk.toString('utf-8');
       stderrBuf += text;
       console.error('[Python] stderr:', text.trim());
@@ -164,12 +170,16 @@ class PythonProcessManager extends EventEmitter {
 
     // 用局部变量捕获当前进程，避免 exit 时 this.process 已被置空
     const proc = this.process;
-    proc.on('exit', (code, signal) => {
+    proc.on('exit', (code: number | null, signal: string | null) => {
       const msg = `Process exited: code=${code}, signal=${signal}`;
       console.log('[Python] ' + msg);
-      if (stderrBuf) {
+      // 生产环境（已打包）不向终端用户弹窗：原始 stderr 含内部路径/日志，对最终用户无意义且可能泄露信息。
+      // 仅开发期（未打包）弹窗便于调试；异常/正常退出信息均经 console 落日志，便于事后排查。
+      const devMode = !isElectronPackaged();
+      if (!this.stopping && stderrBuf && devMode) {
         dialog.showErrorBox('Python Process Exited', msg + '\n\nstderr:\n' + stderrBuf.slice(0, 2000));
       }
+      this.stopping = false; // 重置标记
       // 只在进程还存在时清理（防止重复）
       if (this.process === proc) {
         this.process = null;
@@ -177,9 +187,12 @@ class PythonProcessManager extends EventEmitter {
       this.emit('status', 'offline');
     });
 
-    this.process.on('error', (err) => {
-      console.error('[Python] Spawn error:', err.message);
-      dialog.showErrorBox('Python Spawn Error', err.message);
+    this.process.on('error', (err: Error) => {
+      console.error('[Python] Process error:', err.message);
+      // 生产环境不弹原生对话框，仅落日志 + 通知前端状态（避免向终端用户暴露原始错误）
+      if (!isElectronPackaged()) {
+        dialog.showErrorBox('Python Spawn Error', err.message);
+      }
       this.process = null;
       this.emit('status', 'error', err.message);
     });
@@ -187,19 +200,19 @@ class PythonProcessManager extends EventEmitter {
     this.emit('status', 'online');
   }
 
-  async call(method, params = {}) {
+  async call(method: string, params: object = {}): Promise<any> {
     if (!this.process) {
       throw new Error('Python process not started');
     }
 
     const id = ++this.requestId;
-    const request = { jsonrpc: '2.0', id, method, params };
+    const request = { jsonrpc: '2.0' as const, id, method, params };
 
-    const promise = new Promise((resolve, reject) => {
+    const promise = new Promise<any>((resolve, reject) => {
       this.pendingRequests.set(id, { resolve, reject });
     });
 
-    this.process.stdin.write(JSON.stringify(request) + '\n', 'utf-8');
+    this.process.stdin!.write(JSON.stringify(request) + '\n', 'utf-8');
 
     return Promise.race([
       promise,
@@ -209,7 +222,7 @@ class PythonProcessManager extends EventEmitter {
     ]);
   }
 
-  handleStdout(chunk) {
+  private handleStdout(chunk: string): void {
     this.stdoutBuffer += chunk;
     const lines = this.stdoutBuffer.split('\n');
     this.stdoutBuffer = lines.pop() || '';
@@ -226,7 +239,7 @@ class PythonProcessManager extends EventEmitter {
     }
   }
 
-  handleResponse(response) {
+  private handleResponse(response: any): void {
     const { id, result, error } = response;
     const pending = this.pendingRequests.get(id);
     if (pending) {
@@ -239,9 +252,10 @@ class PythonProcessManager extends EventEmitter {
     }
   }
 
-  stop() {
+  stop(): void {
     if (this.process && !this.process.killed) {
       const proc = this.process;
+      this.stopping = true; // 标记为主动停止，退出时不再弹错误框
       this.process = null; // 立即置空，防止重复调用
       try {
         proc.kill();
@@ -252,11 +266,9 @@ class PythonProcessManager extends EventEmitter {
     }
   }
 
-  isAlive() {
+  isAlive(): boolean {
     return this.process !== null && !this.process.killed;
   }
 }
 
-const pythonProcess = new PythonProcessManager();
-
-module.exports = { PythonProcessManager, pythonProcess };
+export const pythonProcess = new PythonProcessManager();

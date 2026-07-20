@@ -1,9 +1,10 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('path');
-const { pythonProcess } = require('./pythonProcessManager');
-const { setupIpcHandlers } = require('./ipc');
+import { app, BrowserWindow, ipcMain } from 'electron';
+import * as path from 'path';
+import { pythonProcess } from './pythonProcessManager';
+import { setupIpcHandlers } from './ipc';
+import Menu = Electron.Menu;
 
-let mainWindow = null;
+let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
   const preloadPath = path.resolve(__dirname, 'preload.js');
@@ -19,7 +20,7 @@ function createWindow() {
   });
 
   // 开发模式：Electron 启动时 process.defaultApp 为 true
-  const isDev = process.defaultApp;
+  const isDev = (process as any).defaultApp;
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
@@ -31,12 +32,16 @@ function createWindow() {
 
 // Electron 就绪后初始化
 app.whenReady().then(() => {
+  // 打包（release 签名）时隐藏默认菜单栏；debug/test 保留菜单以便从 View 打开开发者工具调试
+  if (app.isPackaged) {
+    Menu.setApplicationMenu(null);  // 恢复方式见 doc/菜单栏配置.md
+  }
   pythonProcess.start();  // 启动 Python 后端
   setupIpcHandlers();    // 注册 IPC 处理器
   createWindow();        // 创建窗口
 
   // 转发 Python 状态事件到渲染进程（窗口已创建后才注册，避免丢失事件）
-  pythonProcess.on('status', (status) => {
+  pythonProcess.on('status', (status: string) => {
     // 防御：窗口可能已销毁
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('python-status', status);

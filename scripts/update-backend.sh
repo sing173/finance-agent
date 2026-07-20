@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
 echo "PYTHON_SRC     = $PYTHON_SRC"
-echo "ELECTRON_SRC   = $ELECTRON_SRC"
+echo "ELECTRON_DIST  = $ELECTRON_DIST"
 echo "PROJECT_HNP    = $PROJECT_HNP"
 echo "PROJECT_OHOS   = $PROJECT_OHOS"
 
@@ -57,9 +57,10 @@ mkdir -p "$(dirname "$PROJECT_HNP_FILE")"
 cp -f "$HNP_FILE" "$PROJECT_HNP_FILE"
 echo "  OK: $PROJECT_HNP_FILE"
 
-# ---- Step 4: 同步 Electron 源码到 web_engine ----
-echo "[4/4] 同步 Electron 源码到 web_engine..."
-sync_dir "$ELECTRON_SRC" "$WEB_ENGINE_RES"
+# ---- Step 4: 编译 Electron TS -> JS 并同步到 web_engine ----
+echo "[4/4] 编译 Electron TS -> JS 并同步到 web_engine..."
+( cd "$PROJECT_FINANCE_AGENT/apps/electron" && "$TSPC" -p tsconfig.json ) || { echo "  FAIL: Electron TS 编译失败" >&2; exit 1; }
+sync_dir "$ELECTRON_DIST" "$WEB_ENGINE_RES"
 echo "  OK"
 
 echo ""
