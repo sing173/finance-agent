@@ -8,7 +8,6 @@ import json
 from datetime import datetime, timezone
 
 from finance_agent_backend.models import PipelineEntry
-from finance_agent_backend.paths import get_db_path
 from finance_agent_backend.repo import (
     ExportLog,
     ExportLogRepository,
@@ -24,8 +23,10 @@ class VoucherService:
     def __init__(self, db_path: str | None = None):
         from finance_agent_backend import db as _db
 
-        self._db_path = db_path or get_db_path()
+        # 让 db.get_db() 解析路径并创建连接
         self._conn = _db.get_db(db_path=db_path)
+        # 从 db 模块获取实际使用的数据库路径
+        self._db_path = _db._db_path
         _db.init_db(self._conn)
         self._draft_repo = VoucherDraftRepository(self._conn)
         account_repo = AccountMappingRepository(self._conn)

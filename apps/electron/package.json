@@ -1,26 +1,29 @@
 {
   "name": "finance-agent-electron",
   "version": "0.3.1",
-  "description": "财务智能助手 - 银行对账桌面应用",
+  "description": "智慧凭证助手 - 银行对账桌面应用",
+  "author": "zungen",
   "main": "dist/main.js",
   "scripts": {
     "dev": "npm run build && electron .",
     "dev:renderer": "cd ../renderer && npm run dev",
     "dev:electron": "npm run build && electron .",
     "build": "tsc",
+    "build:ohos": "tsc -p tsconfig.json && node copy-to-ohos.js",
     "package": "electron-builder --win",
     "package:python": "cd ../python && python -m pyinstaller bridge.spec --onefile --clean",
     "package:all": "npm run package:python && npm run package"
   },
   "devDependencies": {
+    "@types/node": "^20.19.0",
     "7zip-bin": "^5.2.0",
     "electron": "32.3.3",
     "electron-builder": "^24.13.3",
-    "typescript": "^5.6.0"
+    "typescript": "^5.9.3"
   },
   "build": {
-    "appId": "com.finance-assistant.app",
-    "productName": "FinanceAssistant",
+    "appId": "com.zungen.financeassistant",
+    "productName": "智慧凭证助手",
     "directories": {
       "output": "../../release"
     },
@@ -49,7 +52,6 @@
           ]
         }
       ],
-      "signDlls": false,
       "signAndEditExecutable": false
     },
     "nsis": {

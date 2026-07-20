@@ -30,4 +30,3 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 通用 JSON-RPC 调用（支持 account_registry.* 等动态方法）
   invoke: (method: string, params?: any) => ipcRenderer.invoke(method, params),
 });
-

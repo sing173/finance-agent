@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import { pythonProcess } from './pythonProcessManager';
 import { setupIpcHandlers } from './ipc';
+import Menu = Electron.Menu;
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -24,14 +25,17 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    // 打包模式：resources/renderer/index.html (extraResources 已拷贝 dist/ 内容)
-    const rendererPath = path.join((process as any).resourcesPath || __dirname, 'renderer', 'index.html');
+    const rendererPath = 'renderer/index.html';
     mainWindow.loadFile(rendererPath);
   }
 }
 
 // Electron 就绪后初始化
 app.whenReady().then(() => {
+  // 打包（release 签名）时隐藏默认菜单栏；debug/test 保留菜单以便从 View 打开开发者工具调试
+  if (app.isPackaged) {
+    Menu.setApplicationMenu(null);  // 恢复方式见 doc/菜单栏配置.md
+  }
   pythonProcess.start();  // 启动 Python 后端
   setupIpcHandlers();    // 注册 IPC 处理器
   createWindow();        // 创建窗口

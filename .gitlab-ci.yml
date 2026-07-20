@@ -1,0 +1,173 @@
+# finance-agent 打包流水线
+# 说明：
+#   - 仅“手动 Run pipeline”时执行（不随 push 自动跑）
+#   - app 构建拆分为多个 job（prepare → backend → frontend → pack），
+#     任一步失败可单独重试，无需从头重跑（通过 cache 传递工作区 _ws/）
+#   - 自动克隆缺失的兄弟工程（finance_agent_hnp / finance-assistant-ohos）
+#   - 产物复制到仓库内 release/ 并作为 artifact 收集，可直接在流水线页面下载
+#   - 同一 commit（同一版本）下允许多种产物共存：app-release / app-debug / exe
+#
+# 流水线参数（Run pipeline 页面可输入/选择）：
+#   BUILD_TYPE: app（默认）| exe | all   —— 构建哪种产物
+#   FLAVOR: prod（默认）| test | debug    —— app 打包 flavor（决定产品/签名/产物，并默认决定 buildMode）
+#   BUILD_MODE: （可选，留空即按 flavor 默认）debug | release —— 仅用于覆盖 flavor 默认 buildMode
+#       flavor 默认 buildMode：prod/test=release，debug=debug
+#
+# 前置要求：
+#   - app 构建链 4 个 job 使用预构建镜像 192.168.1.172:5001/ohos-build:latest
+#     （已内置 node22 + git + JDK17 + hnpcli/hvigorw/ohpm，见 docker/ohos-build/Dockerfile）
+#   - build_exe 仍用 192.168.1.172:5001/node:22-bullseye（exe 打包暂未启用；
+#     启用前需在该镜像外加 python3 + wine，或单独做 exe 构建镜像）
+
+stages:
+  - prepare
+  - backend
+  - frontend
+  - pack
+
+variables:
+  # 工作区根：CI 中指向仓库内 _ws/，使兄弟工程可被 cache 传递（本地留空即用默认同级布局）
+  WORKSPACE_ROOT: "$CI_PROJECT_DIR/_ws"
+  # 产物目录：CI 中直接落到仓库根 release/，与 build_pack/build_exe 的 artifacts 路径一致
+  # （默认 RELEASE_DIR=$WORKSPACE_ROOT/release 会落到 _ws/release，GitLab 收集不到，导致 No files to upload）
+  RELEASE_DIR: "$CI_PROJECT_DIR/release"
+  # app 打包 flavor：prod（默认，正式 app）| test（测试 app + hap）| debug（调试 hap）
+  #   prod   -> assembleApp -p product=prod    （release 签名，仅 .app）
+  #   test   -> assembleApp -p product=default （debug 签名，.app + .hap）
+  #   debug  -> assembleHap  -p product=default （debug 签名，仅 .hap）
+  FLAVOR:
+    value: "prod"
+    description: "app 打包 flavor：prod（正式 app）| test（测试 app+hap）| debug（调试 hap）"
+  # 构建模式（可选；留空则按 flavor 默认 buildMode：prod/test=release, debug=debug；仅用于覆盖）
+  BUILD_MODE:
+    value: ""
+    description: "app 构建模式（可选覆盖，留空=按 flavor 默认：prod/test=release、debug=debug）：debug | release"
+  # 构建产物类型：app（默认）| exe | all；Run pipeline 页面可在 Variables 框手动覆盖
+  BUILD_TYPE:
+    value: "app"
+    description: "构建产物类型：app（默认，HarmonyOS .app）| exe | all"
+  NPM_REGISTRY: "https://registry.npmmirror.com/"
+  # Electron 二进制镜像（npm install 时 postinstall 默认从 GitHub 拉运行时二进制，内网会被墙/超时，改用 npmmirror）
+  ELECTRON_MIRROR: "https://registry.npmmirror.com/-/binary/electron/"
+  # electron-builder 二进制镜像（打 exe 时下载 app-builder 等工具，同样从 GitHub 拉）
+  ELECTRON_BUILDER_BINARIES_MIRROR: "https://registry.npmmirror.com/-/binary/electron-builder-binaries/"
+
+# 跨 job 共享工作区（兄弟工程 _ws/ + 依赖 node_modules/），以流水线为粒度缓存
+cache:
+  key: "$CI_PIPELINE_ID"
+  paths:
+    - _ws/
+    - node_modules/
+
+# ============ APP 构建链 ============
+
+# 1) 准备：克隆兄弟工程 + 安装依赖（最慢、最稳的一步，单独抽离便于重试）
+prepare_app:
+  image: 192.168.1.172:5001/ohos-build:latest
+  stage: prepare
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_TYPE =~ /^(app|all)$/
+  before_script:
+    - npm config set registry "$NPM_REGISTRY"
+    - npm install
+    - chmod +x ./scripts/*.sh
+  script:
+    # 仅克隆兄弟工程（不构建），依赖通过 cache 在后续 job 复用
+    - bash -c 'source ./scripts/common.sh; clone_if_missing "$GIT_HNP_URL" "$PROJECT_HNP" hnp; clone_if_missing "$GIT_OHOS_URL" "$PROJECT_OHOS" ohos'
+  tags:
+    - docker
+
+# 2) 后端：打包 HNP 并同步到 OHOS 工程
+build_backend:
+  image: 192.168.1.172:5001/ohos-build:latest
+  stage: backend
+  needs: [prepare_app]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_TYPE =~ /^(app|all)$/
+  before_script:
+    - npm config set registry "$NPM_REGISTRY"
+    - chmod +x ./scripts/*.sh
+    - 'command -v hnpcli >/dev/null 2>&1 && echo "hnpcli: OK" || echo "WARN: hnpcli 不在 PATH"'
+  script:
+    - ./scripts/update-backend.sh
+  tags:
+    - docker
+
+# 3) 前端：构建 renderer 并同步到 OHOS 工程
+build_frontend:
+  image: 192.168.1.172:5001/ohos-build:latest
+  stage: frontend
+  needs: [build_backend]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_TYPE =~ /^(app|all)$/
+  # 只缓存 _ws/：本 job 用完 node_modules 后即丢弃（下游 build_pack 不依赖），推送时不再打包 3.8 万个 node_modules 文件，
+  # 显著缩短 cache 落盘时间，也加快 job4 的 cache 恢复
+  cache:
+    key: "$CI_PIPELINE_ID"
+    paths:
+      - _ws/
+    policy: pull-push
+  before_script:
+    - npm config set registry "$NPM_REGISTRY"
+    - chmod +x ./scripts/*.sh
+  script:
+    - ./scripts/update-frontend.sh
+  tags:
+    - docker
+
+# 4) 打包：hvigorw 构建 APP（.app）并产出 release/
+build_pack:
+  image: 192.168.1.172:5001/ohos-build:latest
+  stage: pack
+  needs: [build_frontend]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_TYPE =~ /^(app|all)$/
+  before_script:
+    - npm config set registry "$NPM_REGISTRY"
+    - chmod +x ./scripts/*.sh
+    - 'command -v hvigorw >/dev/null 2>&1 && echo "hvigorw: OK" || echo "WARN: hvigorw 不在 PATH"'
+    - 'command -v ohpm >/dev/null 2>&1 && echo "ohpm: OK" || echo "WARN: ohpm 不在 PATH"'
+  script:
+    - ./scripts/pack-ohos.sh "$FLAVOR" "$BUILD_MODE"
+  # leaf job：不再保存 cache（后续无 job 依赖其工作区），跳过 cache 落盘以缩短耗时
+  cache:
+    key: "$CI_PIPELINE_ID"
+    paths:
+      - _ws/
+    policy: pull
+  artifacts:
+    paths:
+      - release/
+    expire_in: 30 days
+  tags:
+    - docker
+
+# ============ EXE 构建（单 job，独立 stage 起始） ============
+build_exe:
+  image: 192.168.1.172:5001/node:22-bullseye
+  stage: backend
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_TYPE =~ /^(exe|all)$/
+  before_script:
+    - npm config set registry "$NPM_REGISTRY"
+    - npm install
+    - chmod +x ./scripts/package.sh
+    - 'command -v python3 >/dev/null 2>&1 && echo "python3: OK" || echo "WARN: python3 不在 PATH（exe 打包需要）"'
+  script:
+    - ./scripts/package.sh win
+    - |
+      EXE=$(ls release/*.exe 2>/dev/null | head -1)
+      if [ -n "$EXE" ]; then
+        cp -f "$EXE" "release/finance-agent-setup.exe"
+        echo "EXE 产物: $EXE -> release/finance-agent-setup.exe"
+      else
+        echo "WARN: 未找到 exe 产物（package.sh 可能未产出 release/*.exe）" >&2
+      fi
+  # exe 构建自带 npm install，不需要复用上游 cache（上游已改为只缓存 _ws/）；关闭 cache 省去恢复/落盘
+  cache: {}
+  artifacts:
+    paths:
+      - release/
+    expire_in: 30 days
+  tags:
+    - docker

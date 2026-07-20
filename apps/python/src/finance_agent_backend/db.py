@@ -11,7 +11,8 @@
     close_db()
 
 存储路径:
-  开发环境: 项目根 logs/ 同级
+  HNP 模式: /data/storage/el2/base/<bundleName>/files/finance_agent.db
+  开发环境: <project_root>/data.db
   打包环境: %APPDATA%/FinanceAssistant/data.db
 
 注意: 当前 stdio JSON-RPC 单线程，不需要连接池或 thread-safety。
@@ -23,8 +24,6 @@ import sqlite3
 import sys
 from datetime import datetime, timezone
 
-from .paths import get_db_path
-
 # ---------------------------------------------------------------------------
 # 模块级单例
 # ---------------------------------------------------------------------------
@@ -32,6 +31,29 @@ from .paths import get_db_path
 _conn: sqlite3.Connection | None = None
 _db_path: str | None = None
 
+
+def _resolve_db_path() -> str:
+    """解析数据库文件路径。
+
+    HNP 模式: /data/storage/el2/base/<bundleName>/files/finance_agent.db
+    开发环境: <project_root>/data.db
+    打包环境: %APPDATA%/FinanceAssistant/data.db
+    """
+    # HNP 模式：使用应用沙箱 files/ 目录
+    # Electron 侧已通过 APP_SANDBOX_DIR 环境变量传入虚拟路径
+    sandbox = os.environ.get('APP_SANDBOX_DIR')
+    if sandbox:
+        return os.path.join(sandbox, 'files', 'finance_agent.db')
+
+    if getattr(sys, 'frozen', False):
+        base = os.environ.get('APPDATA', os.path.expanduser('~'))
+        return os.path.join(base, 'FinanceAssistant', 'data.db')
+
+    # 开发环境：项目根目录
+    path = os.path.abspath(__file__)
+    for _ in range(5):
+        path = os.path.dirname(path)
+    return os.path.join(path, 'data.db')
 
 
 def get_db(db_path: str | None = None) -> sqlite3.Connection:
@@ -54,10 +76,14 @@ def get_db(db_path: str | None = None) -> sqlite3.Connection:
     if _conn is not None:
         return _conn
 
-    _db_path = get_db_path()
-    os.makedirs(os.path.dirname(_db_path), exist_ok=True)
-
-    _conn = sqlite3.connect(_db_path)
+    _db_path = _resolve_db_path()
+    sys.stderr.write(f"[db] Connecting to: {_db_path}\n")
+    try:
+        _conn = sqlite3.connect(_db_path)
+    except Exception as _e:
+        sys.stderr.write(f"[db] sqlite3.connect failed: {_e}\n")
+        raise
+    sys.stderr.write(f"[db] Connection OK: {_db_path}\n")
     _conn.execute("PRAGMA journal_mode=WAL")
     _conn.execute("PRAGMA foreign_keys=ON")
     _conn.row_factory = sqlite3.Row
@@ -259,7 +285,6 @@ def _migrate_v4(conn: sqlite3.Connection) -> None:
 def _migrate_v5(conn: sqlite3.Connection) -> None:
     """v5 迁移: 从 account_mapping.json 导入数据到 account_mapping 表。"""
     import json
-    import os
     from finance_agent_backend.paths import get_config_path
 
     json_path = get_config_path('account_mapping.json')
@@ -387,19 +412,15 @@ def init_db(conn: sqlite3.Connection) -> None:
         )
 
     if current < 2:
-        # v2: 放宽 match_source CHECK 约束，允许 'auto'
         _migrate_v2(conn)
 
     if current < 3:
-        # v3: 添加 aux_category / aux_category_name 列
         _migrate_v3(conn)
 
     if current < 4:
-        # v4: 添加 rule_id 列
         _migrate_v4(conn)
 
     if current < 5:
-        # v5: account_mapping 表 + JSON 导入
         _migrate_v5(conn)
 
     if current < 6:

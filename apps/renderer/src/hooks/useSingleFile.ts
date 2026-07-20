@@ -72,7 +72,7 @@ export function useSingleFile() {
         setDetectInfo({ bank: res.bank || bank, docType: res.docType || docType, isManual: false });
         message.success(`解析成功，共 ${res.transactions?.length || 0} 笔交易`);
       } else {
-        message.error(`解析失败：${res.errors?.join(', ') || '未知错误'}`);
+        message.error(`解析失败：${res.error || res.errors?.join(', ') || '未知错误'}`);
       }
     } catch (error: unknown) {
       message.error(`解析出错：${error instanceof Error ? error.message : String(error)}`);

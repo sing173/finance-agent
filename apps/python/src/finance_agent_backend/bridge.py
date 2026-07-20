@@ -16,15 +16,44 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 
-def _setup_logging(log_dir: Path) -> logging.Logger:
-    """配置日志：写入文件，10MB × 3 个文件轮转。"""
-    log_dir.mkdir(parents=True, exist_ok=True)
+def _is_hnp_mode() -> bool:
+    """检测是否在 HNP 模式下运行（HarmonyOS）"""
+    # 方法1：检查 sys.platform（OHOS Python 可能返回 'linux'）
+    platform = sys.platform.lower()
+    if 'ohos' in platform or 'openharmony' in platform or 'linux' in platform:
+        # 方法2：检查是否在 HNP 安装路径下（/data/app/）
+        try:
+            file_path = os.path.abspath(__file__)
+            if '/data/app/' in file_path:
+                return True
+        except Exception:
+            pass
+    # 方法3：检查环境变量
+    if os.environ.get('OHOS_HNP_MODE') == '1':
+        return True
+    return False
 
+
+def _setup_logging(log_dir: Path) -> logging.Logger:
+    """配置日志：HNP 模式输出到 stderr，其他模式写文件。"""
     logger = logging.getLogger("bridge")
     logger.setLevel(logging.INFO)
+    logger.handlers.clear()
+
+    # HNP 模式（HarmonyOS）：直接输出到 stderr，不写文件
+    if _is_hnp_mode():
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(message)s",
+        ))
+        logger.addHandler(handler)
+        return logger
+
+    # 非 HNP 模式：写文件日志
+    log_file = log_dir / 'bridge.log'
 
     handler = RotatingFileHandler(
-        log_dir / 'bridge.log',
+        log_file,
         maxBytes=10 * 1024 * 1024,
         backupCount=3,
         encoding='utf-8',
@@ -32,7 +61,6 @@ def _setup_logging(log_dir: Path) -> logging.Logger:
     handler.setFormatter(logging.Formatter(
         "%(asctime)s [%(levelname)s] %(message)s",
     ))
-    logger.handlers.clear()
     logger.addHandler(handler)
 
     return logger
@@ -42,10 +70,51 @@ _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-if getattr(sys, 'frozen', False):
-    _log = _setup_logging(Path(os.environ.get('APPDATA', Path.home().as_posix())) / 'FinanceAssistant' / 'logs')
-else:
-    _log = _setup_logging(Path(_project_root) / '..' / '..' / '..' / 'logs')
+def _get_log_dir() -> Path:
+    """获取日志目录。
+
+    HNP 模式下直接返回 <sandbox>/files/logs，不创建目录。
+    目录不存在时由后续日志写入抛错，方便定位问题。
+    """
+    # 优先使用 APP_SANDBOX_DIR（HarmonyOS 应用沙箱物理路径）
+    sandbox = os.environ.get('APP_SANDBOX_DIR')
+    if sandbox:
+        return Path(sandbox) / 'files' / 'logs'
+
+    # 兼容：使用 LOG_DIR 环境变量
+    env_dir = os.environ.get('LOG_DIR')
+    if env_dir:
+        return Path(env_dir)
+
+    # HNP 模式（HarmonyOS）：通过 paths.py 获取
+    if 'ohos' in sys.platform or 'openharmony' in sys.platform:
+        try:
+            from finance_agent_backend.paths import get_log_dir
+            return Path(get_log_dir())
+        except Exception:
+            pass
+
+    # PyInstaller 打包模式
+    if getattr(sys, 'frozen', False):
+        base = os.environ.get('APPDATA', Path.home().as_posix())
+        return Path(base) / 'FinanceAssistant' / 'logs'
+
+    # 开发模式
+    return Path(_project_root).parent.parent.parent / 'logs'
+
+
+_log = _setup_logging(_get_log_dir())
+_log.info("=== bridge.py startup ===")
+_log.info("sys.platform: %s", sys.platform)
+_log.info("OHOS_HNP_MODE: %s", os.environ.get("OHOS_HNP_MODE", "(not set)"))
+_log.info("APP_SANDBOX_DIR: %s", os.environ.get("APP_SANDBOX_DIR", "(not set)"))
+_log.info("LOG_DIR: %s", os.environ.get("LOG_DIR", "(not set)"))
+_log.info("TMPDIR: %s", os.environ.get("TMPDIR", "(not set)"))
+try:
+    from finance_agent_backend.paths import get_db_path
+    _log.info("db_path (resolved): %s", get_db_path())
+except Exception as e:
+    _log.error("db_path resolution failed: %s", e)
 
 # 方法注册表
 METHODS = {}  # type: dict
@@ -82,11 +151,12 @@ def handle_parse_pdf(params: dict) -> dict:
 @register_method("generate_excel")
 def handle_generate_excel(params: dict) -> dict:
     transactions_data = params.get("transactions")
-    output_path = params.get("output_path", "bank_statement.xlsx")
     if not transactions_data:
         return {"success": False, "error": "缺少 transactions 参数"}
     try:
         from finance_agent_backend.services import ParseService
+        from finance_agent_backend.paths import get_export_dir
+        output_path = params.get("output_path") or os.path.join(get_export_dir(), "bank_statement.xlsx")
         excel_path = ParseService().generate_excel(transactions_data, output_path)
         return {"success": True, "excel_path": excel_path}
     except Exception as e:
@@ -309,9 +379,11 @@ def handle_voucher_delete_draft(params: dict) -> dict:
 def handle_voucher_export(params: dict) -> dict:
     try:
         from finance_agent_backend.services import VoucherService
+        from finance_agent_backend.paths import get_export_dir
+        output_path = params.get("output_path") or os.path.join(get_export_dir(), "voucher.xlsx")
         return VoucherService(db_path=params.get("db_path")).export(
             draft_id=params.get("draft_id"),
-            output_path=params.get("output_path", "voucher.xlsx"),
+            output_path=output_path,
             period=params.get("period", ""),
             source_files=params.get("source_files", []),
         )
@@ -354,6 +426,12 @@ def handle_request(request: dict) -> dict:
             result = METHODS[method](params)
             return {"jsonrpc": "2.0", "id": req_id, "result": result}
         except Exception as e:
+            import sys as _s
+            import traceback as _tb
+            _err = f"[bridge] Method '{method}' failed:\n{_tb.format_exc()}"
+            _s.stderr.write(_err + "\n")
+            _s.stderr.flush()
+            _log.error("Method '%s' failed: %s", method, e)
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
