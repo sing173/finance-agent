@@ -12,11 +12,9 @@
     "build:ohos": "tsc -p tsconfig.json && node copy-to-ohos.js",
     "package": "electron-builder --win",
     "package:python": "cd ../python && python -m pyinstaller bridge.spec --onefile --clean",
-    "package:all": "npm run package:python && npm run package",
-    "dist:ohos": "electron-builder-ohos --ohos"
+    "package:all": "npm run package:python && npm run package"
   },
   "devDependencies": {
-    "@electron-ohos/electron-builder": "^26.8.5",
     "@types/node": "^20.19.0",
     "7zip-bin": "^5.2.0",
     "electron": "32.3.3",
@@ -61,22 +59,6 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
-    },
-    "ohos": {
-      "icon": "./icon.png",
-      "target": [
-        "hap"
-      ],
-      "hvigorwPath": "D:/Development/DevEco Studio/tools/hvigor/bin",
-      "ohpmPath": "D:/Development/DevEco Studio/tools/ohpm/bin",
-      "sdkPath": "D:/Development/DevEco Studio/sdk",
-      "ohosHapPath": "D:/HarmonyDevelopment/electron-harmony-sdk/v34.8.3-20260612.1-release/libelectron/ohos_hap",
-      "certPath": "D:/WorkSpace/zungen/finance-agent/apps/electron/cert/financeassistant_ohos.cer",
-      "profile": "D:/WorkSpace/zungen/finance-agent/apps/electron/cert/financeassistant_profileRelease.p7b",
-      "keyAlias": "financeassistant",
-      "keyPassword": "zungen@123",
-      "storeFile": "D:/WorkSpace/zungen/finance-agent/apps/electron/cert/financeassistant.p12",
-      "storePassword": "zungen@123"
     }
   }
 }
