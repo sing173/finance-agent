@@ -48,6 +48,11 @@ export type TableRow =
   | { key: string; type: 'group'; voucher_no: number; date: string; entryCount: number; totalDebit: number; totalCredit: number }
   | { key: string; type: 'entry'; voucher_no: number; entry_seq: number; [field: string]: any };
 
+/** 浮点金额精确保留两位小数 */
+export function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 /** 将凭证数组扁平化为表格行（分组行 + 明细行交替） */
 export function flattenToRows(vouchers: { voucher_no: number; date: string; entries: any[] }[]): TableRow[] {
   const rows: TableRow[] = [];
@@ -55,8 +60,8 @@ export function flattenToRows(vouchers: { voucher_no: number; date: string; entr
     let totalDebit = 0;
     let totalCredit = 0;
     for (const e of v.entries) {
-      if (e.debit_amount != null) totalDebit += e.debit_amount;
-      if (e.credit_amount != null) totalCredit += e.credit_amount;
+      if (e.debit_amount != null) totalDebit = round2(totalDebit + e.debit_amount);
+      if (e.credit_amount != null) totalCredit = round2(totalCredit + e.credit_amount);
     }
     rows.push({
       key: `group-${v.voucher_no}`,
@@ -64,8 +69,8 @@ export function flattenToRows(vouchers: { voucher_no: number; date: string; entr
       voucher_no: v.voucher_no,
       date: v.date,
       entryCount: v.entries.length,
-      totalDebit,
-      totalCredit,
+      totalDebit: round2(totalDebit),
+      totalCredit: round2(totalCredit),
     });
     for (const e of v.entries) {
       rows.push({
@@ -86,14 +91,16 @@ export function recalcBankEntry<T extends { entries: any[] }>(voucher: T): T {
   let totalCredit = 0;
   for (const e of voucher.entries) {
     if (e.direction === 'bank') continue;
-    if (e.debit_amount != null) totalDebit += e.debit_amount;
-    if (e.credit_amount != null) totalCredit += e.credit_amount;
+    if (e.debit_amount != null) totalDebit = round2(totalDebit + e.debit_amount);
+    if (e.credit_amount != null) totalCredit = round2(totalCredit + e.credit_amount);
   }
+  const bankDebit = round2(totalCredit) || null;
+  const bankCredit = round2(totalDebit) || null;
   return {
     ...voucher,
     entries: voucher.entries.map((e) =>
       e.direction === 'bank'
-        ? { ...e, debit_amount: totalCredit || null, credit_amount: totalDebit || null }
+        ? { ...e, debit_amount: bankDebit, credit_amount: bankCredit }
         : e,
     ),
   } as T;

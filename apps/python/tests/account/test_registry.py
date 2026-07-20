@@ -478,6 +478,46 @@ class TestBridgeAccountRegistry:
         updated = next(e for e in list_result["accounts"] if e["id"] == "acc_001")
         assert updated["subjectName"] == "银行存款-工行基本户（已更新）"
 
+    def test_partial_update_preserves_other_fields(self, temp_db):
+        """修复回归: 部分更新时未传字段不应被清空（同 update_subject 的 rowcount 问题）。"""
+        # 先完整更新一次，确保初始数据齐全
+        _rpc("account_registry.update", {
+            "id": "acc_001", "matchType": "suffix", "pattern": "4363",
+            "bank": "工商银行", "bankCode": "ICBC",
+            "subjectCode": "1000201", "subjectName": "银行存款-工行基本户",
+        }, db_path=temp_db)
+
+        # 只传 pattern 做部分更新
+        result = _rpc("account_registry.update", {
+            "id": "acc_001", "pattern": "9999",
+        }, db_path=temp_db)
+        assert result["success"] is True
+
+        list_result = _rpc("account_registry.list", db_path=temp_db)
+        updated = next(e for e in list_result["accounts"] if e["id"] == "acc_001")
+        assert updated["pattern"] == "9999"
+        assert updated["bank"] == "工商银行"          # 未传字段应保留
+        assert updated["bankCode"] == "ICBC"         # 未传字段应保留
+        assert updated["subjectName"] == "银行存款-工行基本户"  # 未传字段应保留
+
+    def test_partial_update_can_clear_field(self, temp_db):
+        """显式传入空串应清空字段，而非保留原值。"""
+        _rpc("account_registry.update", {
+            "id": "acc_001", "matchType": "suffix", "pattern": "4363",
+            "bank": "工商银行", "bankCode": "ICBC",
+            "subjectCode": "1000201", "subjectName": "银行存款-工行基本户",
+        }, db_path=temp_db)
+
+        result = _rpc("account_registry.update", {
+            "id": "acc_001", "bank": "",
+        }, db_path=temp_db)
+        assert result["success"] is True
+
+        list_result = _rpc("account_registry.list", db_path=temp_db)
+        updated = next(e for e in list_result["accounts"] if e["id"] == "acc_001")
+        assert updated["bank"] == ""                # 显式清空
+        assert updated["bankCode"] == "ICBC"         # 未传字段保留
+
     def test_delete(self, temp_db):
         result = _rpc("account_registry.delete",
                        {"id": "acc_001"}, db_path=temp_db)

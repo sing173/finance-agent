@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Modal, InputNumber, Input, Space, Typography, Button, Alert } from 'antd';
 import { PlusOutlined, MinusCircleOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { round2 } from '../hooks/voucher_utils';
 
 const { Text } = Typography;
 
@@ -33,7 +34,7 @@ export function SplitEntryModal({
 
   const total = useMemo(() => parts.reduce((s, p) => s + (p.amount || 0), 0), [parts]);
   const remaining = originalAmount - total;
-  const overLimit = remaining < 0;
+  const overLimit = round2(remaining) < 0;
   const hasEmpty = parts.some((p) => !p.amount || p.amount <= 0);
 
   const addPart = () => {
@@ -58,7 +59,7 @@ export function SplitEntryModal({
   };
 
   const autoFillRemaining = () => {
-    if (remaining <= 0) return;
+    if (remaining <= 0.005) return;
     setParts([...parts, { amount: Math.round(remaining * 100) / 100, summary: originalSummary }]);
   };
 

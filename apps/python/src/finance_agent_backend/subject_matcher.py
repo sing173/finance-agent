@@ -1,4 +1,4 @@
-"""科目匹配引擎 (Issue #32).
+﻿"""科目匹配引擎 (Issue #32).
 
 三层架构：
   L1 RuleMatcher   — JSON 规则匹配（priority 排序 + 联合条件）
@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import logging
 from dataclasses import dataclass, field
 
 
@@ -37,27 +38,42 @@ class MatchResult:
     aux_category_name: str = ''
 
 
-# ── subjects.json 模块级缓存 ──────────────────────────────
+# ── subjects 模块级缓存 ──────────────────────────────
 
 _subjects_cache: dict | None = None
 
 
 def get_subjects() -> dict:
-    """获取 subjects.json 内容（模块级缓存，首次加载后复用）。"""
+    """获取科目字典（DB 权威数据源，模块级缓存复用）。"""
     global _subjects_cache
-    if _subjects_cache is None:
-        try:
-            from finance_agent_backend.paths import get_config_path
-            path = get_config_path('subjects.json')
-            with open(path, 'r', encoding='utf-8') as f:
-                _subjects_cache = json.load(f)
-        except Exception:
-            _subjects_cache = {}
+    if _subjects_cache is not None:
+        return _subjects_cache
+
+    result: dict = {}
+    try:
+        from finance_agent_backend.db import get_db
+        conn = get_db()
+        rows = conn.execute("SELECT code, name, full_name, category, direction, aux_category, aux_category_name, is_cash, enabled FROM subjects").fetchall()
+        for row in rows:
+            result[row['code']] = {
+                'name':              row['name'],
+                'full_name':         row['full_name'],
+                'category':          row['category'],
+                'direction':         row['direction'],
+                'aux_category':      row['aux_category'],
+                'aux_category_name': row['aux_category_name'],
+                'is_cash':           bool(row['is_cash']),
+                'enabled':           bool(row['enabled']),
+            }
+    except Exception:
+        logging.getLogger("bridge").warning("DB subjects 表读取失败，匹配将返回空字典", exc_info=True)
+
+    _subjects_cache = result
     return _subjects_cache
 
 
 def invalidate_subjects() -> None:
-    """使 subjects 缓存失效（import_subjects 后调用）。"""
+    """使 subjects 缓存失效（写入 DB / 导入后调用）。"""
     global _subjects_cache
     _subjects_cache = None
     invalidate_rule_matcher()
@@ -98,7 +114,6 @@ class RuleMatcher:
                 with open(rules, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except Exception as e:
-                import logging
                 logging.getLogger("bridge").warning("规则文件加载失败: %s", e)
                 return {"version": 0}
         # 默认内置配置
@@ -108,14 +123,12 @@ class RuleMatcher:
             with open(path, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception as e:
-            import logging
             logging.getLogger("bridge").warning("内置规则文件加载失败: %s", e)
             return {"version": 0}
 
     @staticmethod
     def _validate(rules_data: dict, subjects: dict) -> None:
         """校验规则配置，log warning 但不阻断加载。"""
-        import logging
         log = logging.getLogger("bridge")
         seen_ids: set[str] = set()
 
@@ -145,11 +158,10 @@ class RuleMatcher:
 
     @staticmethod
     def _load_subjects() -> dict:
-        """加载 subjects.json（委托模块级缓存）。"""
+        """加载 subjects 缓存（委托模块级缓存）。"""
         return get_subjects()
 
     def get_aux_category(self, subject_code: str) -> tuple[str, str]:
-        """从 subjects.json 查找 aux_category 和 aux_category_name。"""
         subj = self._subjects.get(subject_code, {})
         return subj.get('aux_category', ''), subj.get('aux_category_name', '')
 

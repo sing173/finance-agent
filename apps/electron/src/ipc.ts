@@ -24,7 +24,10 @@ const HANDLERS: HandlerDef[] = [
   { channel: 'generate_excel',          method: 'generate_excel',      expose: true  },
   { channel: 'import_subjects',         method: 'import_subjects',     expose: true  },
   { channel: 'get_subjects_info',       method: 'get_subjects_info',   expose: true  },
-  { channel: 'detect_banks',            method: 'detect_banks',        expose: true },
+  { channel: 'add_subject',             method: 'add_subject',         expose: true  },
+  { channel: 'update_subject',          method: 'update_subject',      expose: true  },
+  { channel: 'delete_subject',          method: 'delete_subject',      expose: true  },
+  { channel: 'detect_banks',            method: 'detect_banks',        expose: true  },
   { channel: 'detect_supported_banks',  method: 'detect_supported_banks', expose: true },
 
   // Issue #29: FR-1 账号-科目管理

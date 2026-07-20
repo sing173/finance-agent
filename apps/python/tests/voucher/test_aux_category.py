@@ -9,8 +9,8 @@ import os
 from finance_agent_backend.subject_matcher import RuleMatcher
 
 
-def test_aux_category_present_in_match_result():
-    """匹配到 50602xx 科目时，aux_category 应为 "04"。"""
+def test_aux_category_present_in_match_result(seeded_subjects_db):
+    """匹配到 50602xx 科目时，aux_category 应为 "04"，aux_category_name 来自 subjects 表。"""
     matcher = RuleMatcher()
     result = matcher.match("报销", "expense")
     assert result.source == "rule"
@@ -23,7 +23,7 @@ def test_aux_category_present_in_match_result():
     )
 
 
-def test_aux_category_empty_for_non_50602():
+def test_aux_category_empty_for_non_50602(seeded_subjects_db):
     """匹配到非 50602xx 科目（如 5030102 营业外收入）时，aux_category 应为空。"""
     matcher = RuleMatcher()
     result = matcher.match("收到政府补贴", "income")
