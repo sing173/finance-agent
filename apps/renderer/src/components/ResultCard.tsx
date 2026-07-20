@@ -121,6 +121,7 @@ export function ResultCard({
               borderColor: '#dc2626',
             }}
             onClick={onPreviewVoucher}
+            disabled={transactionCount === 0}
           >
             凭证生成
           </Button>

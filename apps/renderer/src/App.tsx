@@ -468,7 +468,10 @@ function App() {
               onRedetect={() => single.filePath && single.detect(single.filePath)}
               onModifyConfig={openSingleOverride}
               onStartParse={() => single.parse()}
-              onPreviewVoucher={(txns) => voucherFlow.preview(txns)}
+              onPreviewVoucher={(txns) => {
+                if (txns.length === 0) { message.warning('没有交易数据，无法生成凭证'); return; }
+                voucherFlow.preview(txns);
+              }}
               onEditTransaction={txnEdit.openSingle}
             />
           )}
