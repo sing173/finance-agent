@@ -78,7 +78,7 @@ export function BatchResultPanel({
           <Button
             style={{ background: '#dc2626', color: '#fff', borderColor: '#dc2626' }}
             onClick={onPreviewVoucher}
-            disabled={successFiles.length === 0 || isParsing}
+            disabled={successFiles.length === 0 || isParsing || totalTransactions === 0}
           >
             凭证生成
           </Button>
