@@ -1,8 +1,7 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu } from 'electron';
 import * as path from 'path';
 import { pythonProcess } from './pythonProcessManager';
 import { setupIpcHandlers } from './ipc';
-import Menu = Electron.Menu;
 
 let mainWindow: BrowserWindow | null = null;
 
