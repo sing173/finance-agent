@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// Electron TS 编译后的 JS 产物目录（由 tsconfig.json 输出到 dist/app；dist/ 已被 .gitignore 忽略）
+// Electron TS 编译后的 JS 产物目录（由 tsconfig.json 输出到 dist；dist/ 已被 .gitignore 忽略）
 const srcDir = path.join(__dirname, 'dist');
 
 // 鸿蒙项目 app 目录
