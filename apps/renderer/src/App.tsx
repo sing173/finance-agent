@@ -221,12 +221,10 @@ function App() {
         setBackendStatus(status === 'online' ? '正常' : '离线');
 
         // 2. 后端正常时，主动调用 db.health 初始化数据库（建表 + schema 迁移）
-        let dbHealthy = true;
         if (status === 'online') {
           try {
             await window.electronAPI.invoke?.('db.health');
           } catch {
-            dbHealthy = false;
             setBackendStatus('数据库错误');
           }
         }
