@@ -214,20 +214,33 @@ function App() {
   useEffect(() => {
     if (!window.electronAPI) return;
 
-    const checkSubjects = async () => {
+    const initBackend = async () => {
+      // 1. 检查 Python 后端进程状态
+      try {
+        const status = await window.electronAPI.getPythonStatus?.();
+        setBackendStatus(status === 'online' ? '正常' : '离线');
+
+        // 2. 后端正常时，主动调用 db.health 初始化数据库（建表 + schema 迁移）
+        if (status === 'online') {
+          try {
+            await window.electronAPI.invoke?.('db.health');
+          } catch {
+            // db.health 失败不影响整体状态显示
+          }
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setBackendStatus(msg.includes('not started') ? '未启动' : '离线');
+      }
+
+      // 3. 查询科目信息（数据库已初始化，可直接读取）
       try {
         const result = await window.electronAPI.getSubjectsInfo();
         if (result.success) setSubjectsCount(result.count);
       } catch { /* ignore */ }
     };
-    checkSubjects();
 
-    window.electronAPI.getPythonStatus?.().then((status: string) => {
-      setBackendStatus(status === 'online' ? '正常' : '离线');
-    }).catch((err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      setBackendStatus(msg.includes('not started') ? '未启动' : '离线');
-    });
+    initBackend();
 
     window.electronAPI.onPythonStatus?.((status: string) => {
       if (status === 'offline') { setBackendStatus('离线'); }
