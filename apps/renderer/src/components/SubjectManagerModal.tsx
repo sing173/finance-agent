@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Modal, Button, Table, Input, Select, Form, Switch, message,
   Space, Tag, Popconfirm,
@@ -21,6 +21,13 @@ export function SubjectManagerModal({ visible, onClose }: SubjectManagerModalPro
   const [editing, setEditing] = useState<SubjectItem | null>(null);
   const [importing, setImporting] = useState(false);
   const [form] = Form.useForm();
+
+  // 打开弹窗时刷新科目列表，避免 mount 时 db.health 尚未完成的竞态
+  useEffect(() => {
+    if (visible) {
+      reload();
+    }
+  }, [visible, reload]);
 
   const debouncedSearch = useDebounce(searchText, 200);
 
