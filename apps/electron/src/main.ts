@@ -20,11 +20,18 @@ function createWindow() {
 
   // 开发模式：Electron 启动时 process.defaultApp 为 true
   const isDev = (process as any).defaultApp;
+  const isHarmonyOS = (process.platform as string) === 'ohos' || (process.platform as string) === 'openharmony' || process.env.OHOS_HNP_MODE === '1';
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
-  } else {
+  } else if (isHarmonyOS) {
+    // 鸿蒙路径
     const rendererPath = 'renderer/index.html';
+    mainWindow.loadFile(rendererPath);
+  } else {
+    // 打包模式：resources/renderer/index.html (extraResources 已拷贝 dist/ 内容)
+    const rendererPath = path.join((process as any).resourcesPath || __dirname, 'renderer', 'index.html');
     mainWindow.loadFile(rendererPath);
   }
 }
